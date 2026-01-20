@@ -9,7 +9,7 @@ QUALITY_COLORS = {
     "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),      # Uncommon: Green
     "稀有": (QColor("#007ACC"), QColor("#3498DB")),      # Rare: Blue
     "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),      # Epic: Purple
-    "传说": (QColor("#FF8C00"), QColor("#F39C12"))       # Legendary: Orange
+    "传奇": (QColor("#FF8C00"), QColor("#F39C12"))       # Legendary: Orange
 }
 
 

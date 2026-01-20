@@ -1,11 +1,13 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QFileDialog
 from PySide6.QtCore import Qt, Signal
+from datetime import datetime
 from qfluentwidgets import (ScrollArea, SettingCardGroup, SettingCard, FluentIcon, 
                             DoubleSpinBox, SpinBox, SwitchSettingCard, Slider, BodyLabel,
                             ComboBox, PrimaryPushButton, PushButton, LineEdit, InfoBar, InfoBarPosition,
                             MessageBox)
 from src.config import cfg
 from src.gui.components import KeyBindingWidget
+from src.record_manager import record_manager
 
 class SettingsInterface(ScrollArea):
     hotkey_changed_signal = Signal(str)
@@ -14,6 +16,7 @@ class SettingsInterface(ScrollArea):
     uno_hotkey_changed_signal = Signal(str)
     theme_changed_signal = Signal(str)
     account_list_changed_signal = Signal()  # 账号列表变化信号
+    records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -159,6 +162,29 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.unoGroup)
 
+        # 6. Record Management Group
+        self.recordGroup = SettingCardGroup(self.tr("记录管理"), self.scrollWidget)
+
+        self.exportRecordCard = SettingCard(
+            FluentIcon.DOWNLOAD, self.tr("导出记录"), self.tr("导出当前账号的钓鱼记录"), parent=self.recordGroup)
+        self.exportRecordButton = PrimaryPushButton("导出", self.exportRecordCard)
+        self.exportRecordButton.setFixedWidth(80)
+        self.exportRecordCard.hBoxLayout.addWidget(self.exportRecordButton, 0, Qt.AlignRight)
+        margins = self.exportRecordCard.hBoxLayout.contentsMargins()
+        self.exportRecordCard.hBoxLayout.setContentsMargins(margins.left(), margins.top(), 16, margins.bottom())
+        self.recordGroup.addSettingCard(self.exportRecordCard)
+
+        self.importRecordCard = SettingCard(
+            FluentIcon.UP, self.tr("导入记录"), self.tr("从文件导入钓鱼记录"), parent=self.recordGroup)
+        self.importRecordButton = PushButton("导入", self.importRecordCard)
+        self.importRecordButton.setFixedWidth(80)
+        self.importRecordCard.hBoxLayout.addWidget(self.importRecordButton, 0, Qt.AlignRight)
+        margins = self.importRecordCard.hBoxLayout.contentsMargins()
+        self.importRecordCard.hBoxLayout.setContentsMargins(margins.left(), margins.top(), 16, margins.bottom())
+        self.recordGroup.addSettingCard(self.importRecordCard)
+
+        self.vBoxLayout.addWidget(self.recordGroup)
+
         # 6. Account Management Group
         self.accountGroup = SettingCardGroup(self.tr("账号管理"), self.scrollWidget)
         
@@ -244,6 +270,10 @@ class SettingsInterface(ScrollArea):
         # 账号管理信号
         self.createAccountButton.clicked.connect(self._on_create_account)
         self.deleteAccountButton.clicked.connect(self._on_delete_account)
+        
+        # 记录管理信号
+        self.exportRecordButton.clicked.connect(self._on_export_record)
+        self.importRecordButton.clicked.connect(self._on_import_record)
 
     def _on_theme_changed(self, theme):
         self.theme_changed_signal.emit(theme)
@@ -435,3 +465,82 @@ class SettingsInterface(ScrollArea):
     def refresh_account_ui(self):
         """外部调用：刷新账号管理 UI（当账号切换时）"""
         self._refresh_delete_account_list()
+    
+    def _on_export_record(self):
+        """导出记录"""
+        # 显示文件选择对话框
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出记录",
+            f"钓鱼记录_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "CSV Files (*.csv);;TXT Files (*.txt)"
+        )
+        
+        if not file_path:
+            return
+        
+        from pathlib import Path
+        file_path = Path(file_path)
+        
+        # 确定文件格式
+        format_type = 'csv' if file_path.suffix.lower() == '.csv' else 'txt'
+        
+        # 调用记录管理模块导出记录
+        success = record_manager.export_records(file_path, format_type)
+        
+        if success:
+            InfoBar.success(
+                title=self.tr('导出成功'),
+                content=self.tr(f"记录已成功导出到: {file_path}"),
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self.window()
+            )
+        else:
+            InfoBar.error(
+                title=self.tr('导出失败'),
+                content=self.tr("导出记录失败，请检查日志"),
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self.window()
+            )
+    
+    def _on_import_record(self):
+        """导入记录"""
+        # 显示文件选择对话框
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "导入记录",
+            "",
+            "CSV Files (*.csv);;TXT Files (*.txt);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+        
+        from pathlib import Path
+        file_path = Path(file_path)
+        
+        # 调用记录管理模块导入记录
+        success, message = record_manager.import_records(file_path)
+        
+        if success:
+            InfoBar.success(
+                title=self.tr('导入成功'),
+                content=self.tr(message),
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self.window()
+            )
+            # 通知相关界面刷新数据
+            self.account_list_changed_signal.emit()
+            # 通知记录界面刷新数据
+            self.records_updated_signal.emit()
+        else:
+            InfoBar.error(
+                title=self.tr('导入失败'),
+                content=self.tr(message),
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self.window()
+            )
