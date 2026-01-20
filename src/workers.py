@@ -575,9 +575,9 @@ class FishingWorker(QThread):
             
             # 品质名称归一化（繁体统一转换为简体）
             quality_mapping = {
-                '传奇': '传说',
-                '傳奇': '传说',
-                '傳說': '传说',
+                '传说': '传奇',
+                '傳說': '传奇',
+                '傳奇': '传奇',
                 '標準': '标准',
                 '史詩': '史诗',
                 '稀少': '稀有',  # 某些游戏版本可能使用不同译名
@@ -664,8 +664,8 @@ class FishingWorker(QThread):
         except Exception as e:
             self.log_updated.emit(f"写入记录文件失败: {e}")
 
-        if quality == "传说":
-            self.log_updated.emit("哇! 钓到了传说品质的鱼, 正在截图保存...")
+        if quality == "传奇":
+            self.log_updated.emit("哇! 钓到了传奇品质的鱼, 正在截图保存...")
             try:
                 with mss.mss() as sct:
                     # 使用游戏窗口区域截图，支持副屏和窗口化模式

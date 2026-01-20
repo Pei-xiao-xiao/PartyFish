@@ -10,7 +10,7 @@ from datetime import datetime
 from src.config import cfg
 
 # 品质列表（与 components.py 保持一致）
-QUALITIES = ["标准", "非凡", "稀有", "史诗", "传说"]
+QUALITIES = ["标准", "非凡", "稀有", "史诗", "传奇"]
 
 
 from PySide6.QtCore import QObject, Signal
@@ -462,12 +462,12 @@ class Pokedex(QObject):
             
         elif sort_key == 'progress':
             # 按"未收集权重"排序
-            # 权重规则：传说(16) > 史诗(8) > 稀有(4) > 非凡(2) > 标准(1)
+            # 权重规则：传奇(16) > 史诗(8) > 稀有(4) > 非凡(2) > 标准(1)
             # 得分越高 = 缺的品质越高级/越多 = 优先级越高 = 应该排在前面
             # 默认排序(reverse=False)应该显示: 优先级高 -> 优先级低 (即 Score 大 -> 小)
             
             weight_map = {
-                "传说": 16,
+                "传奇": 16,
                 "史诗": 8,
                 "稀有": 4,
                 "非凡": 2,

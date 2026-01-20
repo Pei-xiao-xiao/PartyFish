@@ -7,7 +7,7 @@ from datetime import datetime
 import csv
 import os
 from collections import Counter
-from .components import QUALITY_COLORS
+from src.gui.components import QUALITY_COLORS
 from src.config import cfg
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -38,7 +38,7 @@ class RecordsInterface(QWidget):
         top_controls_layout.addWidget(self.view_switcher)
         top_controls_layout.addStretch(1)
         self.filter_combo = ComboBox()
-        self.filter_combo.addItems(['全部品质', '标准', '非凡', '稀有', '史诗', '传说', '首次捕获'])
+        self.filter_combo.addItems(['全部品质', '标准', '非凡', '稀有', '史诗', '传奇', '首次捕获'])
         self.filter_combo.currentTextChanged.connect(self._filter_table)
         self.filter_combo.setFixedWidth(150)
         top_controls_layout.addWidget(QLabel("筛选品质:"))
@@ -50,7 +50,7 @@ class RecordsInterface(QWidget):
         self.dashboard_layout_row1.setSpacing(15)
         self.total_card = self._create_stat_card("总数", "0", FluentIcon.CALENDAR)
         self.today_card = self._create_stat_card("今日捕获", "0", FluentIcon.FLAG)
-        self.legendary_card = self._create_stat_card("传说数量", "0", FluentIcon.TAG)
+        self.legendary_card = self._create_stat_card("传奇数量", "0", FluentIcon.TAG)
         self.unhook_rate_card = self._create_stat_card("脱钩数", "0", FluentIcon.CLOSE)
         self.dashboard_layout_row1.addWidget(self.total_card)
         self.dashboard_layout_row1.addWidget(self.today_card)
@@ -246,7 +246,8 @@ class RecordsInterface(QWidget):
 
         # Calculate quality stats based on the current view
         self.current_qualities_in_view = [r['quality'] for r in display_records]
-        legendary_count = self.current_qualities_in_view.count('传说')
+        # 统计传奇品质时兼容传说品质和繁体品质的数据
+        legendary_count = self.current_qualities_in_view.count('传奇') + self.current_qualities_in_view.count('传说') 
         epic_count = self.current_qualities_in_view.count('史诗')
         rare_count = self.current_qualities_in_view.count('稀有')
         
@@ -274,7 +275,9 @@ class RecordsInterface(QWidget):
         """Updates the pie chart with the given quality data."""
         self.pie_series.clear()
         
-        quality_counts = Counter(qualities)
+        # 将传说品质的数据转换为传奇品质进行统计
+        processed_qualities = ['传奇' if q == '传说' else q for q in qualities]
+        quality_counts = Counter(processed_qualities)
         total_fish_caught = sum(quality_counts.values())
 
         if total_fish_caught == 0:
@@ -382,7 +385,11 @@ class RecordsInterface(QWidget):
                 if is_new_record:
                     should_show = True
             else:
-                if filter_quality in item.text():
+                # 搜索传奇品质时兼容传说品质的数据
+                quality_text = item.text()
+                if filter_quality == '传奇':
+                    should_show = quality_text in ['传奇', '传说']
+                elif filter_quality in quality_text:
                     should_show = True
             
             self.table.setRowHidden(row, not should_show)

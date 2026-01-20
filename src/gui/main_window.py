@@ -131,6 +131,10 @@ class MainWindow(FluentWindow):
         # 设置页账号列表变化信号：刷新首页账号下拉框
         self.settings_interface.account_list_changed_signal.connect(self.home_interface.refresh_account_list)
         self.settings_interface.account_list_changed_signal.connect(self.settings_interface.refresh_account_ui)
+        # 设置页记录更新信号：刷新相关界面数据
+        self.settings_interface.records_updated_signal.connect(self.records_interface._load_data)
+        self.settings_interface.records_updated_signal.connect(self.profit_interface.reload_data)
+        self.settings_interface.records_updated_signal.connect(self.pokedex_interface.reload_data)
 
         # Start the worker thread, but it will be initially paused
         self.worker.start()
