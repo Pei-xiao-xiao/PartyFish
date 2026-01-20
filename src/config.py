@@ -84,6 +84,7 @@ class Config(metaclass=SingletonMeta):
             "popup_exclamation": {"coords": (1250, 420, 60, 110), "anchor": "center"},  # 统一弹窗检测区域（感叹号位置）
             "ocr_area":     {"coords": (915, 75, 725, 150), "anchor": "top_center"},
             "sell_price_area": {"coords": (2030, 1045, 200, 50), "anchor": "bottom_right"},
+            "uno_card":     {"coords": (2242, 1314, 80, 40), "anchor": "bottom_right"},  # UNO 卡片检测区域
         }
         
         # Constants
@@ -552,7 +553,10 @@ class Config(metaclass=SingletonMeta):
                 "overlay_visible": False,
                 "overlay_position": None,  # [x, y] 或 None
                 "welcome_dialog_shown": False,  # 欢迎窗口是否已显示
-                "hardware_info": {}  # 保存的硬件信息
+                "hardware_info": {},  # 保存的硬件信息
+                "uno_hotkey": "F3",  # UNO 功能热键
+                "uno_current_cards": 7,  # UNO 当前牌数
+                "uno_max_cards": 35  # UNO 最大牌数
             }
             self.qfluent_settings = {"ThemeMode": "Light"}
             self.save()
@@ -596,11 +600,13 @@ class Config(metaclass=SingletonMeta):
             "enable_sound_alert": False,
             "server_region": "CN",
             "overlay_visible": False,
-            "overlay_visible": False,
             "overlay_position": None,
             "fish_filter_mode": "all",  # all, lure, ice
             "welcome_dialog_shown": False,  # 欢迎窗口是否已显示
-            "hardware_info": {}  # 保存的硬件信息
+            "hardware_info": {},  # 保存的硬件信息
+            "uno_hotkey": "F3",  # UNO 功能热键
+            "uno_current_cards": 7,  # UNO 当前牌数
+            "uno_max_cards": 35  # UNO 最大牌数
         }
         loaded_global_settings = config_data.get("global_settings", {})
         default_global_settings.update(loaded_global_settings)

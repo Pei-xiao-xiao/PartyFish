@@ -16,10 +16,13 @@ class Vision:
         self._last_scale = None # 记录上次使用的缩放比例
         # 线程锁，用于保护截图操作的线程安全
         self._screenshot_lock = threading.Lock()
-        
+
         # 使用 threading.local() 来存储每个线程独立的 mss 实例
         # 解决 AttributeError: '_thread._local' object has no attribute 'data'
         self._thread_local = threading.local()
+
+        # UNO 模板
+        self.uno_template = None
 
     def _ensure_loaded(self):
         # 如果未加载，则加载
@@ -726,6 +729,58 @@ class Vision:
         
         print("[DEBUG] Exiting draw_debug_rects.")
         return image
+
+    def find_uno_card(self, region=None, threshold=0.8):
+        """
+        识别 UNO 卡片（tiao_gray 模板）
+        使用本项目的缩放逻辑进行多尺度匹配
+
+        Args:
+            region: 检测区域 (x, y, w, h)，None 表示使用默认区域
+            threshold: 匹配阈值
+
+        Returns:
+            bool: 是否识别到 UNO 卡片
+        """
+        self._ensure_loaded()
+
+        # 加载 UNO 模板
+        if self.uno_template is None:
+            resources_path = cfg._get_base_path() / 'resources'
+            uno_path = resources_path / 'tiao_gray.png'
+            if uno_path.exists():
+                img = cv2.imdecode(np.fromfile(str(uno_path), dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
+                if img is not None:
+                    self.uno_template = img
+
+        if self.uno_template is None:
+            return False
+
+        # 默认检测区域（右下角，基于 2560x1440）
+        if region is None:
+            base_x, base_y, base_w, base_h = 2242, 1314, 80, 40
+            region = cfg.get_bottom_right_rect((base_x, base_y, base_w, base_h))
+
+        screenshot = self.screenshot(region)
+        gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+
+        # 多尺度匹配
+        best_score = 0
+        for scale in [0.5, 0.75, 1.0, cfg.scale, 1.5, 2.0]:
+            w = int(self.uno_template.shape[1] * scale)
+            h = int(self.uno_template.shape[0] * scale)
+
+            if w > gray_screenshot.shape[1] or h > gray_screenshot.shape[0]:
+                continue
+
+            resized_template = cv2.resize(self.uno_template, (w, h), interpolation=cv2.INTER_LINEAR)
+            result = cv2.matchTemplate(gray_screenshot, resized_template, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(result)
+
+            if max_val > best_score:
+                best_score = max_val
+
+        return best_score >= threshold
 
 # Instantiate the vision class to be used by other modules
 vision = Vision()

@@ -136,7 +136,29 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.globalGroup)
 
-        # 5. Account Management Group
+        # 5. UNO Function Group
+        self.unoGroup = SettingCardGroup(self.tr("UNO 功能"), self.scrollWidget)
+
+        self.unoHotkeyCard = SettingCard(FluentIcon.COMMAND_PROMPT, self.tr("UNO 热键"), self.tr("触发 UNO 识别的快捷键"), parent=self.unoGroup)
+        self.unoHotkeyLineEdit = KeyBindingWidget(self.unoHotkeyCard)
+        self.unoHotkeyLineEdit.setText(cfg.global_settings.get("uno_hotkey", "F3"))
+        self.unoHotkeyCard.hBoxLayout.addWidget(self.unoHotkeyLineEdit, 0, Qt.AlignRight)
+        margins = self.unoHotkeyCard.hBoxLayout.contentsMargins()
+        self.unoHotkeyCard.hBoxLayout.setContentsMargins(margins.left(), margins.top(), 16, margins.bottom())
+        self.unoGroup.addSettingCard(self.unoHotkeyCard)
+
+        self.unoMaxCardsCard = SettingCard(FluentIcon.TAG, self.tr("最大牌数"), self.tr("达到此牌数时停止"), parent=self.unoGroup)
+        self.unoMaxCardsSpinBox = SpinBox(self.unoMaxCardsCard)
+        self.unoMaxCardsSpinBox.setRange(1, 100)
+        self.unoMaxCardsSpinBox.setValue(cfg.global_settings.get("uno_max_cards", 35))
+        self.unoMaxCardsCard.hBoxLayout.addWidget(self.unoMaxCardsSpinBox, 0, Qt.AlignRight)
+        margins = self.unoMaxCardsCard.hBoxLayout.contentsMargins()
+        self.unoMaxCardsCard.hBoxLayout.setContentsMargins(margins.left(), margins.top(), 16, margins.bottom())
+        self.unoGroup.addSettingCard(self.unoMaxCardsCard)
+
+        self.vBoxLayout.addWidget(self.unoGroup)
+
+        # 6. Account Management Group
         self.accountGroup = SettingCardGroup(self.tr("账号管理"), self.scrollWidget)
         
         # Create Account Card
@@ -204,11 +226,14 @@ class SettingsInterface(ScrollArea):
         self.hotkeyLineEdit.editingFinished.connect(self._save_global_settings)
         self.debugHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
         self.sellHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
-        
+        self.unoHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
+
         self.jiashiCard.checkedChanged.connect(self._save_global_settings)
         self.autoClickSellCard.checkedChanged.connect(self._save_global_settings)
         self.antiAfkCard.checkedChanged.connect(self._save_global_settings)
         self.soundAlertCard.checkedChanged.connect(self._save_global_settings)
+
+        self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
         
         self.jitterSlider.valueChanged.connect(lambda v: self.jitterLabel.setText(f"{v}%"))
         self.jitterSlider.sliderReleased.connect(self._save_global_settings)
@@ -247,6 +272,8 @@ class SettingsInterface(ScrollArea):
         # Load global settings
         self.hotkeyLineEdit.setText(cfg.global_settings.get("hotkey", "F2"))
         self.debugHotkeyLineEdit.setText(cfg.global_settings.get("debug_hotkey", "F10"))
+        self.unoHotkeyLineEdit.setText(cfg.global_settings.get("uno_hotkey", "F3"))
+        self.unoMaxCardsSpinBox.setValue(cfg.global_settings.get("uno_max_cards", 35))
         self.sellHotkeyLineEdit.setText(cfg.global_settings.get("sell_hotkey", "F4"))
         self.jiashiCard.setChecked(cfg.global_settings.get("enable_jiashi", True))
         self.autoClickSellCard.setChecked(cfg.global_settings.get("auto_click_sell", True))
@@ -300,14 +327,17 @@ class SettingsInterface(ScrollArea):
         if cfg.global_settings.get("sell_hotkey") != new_sell_hotkey:
             cfg.global_settings["sell_hotkey"] = new_sell_hotkey
             self.sell_hotkey_changed_signal.emit(new_sell_hotkey)
-            
+
+        cfg.global_settings["uno_hotkey"] = self.unoHotkeyLineEdit.text()
+        cfg.global_settings["uno_max_cards"] = self.unoMaxCardsSpinBox.value()
+
         cfg.global_settings["enable_jiashi"] = self.jiashiCard.isChecked()
         cfg.global_settings["auto_click_sell"] = self.autoClickSellCard.isChecked()
         cfg.global_settings["enable_anti_afk"] = self.antiAfkCard.isChecked()
         cfg.global_settings["enable_sound_alert"] = self.soundAlertCard.isChecked()
         cfg.global_settings["jitter_range"] = self.jitterSlider.value()
         cfg.global_settings["theme"] = self.themeComboBox.currentText()
-        
+
         cfg.save()
 
     def _refresh_delete_account_list(self):
