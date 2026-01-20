@@ -13,6 +13,7 @@ class InputController(QObject):
     toggle_script_signal = Signal()
     debug_screenshot_signal = Signal() # Signal for debug screenshot
     sell_hotkey_signal = Signal()
+    uno_hotkey_signal = Signal()
 
     def __init__(self):
         super().__init__()
@@ -21,10 +22,12 @@ class InputController(QObject):
         self._hotkey_handler = None
         self._debug_hotkey_handler = None # Handler for F10
         self._sell_hotkey_handler = None
+        self._uno_hotkey_handler = None
         self.is_mouse_down = False
         self._update_hotkey_handler()
         self._update_debug_hotkey_handler()
         self._update_sell_hotkey_handler()
+        self._update_uno_hotkey_handler()
 
     def _parse_hotkey_string(self, hotkey_string):
         """Helper function to parse a hotkey string into pynput format."""
@@ -89,6 +92,20 @@ class InputController(QObject):
         except Exception as e:
             print(f"Error parsing sell hotkey '{cfg.global_settings.get('sell_hotkey')}': {e}")
             self._sell_hotkey_handler = None
+
+    def _update_uno_hotkey_handler(self):
+        """
+        Parses the uno hotkey from config and creates a pynput HotKey handler.
+        """
+        try:
+            formatted_hotkey = self._parse_hotkey_string(cfg.global_settings.get("uno_hotkey", "F3"))
+            self._uno_hotkey_handler = keyboard.HotKey(
+                keyboard.HotKey.parse(formatted_hotkey),
+                self.uno_hotkey_signal.emit
+            )
+        except Exception as e:
+            print(f"Error parsing uno hotkey '{cfg.global_settings.get('uno_hotkey')}': {e}")
+            self._uno_hotkey_handler = None
 
     def add_jitter(self, base_time):
         jitter_range = cfg.jitter_range
@@ -181,7 +198,7 @@ class InputController(QObject):
                 self._hotkey_handler.press(self.keyboard_listener.canonical(key))
             except Exception:
                 pass
-        
+
         if self._debug_hotkey_handler:
             try:
                 self._debug_hotkey_handler.press(self.keyboard_listener.canonical(key))
@@ -194,6 +211,12 @@ class InputController(QObject):
             except Exception:
                 pass
 
+        if self._uno_hotkey_handler:
+            try:
+                self._uno_hotkey_handler.press(self.keyboard_listener.canonical(key))
+            except Exception:
+                pass
+
     def _on_release(self, key):
         """
         Callback for keyboard release events.
@@ -203,7 +226,7 @@ class InputController(QObject):
                 self._hotkey_handler.release(self.keyboard_listener.canonical(key))
             except Exception:
                 pass
-                
+
         if self._debug_hotkey_handler:
             try:
                 self._debug_hotkey_handler.release(self.keyboard_listener.canonical(key))
@@ -216,16 +239,23 @@ class InputController(QObject):
             except Exception:
                 pass
 
+        if self._uno_hotkey_handler:
+            try:
+                self._uno_hotkey_handler.release(self.keyboard_listener.canonical(key))
+            except Exception:
+                pass
+
     def start_listening(self):
         """
         Starts the keyboard listener.
         """
         if self.running:
             return
-            
+
         self._update_hotkey_handler() # Ensure latest config
         self._update_debug_hotkey_handler()
         self._update_sell_hotkey_handler()
+        self._update_uno_hotkey_handler()
         self.running = True
         self.keyboard_listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
         self.keyboard_listener.start()

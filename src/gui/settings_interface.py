@@ -11,6 +11,7 @@ class SettingsInterface(ScrollArea):
     hotkey_changed_signal = Signal(str)
     debug_hotkey_changed_signal = Signal(str)
     sell_hotkey_changed_signal = Signal(str)
+    uno_hotkey_changed_signal = Signal(str)
     theme_changed_signal = Signal(str)
     account_list_changed_signal = Signal()  # 账号列表变化信号
 
@@ -328,7 +329,11 @@ class SettingsInterface(ScrollArea):
             cfg.global_settings["sell_hotkey"] = new_sell_hotkey
             self.sell_hotkey_changed_signal.emit(new_sell_hotkey)
 
-        cfg.global_settings["uno_hotkey"] = self.unoHotkeyLineEdit.text()
+        new_uno_hotkey = self.unoHotkeyLineEdit.text()
+        if cfg.global_settings.get("uno_hotkey") != new_uno_hotkey:
+            cfg.global_settings["uno_hotkey"] = new_uno_hotkey
+            self.uno_hotkey_changed_signal.emit(new_uno_hotkey)
+
         cfg.global_settings["uno_max_cards"] = self.unoMaxCardsSpinBox.value()
 
         cfg.global_settings["enable_jiashi"] = self.jiashiCard.isChecked()

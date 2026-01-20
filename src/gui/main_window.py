@@ -112,6 +112,7 @@ class MainWindow(FluentWindow):
         self.settings_interface.debug_hotkey_changed_signal.connect(self.input_controller._update_debug_hotkey_handler)
         self.settings_interface.sell_hotkey_changed_signal.connect(self.input_controller._update_sell_hotkey_handler)
         self.settings_interface.sell_hotkey_changed_signal.connect(self.home_interface.update_sell_hotkey_display)
+        self.settings_interface.uno_hotkey_changed_signal.connect(self.input_controller._update_uno_hotkey_handler)
         self.home_interface.preset_changed_signal.connect(self.on_preset_changed)
         self.settings_interface.theme_changed_signal.connect(self._on_theme_changed)
         self.preset_should_change.connect(self.worker.update_preset)
@@ -137,6 +138,9 @@ class MainWindow(FluentWindow):
 
         # Connect sell hotkey
         self.input_controller.sell_hotkey_signal.connect(self.worker.trigger_sell)
+
+        # Connect uno hotkey
+        self.input_controller.uno_hotkey_signal.connect(self.toggle_uno)
 
         # Start listening for hotkeys
         self.input_controller.start_listening()
@@ -329,7 +333,17 @@ class MainWindow(FluentWindow):
             self.worker.resume()
         else:
             self.worker.pause()
-            
+
+    def toggle_uno(self):
+        """切换UNO功能的启动/停止状态"""
+        from src.uno import uno_manager
+        if uno_manager.running:
+            uno_manager.stop()
+            self.append_log("UNO识别已停止")
+        else:
+            uno_manager.start()
+            self.append_log("UNO识别已启动")
+
     def take_debug_screenshot(self):
         """Taking debug screenshot and opening it"""
         print("Taking debug screenshot via hotkey...")
