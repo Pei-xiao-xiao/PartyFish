@@ -128,7 +128,7 @@ class HomeInterface(QWidget):
         self.github_link.setIconSize(QSize(24, 24))
         self.github_link.setCursor(Qt.PointingHandCursor)
         self.github_link.setStyleSheet("border: none; background: transparent;")
-        self.github_link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/R1ckyyyyy/Autofish")))
+        self.github_link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/404")))
         
         self.footer_layout.addWidget(text_container)
         self.footer_layout.addWidget(self.github_link, 0, Qt.AlignVCenter)
@@ -167,7 +167,7 @@ class HomeInterface(QWidget):
         self.banner_text_layout.setSpacing(6)
         
         # 程序名称：现代美观风格
-        self.title_label = TitleLabel("AutoFish", self.banner)
+        self.title_label = TitleLabel("PartyFish", self.banner)
         self.title_label.setStyleSheet("""
             TitleLabel {
                 font-size: 26px;

@@ -3,6 +3,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import setTheme, Theme
 from src.gui.main_window import MainWindow
+from src.gui.welcome_dialog import show_welcome_dialog
 from src.config import cfg
 
 # --- Path Fix ---
@@ -22,6 +23,28 @@ if __name__ == "__main__":
         cfg.set_base_path(application_path)
         
         app = QApplication(sys.argv)
+        
+        # 获取当前硬件信息
+        from src.gui.welcome_dialog import get_account_name, get_cpu_info, get_memory_info, get_gpu_info
+        current_hardware = {
+            "account_name": get_account_name(),
+            "cpu": get_cpu_info(),
+            "memory": get_memory_info(),
+            "gpu": get_gpu_info()
+        }
+        
+        # 获取保存的硬件信息
+        saved_hardware = cfg.global_settings.get("hardware_info", {})
+        
+        # 检查是否需要显示欢迎窗口
+        # 如果是第一次运行，或者硬件信息发生变化，则显示欢迎窗口
+        if not cfg.global_settings.get("welcome_dialog_shown", False) or current_hardware != saved_hardware:
+            # 显示欢迎提示窗口
+            show_welcome_dialog()
+            # 更新硬件信息和显示标志
+            cfg.global_settings["hardware_info"] = current_hardware
+            cfg.global_settings["welcome_dialog_shown"] = True
+            cfg.save()
         
         # Set theme based on config
         if cfg.theme == "Light":

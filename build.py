@@ -62,7 +62,7 @@ def generate_readme(version, release_notes):
     """
     fixed_content = f"""
 ==================================================
-        AutoFish 自动钓鱼助手 - 使用说明与版本更新
+        PartyFish 自动钓鱼助手 - 使用说明与版本更新
 ==================================================
 1.如果遇到游戏内按F2键没反应，游戏外有反应请右键主程序只用管理员身份运行
 2.遇到其他问题需要按F10键截图并联系我
@@ -83,7 +83,7 @@ resources/   : 存放核心资源文件 (图片、音频)
 
 用户数据与配置（重要）：
 数据现已存储在 Windows 标准应用数据目录下：
-%APPDATA%\\Autofish\\
+%APPDATA%\\Partyfish\\
 (可在资源管理器地址栏输入上方路径直接访问)
 
 - config.json : 全局配置文件
@@ -133,7 +133,7 @@ def run_pyinstaller():
     """
     执行 PyInstaller 打包命令。
     """
-    spec_file = "autofish_release.spec"
+    spec_file = "partyfish_release.spec"
     print(f"开始执行 PyInstaller，使用 spec 文件: {spec_file}...")
     try:
         subprocess.run(
@@ -154,8 +154,8 @@ def post_build_actions(version):
     """
     打包后的后续操作：复制资源并重命名输出文件夹。
     """
-    dist_path = Path("dist") / "autofish"
-    target_path = Path("dist") / f"autofish-{version}"
+    dist_path = Path("dist") / "partyfish"
+    target_path = Path("dist") / f"partyfish-{version}"
     resources_src = Path("resources")
     resources_dst = dist_path / "resources"
 

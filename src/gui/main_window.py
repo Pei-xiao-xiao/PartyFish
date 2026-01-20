@@ -45,7 +45,7 @@ class MainWindow(FluentWindow):
         super().__init__()
         print("Initializing MainWindow UI...")
         self.setObjectName("MainWindow")
-        self.setWindowTitle("AutoFish")
+        self.setWindowTitle("PartyFish")
         
         # Set window icon
         from src.config import cfg

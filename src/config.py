@@ -550,7 +550,9 @@ class Config(metaclass=SingletonMeta):
                 "enable_sound_alert": False,
                 "server_region": "CN",
                 "overlay_visible": False,
-                "overlay_position": None  # [x, y] 或 None
+                "overlay_position": None,  # [x, y] 或 None
+                "welcome_dialog_shown": False,  # 欢迎窗口是否已显示
+                "hardware_info": {}  # 保存的硬件信息
             }
             self.qfluent_settings = {"ThemeMode": "Light"}
             self.save()
@@ -596,7 +598,9 @@ class Config(metaclass=SingletonMeta):
             "overlay_visible": False,
             "overlay_visible": False,
             "overlay_position": None,
-            "fish_filter_mode": "all"  # all, lure, ice
+            "fish_filter_mode": "all",  # all, lure, ice
+            "welcome_dialog_shown": False,  # 欢迎窗口是否已显示
+            "hardware_info": {}  # 保存的硬件信息
         }
         loaded_global_settings = config_data.get("global_settings", {})
         default_global_settings.update(loaded_global_settings)

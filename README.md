@@ -29,6 +29,7 @@ fish/
 │   ├── pokedex.py                  # 鱼类图鉴数据处理
 │   ├── debug_overlay.py            # 调试覆盖层
 │   └── gui/                        # GUI 界面模块
+│       ├── components/             # 可复用组件
 │       ├── main_window.py          # 主窗口
 │       ├── home_interface.py       # 主页面
 │       ├── records_interface.py    # 钓鱼记录
@@ -36,7 +37,7 @@ fish/
 │       ├── pokedex_interface.py    # 鱼类图鉴
 │       ├── settings_interface.py   # 设置页面
 │       ├── overlay_window.py       # 迷你悬浮窗
-│       └── components/             # 可复用组件
+│       └── welcome_dialog.py       # 提示窗口
 └── data/                           # 数据存储（自动生成）
     ├── records.csv                 # 钓鱼记录
     └── sales.csv                   # 销售记录

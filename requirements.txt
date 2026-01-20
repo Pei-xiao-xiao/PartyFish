@@ -6,3 +6,5 @@ rapidocr-onnxruntime
 pynput
 numpy
 Pillow
+psutil
+wmi
