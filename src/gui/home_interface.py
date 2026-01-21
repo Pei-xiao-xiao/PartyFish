@@ -125,7 +125,6 @@ class HomeInterface(QWidget):
                 self.log_output.append(error)
 
         # 监听信号 (Move from _on_preset_changed)
-        self.preset_changed_signal.connect(self._on_preset_changed)
         self.account_changed_signal.connect(self._on_account_changed)
         self.fishFilterChanged.connect(self._refresh_fish_preview)
 
@@ -1012,59 +1011,31 @@ class HomeInterface(QWidget):
     @Slot(str)
     def update_status(self, status):
         """更新状态"""
-        # 更新状态圆点和文字
-        if status == "运行中":
-            # 绿色运行状态
-            self.status_dot.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #52c41a;
-                    border-radius: 6px;
-                }
-            """
-            )
-            self.status_text.setText("运行中")
-            self.status_text.setStyleSheet(
-                "color: #52c41a; font-size: 12px; font-weight: 500;"
-            )
+        self.status_dot.blockSignals(True)
+        self.status_text.blockSignals(True)
 
-            # 重置计数
-            if not self.timer.isActive():
-                self.total_catch = 0
-                self.run_time = QTime(0, 0, 0)
-                self.timer.start(1000)
-
-        elif "暂停" in status:
-            # 橙色暂停状态
-            self.status_dot.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #faad14;
-                    border-radius: 6px;
-                }
-            """
-            )
-            self.status_text.setText("已暂停")
-            self.status_text.setStyleSheet(
-                "color: #faad14; font-size: 12px; font-weight: 500;"
-            )
-            self.timer.stop()
-
-        elif "停止" in status:
-            # 灰色停止状态
-            self.status_dot.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #8a8a8a;
-                    border-radius: 6px;
-                }
-            """
-            )
-            self.status_text.setText("已停止")
-            self.status_text.setStyleSheet(
-                "color: #8a8a8a; font-size: 12px; font-weight: 500;"
-            )
-            self.timer.stop()
+        try:
+            if status == "运行中":
+                self.status_dot.setStyleSheet("QLabel{background-color:#52c41a;border-radius:6px;}")
+                self.status_text.setText("运行中")
+                self.status_text.setStyleSheet("color:#52c41a;font-size:12px;font-weight:500;")
+                if not self.timer.isActive():
+                    self.total_catch = 0
+                    self.run_time = QTime(0, 0, 0)
+                    self.timer.start(1000)
+            elif "暂停" in status:
+                self.status_dot.setStyleSheet("QLabel{background-color:#faad14;border-radius:6px;}")
+                self.status_text.setText("已暂停")
+                self.status_text.setStyleSheet("color:#faad14;font-size:12px;font-weight:500;")
+                self.timer.stop()
+            elif "停止" in status:
+                self.status_dot.setStyleSheet("QLabel{background-color:#8a8a8a;border-radius:6px;}")
+                self.status_text.setText("已停止")
+                self.status_text.setStyleSheet("color:#8a8a8a;font-size:12px;font-weight:500;")
+                self.timer.stop()
+        finally:
+            self.status_dot.blockSignals(False)
+            self.status_text.blockSignals(False)
 
     def update_run_time(self):
         """更新运行时间（兼容旧代码，现在仅更新内部计时）"""

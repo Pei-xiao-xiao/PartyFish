@@ -523,61 +523,14 @@ class Config(metaclass=SingletonMeta):
         Dynamically get attributes from the current preset or global settings.
         This ensures backward compatibility with code that uses cfg.attribute.
         """
-        # First, try to get from the current preset's settings
         current_preset = self.get_current_preset()
         if current_preset and name in current_preset:
             return current_preset[name]
 
-        # If not in preset, try to get from global settings
         if name in self.global_settings:
             return self.global_settings[name]
 
-        # If still not found, raise an AttributeError
         raise AttributeError(f"'Config' object has no attribute '{name}'")
-
-    def __setattr__(self, name, value):
-        """
-        Allows setting attributes.
-        If the attribute exists in the current preset, update it there.
-        If it exists in global_settings, update it there.
-        Otherwise, set it as a normal instance attribute.
-        """
-        # Avoid recursion for instance attributes defined in __init__
-        if name in [
-            "BASE_SCREEN_WIDTH",
-            "BASE_SCREEN_HEIGHT",
-            "screen_width",
-            "screen_height",
-            "scale_x",
-            "scale_y",
-            "scale",
-            "current_preset_name",
-            "presets",
-            "global_settings",
-            "qfluent_settings",
-            "REGIONS",
-            "_instances",
-            "window_offset_x",
-            "window_offset_y",
-            "game_window_titles",
-            "current_account",
-        ]:
-            super().__setattr__(name, value)
-            return
-
-        # Check if it's a preset setting
-        current_preset = self.get_current_preset()
-        if current_preset and name in current_preset:
-            current_preset[name] = value
-            return
-
-        # Check if it's a global setting
-        if hasattr(self, "global_settings") and name in self.global_settings:
-            self.global_settings[name] = value
-            return
-
-        # Default behavior for other attributes
-        super().__setattr__(name, value)
 
     def _get_default_presets(self):
         """Returns a dictionary of default presets."""
@@ -737,12 +690,6 @@ class Config(metaclass=SingletonMeta):
         """
         config_path = self.user_data_dir / "config.json"
 
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                existing_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            existing_data = {}
-
         config_data = {
             "current_preset": self.current_preset_name,
             "current_bait": self.current_bait,
@@ -752,7 +699,6 @@ class Config(metaclass=SingletonMeta):
             "QFluentWidgets": self.qfluent_settings,
         }
 
-        # Ensure directory exists
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(config_path, "w", encoding="utf-8") as f:
