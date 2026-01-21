@@ -66,8 +66,8 @@ class Config(metaclass=SingletonMeta):
         # This will be set by main.py at startup, but init it here to avoid AttributeError
         self._base_path = None
 
-        # User Data Directory (APPDATA/Autofish)
-        self.user_data_dir = Path(os.environ.get('APPDATA')) / "Autofish"
+        # User Data Directory (APPDATA/Partyfish)
+        self.user_data_dir = Path(os.environ.get('APPDATA')) / "Partyfish"
         self._ensure_user_data()
 
         # Predefined regions based on 2560x1440
