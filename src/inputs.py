@@ -8,10 +8,13 @@ from src.config import cfg
 # Constants for mouse_event
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
+MOUSEEVENTF_WHEEL = 0x0800
+WHEEL_DELTA = 120
+
 
 class InputController(QObject):
     toggle_script_signal = Signal()
-    debug_screenshot_signal = Signal() # Signal for debug screenshot
+    debug_screenshot_signal = Signal()  # Signal for debug screenshot
     sell_hotkey_signal = Signal()
     uno_hotkey_signal = Signal()
 
@@ -20,7 +23,7 @@ class InputController(QObject):
         self.running = False
         self.keyboard_listener = None
         self._hotkey_handler = None
-        self._debug_hotkey_handler = None # Handler for F10
+        self._debug_hotkey_handler = None  # Handler for F10
         self._sell_hotkey_handler = None
         self._uno_hotkey_handler = None
         self.is_mouse_down = False
@@ -32,23 +35,51 @@ class InputController(QObject):
     def _parse_hotkey_string(self, hotkey_string):
         """Helper function to parse a hotkey string into pynput format."""
         raw = hotkey_string.lower()
-        parts = raw.split('+')
+        parts = raw.split("+")
         formatted_parts = []
-        
+
         special_keys = {
-            'ctrl', 'alt', 'shift', 'win', 'cmd',
-            'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
-            'space', 'tab', 'enter', 'esc', 'backspace', 'delete', 'insert', 
-            'home', 'end', 'pgup', 'pgdn', 'up', 'down', 'left', 'right'
+            "ctrl",
+            "alt",
+            "shift",
+            "win",
+            "cmd",
+            "f1",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7",
+            "f8",
+            "f9",
+            "f10",
+            "f11",
+            "f12",
+            "space",
+            "tab",
+            "enter",
+            "esc",
+            "backspace",
+            "delete",
+            "insert",
+            "home",
+            "end",
+            "pgup",
+            "pgdn",
+            "up",
+            "down",
+            "left",
+            "right",
         }
-        
+
         for p in parts:
             p = p.strip()
             if p in special_keys:
                 formatted_parts.append(f"<{p}>")
             else:
                 formatted_parts.append(p)
-        
+
         return "+".join(formatted_parts)
 
     def _update_hotkey_handler(self):
@@ -58,25 +89,28 @@ class InputController(QObject):
         try:
             formatted_hotkey = self._parse_hotkey_string(cfg.hotkey)
             self._hotkey_handler = keyboard.HotKey(
-                keyboard.HotKey.parse(formatted_hotkey),
-                self.toggle_script_signal.emit
+                keyboard.HotKey.parse(formatted_hotkey), self.toggle_script_signal.emit
             )
         except Exception as e:
             print(f"Error parsing hotkey '{cfg.hotkey}': {e}")
             self._hotkey_handler = None
-            
+
     def _update_debug_hotkey_handler(self):
         """
         Parses the debug hotkey from config and creates a pynput HotKey handler.
         """
         try:
-            formatted_hotkey = self._parse_hotkey_string(cfg.global_settings.get("debug_hotkey", "F10"))
+            formatted_hotkey = self._parse_hotkey_string(
+                cfg.global_settings.get("debug_hotkey", "F10")
+            )
             self._debug_hotkey_handler = keyboard.HotKey(
                 keyboard.HotKey.parse(formatted_hotkey),
-                self.debug_screenshot_signal.emit
+                self.debug_screenshot_signal.emit,
             )
         except Exception as e:
-            print(f"Error parsing debug hotkey '{cfg.global_settings.get('debug_hotkey')}': {e}")
+            print(
+                f"Error parsing debug hotkey '{cfg.global_settings.get('debug_hotkey')}': {e}"
+            )
             self._debug_hotkey_handler = None
 
     def _update_sell_hotkey_handler(self):
@@ -84,13 +118,16 @@ class InputController(QObject):
         Parses the sell hotkey from config and creates a pynput HotKey handler.
         """
         try:
-            formatted_hotkey = self._parse_hotkey_string(cfg.global_settings.get("sell_hotkey", "F4"))
+            formatted_hotkey = self._parse_hotkey_string(
+                cfg.global_settings.get("sell_hotkey", "F4")
+            )
             self._sell_hotkey_handler = keyboard.HotKey(
-                keyboard.HotKey.parse(formatted_hotkey),
-                self.sell_hotkey_signal.emit
+                keyboard.HotKey.parse(formatted_hotkey), self.sell_hotkey_signal.emit
             )
         except Exception as e:
-            print(f"Error parsing sell hotkey '{cfg.global_settings.get('sell_hotkey')}': {e}")
+            print(
+                f"Error parsing sell hotkey '{cfg.global_settings.get('sell_hotkey')}': {e}"
+            )
             self._sell_hotkey_handler = None
 
     def _update_uno_hotkey_handler(self):
@@ -98,23 +135,26 @@ class InputController(QObject):
         Parses the uno hotkey from config and creates a pynput HotKey handler.
         """
         try:
-            formatted_hotkey = self._parse_hotkey_string(cfg.global_settings.get("uno_hotkey", "F3"))
+            formatted_hotkey = self._parse_hotkey_string(
+                cfg.global_settings.get("uno_hotkey", "F3")
+            )
             self._uno_hotkey_handler = keyboard.HotKey(
-                keyboard.HotKey.parse(formatted_hotkey),
-                self.uno_hotkey_signal.emit
+                keyboard.HotKey.parse(formatted_hotkey), self.uno_hotkey_signal.emit
             )
         except Exception as e:
-            print(f"Error parsing uno hotkey '{cfg.global_settings.get('uno_hotkey')}': {e}")
+            print(
+                f"Error parsing uno hotkey '{cfg.global_settings.get('uno_hotkey')}': {e}"
+            )
             self._uno_hotkey_handler = None
 
     def add_jitter(self, base_time):
         jitter_range = cfg.jitter_range
         if jitter_range <= 0:
             return base_time
-        
+
         multiplier = random.uniform(1 - jitter_range / 100, 1 + jitter_range / 100)
         jittered_time = round(base_time * multiplier, 3)
-        
+
         return max(0.01, jittered_time)
 
     @staticmethod
@@ -125,14 +165,20 @@ class InputController(QObject):
         key_name = key_name.upper()
         # Common virtual key codes
         vk_map = {
-            'F1': 0x70, 'F2': 0x71, 'F3': 0x72, 'F4': 0x73,
-            'E': 0x45, 'R': 0x52, 'SPACE': 0x20
+            "F1": 0x70,
+            "F2": 0x71,
+            "F3": 0x72,
+            "F4": 0x73,
+            "E": 0x45,
+            "R": 0x52,
+            "SPACE": 0x20,
+            "ESC": 0x1B,
         }
         vk = vk_map.get(key_name)
         if vk:
-            ctypes.windll.user32.keybd_event(vk, 0, 0, 0) # Key Down
+            ctypes.windll.user32.keybd_event(vk, 0, 0, 0)  # Key Down
             time.sleep(random.uniform(0.05, 0.1))
-            ctypes.windll.user32.keybd_event(vk, 0, 2, 0) # Key Up
+            ctypes.windll.user32.keybd_event(vk, 0, 2, 0)  # Key Up
         else:
             print(f"Unknown key for simulation: {key_name}")
 
@@ -229,7 +275,9 @@ class InputController(QObject):
 
         if self._debug_hotkey_handler:
             try:
-                self._debug_hotkey_handler.release(self.keyboard_listener.canonical(key))
+                self._debug_hotkey_handler.release(
+                    self.keyboard_listener.canonical(key)
+                )
             except Exception:
                 pass
 
@@ -252,12 +300,14 @@ class InputController(QObject):
         if self.running:
             return
 
-        self._update_hotkey_handler() # Ensure latest config
+        self._update_hotkey_handler()  # Ensure latest config
         self._update_debug_hotkey_handler()
         self._update_sell_hotkey_handler()
         self._update_uno_hotkey_handler()
         self.running = True
-        self.keyboard_listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+        self.keyboard_listener = keyboard.Listener(
+            on_press=self._on_press, on_release=self._on_release
+        )
         self.keyboard_listener.start()
 
     def stop_listening(self):
@@ -271,3 +321,29 @@ class InputController(QObject):
         if self.keyboard_listener:
             self.keyboard_listener.stop()
             self.keyboard_listener = None
+
+    @staticmethod
+    def hold_key(key_name):
+        """按住按键"""
+        key_name = key_name.upper()
+        vk_map = {"C": 0x43, "ESC": 0x1B}
+        vk = vk_map.get(key_name)
+        if vk:
+            ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
+
+    @staticmethod
+    def release_key(key_name):
+        """释放按键"""
+        key_name = key_name.upper()
+        vk_map = {"C": 0x43, "ESC": 0x1B}
+        vk = vk_map.get(key_name)
+        if vk:
+            ctypes.windll.user32.keybd_event(vk, 0, 2, 0)
+
+    @staticmethod
+    def scroll_wheel(clicks):
+        """滚动鼠标滚轮"""
+        for _ in range(abs(clicks)):
+            delta = WHEEL_DELTA if clicks > 0 else -WHEEL_DELTA
+            ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+            time.sleep(0.1)
