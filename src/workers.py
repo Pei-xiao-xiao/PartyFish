@@ -838,7 +838,7 @@ class FishingWorker(QThread):
         self.state = "finding_prompt"  # 重置状态到初始阶段
         self.inputs.ensure_mouse_up()
 
-        status_text = reason if reason else "已暂停"
+        status_text = f"已暂停: {reason}" if reason else "已暂停"
         self.status_updated.emit(status_text)
         self.log_updated.emit(
             f"脚本暂停，原因: {status_text}，状态已重置，已强制松开鼠标。"
