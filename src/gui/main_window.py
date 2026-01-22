@@ -308,7 +308,7 @@ class MainWindow(FluentWindow):
         # 刷新悬浮窗额度显示
         self._update_overlay_limit()
         # 刷新悬浮窗鱼种预览（使用新账号的收集进度重新排序）
-        self.overlay._update_fish_preview()
+        self.overlay.update_fish_preview()
 
     def _on_theme_changed(self, theme: str):
         if theme == "Light":

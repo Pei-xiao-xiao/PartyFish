@@ -471,8 +471,6 @@ class HomeInterface(QWidget):
                 # 清空本次会话记录，因为切换了账号
                 self.clear_session_table()
                 self.total_catch = 0
-                self.catch_value_label.setText("0")
-                self.last_value_label.setText("暂无")
 
                 # 重新加载图鉴数据
                 from src.pokedex import pokedex
