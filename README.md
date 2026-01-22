@@ -27,7 +27,9 @@ fish/
 │   ├── inputs.py                   # 输入控制（键盘鼠标模拟）
 │   ├── workers.py                  # 后台工作线程（钓鱼逻辑）
 │   ├── pokedex.py                  # 鱼类图鉴数据处理
+│   ├── uno.py                      # uno 游戏摸牌
 │   ├── debug_overlay.py            # 调试覆盖层
+│   ├── _version.py                 # 版本管理
 │   ├── record_manager.py           #导入和导出钓鱼记录
 │   └── gui/                        # GUI 界面模块
 │       ├── components/             # 可复用组件
