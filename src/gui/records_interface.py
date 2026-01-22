@@ -1,8 +1,8 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHeaderView, QTableWidgetItem, QLabel, QHBoxLayout, QFrame, QToolTip
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHeaderView, QTableWidgetItem, QLabel, QHBoxLayout, QFrame, QToolTip, QCalendarWidget, QPushButton, QDialog, QDialogButtonBox
 from PySide6.QtGui import QColor, QBrush, Qt, QPainter, QCursor
 from PySide6.QtCore import Qt as QtCoreQt, QMargins
 from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
-from qfluentwidgets import TableWidget, ComboBox, CardWidget, BodyLabel, TitleLabel, FluentIcon, qconfig, SegmentedWidget, InfoBadge, setTheme, Theme
+from qfluentwidgets import TableWidget, ComboBox, CardWidget, BodyLabel, TitleLabel, FluentIcon, qconfig, SegmentedWidget, InfoBadge, setTheme, Theme, PrimaryPushButton
 from datetime import datetime
 import csv
 import os
@@ -31,11 +31,36 @@ class RecordsInterface(QWidget):
         # --- Top Controls ---
         top_controls_layout = QHBoxLayout()
         self.view_switcher = SegmentedWidget(self)
-        self.view_switcher.addItem('history', '历史统计')
+        self.view_switcher.addItem('history', '全部统计')
         self.view_switcher.addItem('today', '今日统计')
+        self.view_switcher.addItem('date', '日期统计')
         self.view_switcher.setCurrentItem('history')
         self.view_switcher.currentItemChanged.connect(self._on_view_changed)
         top_controls_layout.addWidget(self.view_switcher)
+        
+        # Date selector (initially hidden)
+        self.date_selector_layout = QHBoxLayout()
+        self.date_selector_label = QLabel("选择日期:")
+        # Use PrimaryPushButton to make it more prominent
+        self.date_selector_button = PrimaryPushButton("选择日期")
+        self.date_selector_button.setFixedWidth(120)
+        self.date_selector_button.clicked.connect(self._show_date_dialog)
+        
+        # Add label to display current selected date
+        self.current_date_label = QLabel("")
+        self.current_date_label.setFixedWidth(120)
+        self.current_date_label.setStyleSheet("font-weight: bold; color: #3BA5D8; font-size: 14px;")
+        
+        # Add some spacing between components
+        self.date_selector_layout.addWidget(self.date_selector_label)
+        self.date_selector_layout.addSpacing(8)
+        self.date_selector_layout.addWidget(self.date_selector_button)
+        self.date_selector_layout.addSpacing(12)
+        self.date_selector_layout.addWidget(self.current_date_label)
+        self.date_selector_layout.addStretch(1)
+        self.date_selector_layout.setContentsMargins(15, 0, 0, 0)
+        top_controls_layout.addLayout(self.date_selector_layout)
+        
         top_controls_layout.addStretch(1)
         self.filter_combo = ComboBox()
         self.filter_combo.addItems(['全部品质', '标准', '非凡', '稀有', '史诗', '传奇', '首次捕获'])
@@ -44,6 +69,14 @@ class RecordsInterface(QWidget):
         top_controls_layout.addWidget(QLabel("筛选品质:"))
         top_controls_layout.addWidget(self.filter_combo)
         self.vBoxLayout.addLayout(top_controls_layout)
+        
+        # Initialize date selector as hidden
+        self._toggle_date_selector(False)
+        
+        # Initialize selected date
+        from datetime import datetime
+        self.selected_date = datetime.now().strftime("%Y-%m-%d")
+        self.current_date_label.setText(self.selected_date)
 
         # --- Dashboard (Statistics) ---
         self.dashboard_layout_row1 = QHBoxLayout()
@@ -104,7 +137,136 @@ class RecordsInterface(QWidget):
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
 
     def _on_view_changed(self, item):
-        """Handle view change between Today and History"""
+        """Handle view change between different statistics views"""
+        current_view = item
+        if current_view == 'date':
+            self._toggle_date_selector(True)
+        else:
+            self._toggle_date_selector(False)
+        self._update_stats_and_table()
+    
+    def _toggle_date_selector(self, visible):
+        """Show or hide the date selector layout"""
+        for widget in [self.date_selector_label, self.date_selector_button, self.current_date_label]:
+            widget.setVisible(visible)
+    
+    def _show_date_dialog(self):
+        """Show a popup dialog for date selection"""
+        from PySide6.QtGui import QTextCharFormat
+        from PySide6.QtCore import QDate
+        from PySide6.QtWidgets import QDialog, QVBoxLayout
+        
+        # Create dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("选择日期")
+        dialog.setModal(True)
+        
+        # Create calendar widget
+        calendar = QCalendarWidget(dialog)
+        calendar.setGridVisible(True)
+        
+        # Extract unique dates from all records
+        available_dates = set()
+        for record in self.all_records:
+            date_str = record['timestamp'].split(' ')[0]  # Get YYYY-MM-DD part
+            available_dates.add(date_str)
+        
+        # Convert available_dates to QDate objects for easier handling
+        available_qdates = set()
+        for date_str in available_dates:
+            year, month, day = map(int, date_str.split('-'))
+            available_qdates.add(QDate(year, month, day))
+        
+        # Create text formats
+        # Format for available dates (with records) - extra black and bold
+        available_format = QTextCharFormat()
+        available_format.setForeground(QColor("#000000"))  # Pure black
+        available_format.setFontWeight(100)  # Maximum bold
+        available_format.setFontPointSize(12)  # Larger font size
+        available_format.setFontItalic(False)
+        available_format.setFontUnderline(False)
+        
+        # Format for unavailable dates (without records) - gray font
+        unavailable_format = QTextCharFormat()
+        unavailable_format.setForeground(QColor("gray"))
+        unavailable_format.setFontWeight(50)  # Normal weight
+        unavailable_format.setFontPointSize(10)  # Normal font size
+        # Ensure font is gray for unavailable dates
+        unavailable_format.setFontItalic(False)
+        unavailable_format.setFontUnderline(False)
+        
+        # Set date range to limit calendar view
+        if available_qdates:
+            min_date = min(available_qdates)
+            max_date = max(available_qdates)
+            calendar.setMinimumDate(min_date)
+            calendar.setMaximumDate(max_date)
+            
+            # First, apply unavailable format to all dates in the visible range
+            # This ensures any default styles are overwritten
+            start_date = min_date.addMonths(-1)  # Include previous month
+            end_date = max_date.addMonths(1)  # Include next month
+            current_date = start_date
+            
+            while current_date <= end_date:
+                if current_date >= min_date and current_date <= max_date:
+                    if current_date in available_qdates:
+                        # Available date - black bold
+                        calendar.setDateTextFormat(current_date, available_format)
+                    else:
+                        # Unavailable date within range - gray
+                        calendar.setDateTextFormat(current_date, unavailable_format)
+                else:
+                    # Date outside range - gray
+                    calendar.setDateTextFormat(current_date, unavailable_format)
+                current_date = current_date.addDays(1)
+        else:
+            # If no records, set a very narrow range to make all dates unavailable
+            today = QDate.currentDate()
+            calendar.setMinimumDate(today)
+            calendar.setMaximumDate(today)
+            calendar.setDateTextFormat(today, unavailable_format)
+        
+        # Create a function to validate date selection
+        def validate_selection():
+            selected_date = calendar.selectedDate()
+            if selected_date not in available_qdates:
+                # Find the nearest available date
+                if available_qdates:
+                    # Set to first available date if current selection is invalid
+                    calendar.setSelectedDate(next(iter(available_qdates)))
+        
+        # Connect selectionChanged signal to validate function
+        calendar.selectionChanged.connect(validate_selection)
+        
+        # Set current selected date as default if it's available, otherwise use first available date
+        year, month, day = map(int, self.selected_date.split('-'))
+        default_qdate = QDate(year, month, day)
+        if default_qdate in available_qdates:
+            calendar.setSelectedDate(default_qdate)
+        elif available_qdates:
+            calendar.setSelectedDate(next(iter(available_qdates)))
+        
+        # Add OK/Cancel buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        
+        # Layout
+        layout = QVBoxLayout()
+        layout.addWidget(calendar)
+        layout.addWidget(button_box)
+        dialog.setLayout(layout)
+        
+        # Show dialog and get result
+        if dialog.exec() == QDialog.Accepted:
+            selected_qdate = calendar.selectedDate()
+            self.selected_date = selected_qdate.toString("yyyy-MM-dd")
+            self.current_date_label.setText(self.selected_date)
+            self._update_stats_and_table()
+    
+    def _on_date_changed(self):
+        """Handle date selection change"""
         self._update_stats_and_table()
 
     def _create_stat_card(self, title, value, icon):
@@ -217,7 +379,7 @@ class RecordsInterface(QWidget):
     
     def _update_stats_and_table(self):
         """
-        Central function to update stats and table based on the current view (Today/History).
+        Central function to update stats and table based on the current view.
         """
         current_view_item = self.view_switcher.currentItem()
         if not current_view_item:
@@ -225,10 +387,14 @@ class RecordsInterface(QWidget):
         current_view = current_view_item.text()
         
         today_str = datetime.now().strftime("%Y-%m-%d")
-
+        
+        # Filter records based on current view
         if current_view == '今日统计':
             display_records = [r for r in self.all_records if r['timestamp'].startswith(today_str)]
-        else: # History
+        elif current_view == '日期统计':
+            # Use the selected date from the dialog
+            display_records = [r for r in self.all_records if r['timestamp'].startswith(self.selected_date)]
+        else: # All records (全部统计)
             display_records = self.all_records
 
         # --- Update Stats ---
@@ -238,8 +404,6 @@ class RecordsInterface(QWidget):
         total_count = len(display_records)
         today_count = len(today_records)
         
-        all_qualities = [r['quality'] for r in self.all_records]
-        
         # Calculate unhook stats based on the current view
         total_attempts = len(display_records)
         unhook_count = [r['name'] for r in display_records].count('鱼跑了')
@@ -248,20 +412,21 @@ class RecordsInterface(QWidget):
         self.current_qualities_in_view = [r['quality'] for r in display_records]
         # 统计传奇品质时兼容传说品质和繁体品质的数据
         legendary_count = self.current_qualities_in_view.count('传奇') + self.current_qualities_in_view.count('传说') 
-        epic_count = self.current_qualities_in_view.count('史诗')
-        rare_count = self.current_qualities_in_view.count('稀有')
-        
-        total_fish_caught = total_attempts - unhook_count
-        if total_fish_caught > 0:
-            legendary_perc = (legendary_count / total_fish_caught) * 100
-            epic_perc = (epic_count / total_fish_caught) * 100
-            rare_perc = (rare_count / total_fish_caught) * 100
+
+        # Update labels - total_card shows dynamic count based on current view
+        if current_view == '全部统计':
+            # 全部统计 - show all records count
+            self.total_card.value_label.setText(str(total_records))
+        elif current_view == '今日统计':
+            # 今日统计 - show today's records count
+            self.total_card.value_label.setText(str(today_count))
+        elif current_view == '日期统计':
+            # 日期统计 - show selected date's records count
+            self.total_card.value_label.setText(str(total_count))
         else:
-            legendary_perc = epic_perc = rare_perc = 0.0
-
-
-        # Update labels
-        self.total_card.value_label.setText(str(total_records))
+            # Default to all records
+            self.total_card.value_label.setText(str(total_records))
+            
         self.today_card.value_label.setText(str(today_count))
         self.legendary_card.value_label.setText(str(legendary_count))
         self.unhook_rate_card.value_label.setText(str(unhook_count))
