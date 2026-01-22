@@ -4,6 +4,7 @@ from pynput import mouse
 from src.vision import vision
 from src.config import cfg
 
+
 class UnoManager:
     def __init__(self):
         self.current_cards = 7
@@ -51,7 +52,10 @@ class UnoManager:
         """点击 UNO 位置（右下角，基于 2560x1440）"""
         base_x, base_y = 2381, 1353
         click_pos = cfg.get_center_anchored_pos((base_x, base_y))
-        self.mouse_controller.position = click_pos
+        final_x = click_pos[0] + cfg.window_offset_x
+        final_y = click_pos[1] + cfg.window_offset_y
+        self.mouse_controller.position = (final_x, final_y)
         self.mouse_controller.click(mouse.Button.left, 1)
+
 
 uno_manager = UnoManager()
