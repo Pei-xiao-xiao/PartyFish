@@ -197,6 +197,13 @@ class SettingsInterface(ScrollArea):
         )
         self.globalGroup.addSettingCard(self.soundAlertCard)
 
+        self.fishRecognitionCard = SwitchSettingCard(
+            FluentIcon.SEARCH,
+            self.tr("鱼类识别"),
+            self.tr("开启时识别鱼类信息并记录，关闭时仅执行钓鱼动作"),
+        )
+        self.globalGroup.addSettingCard(self.fishRecognitionCard)
+
         self.jitterCard = SettingCard(
             FluentIcon.SYNC, "时间抖动范围", "设置操作时间的随机波动百分比 (0% - 30%)"
         )
@@ -434,6 +441,7 @@ class SettingsInterface(ScrollArea):
         self.autoClickSellCard.checkedChanged.connect(self._save_global_settings)
         self.antiAfkCard.checkedChanged.connect(self._save_global_settings)
         self.soundAlertCard.checkedChanged.connect(self._save_global_settings)
+        self.fishRecognitionCard.checkedChanged.connect(self._save_global_settings)
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
@@ -501,6 +509,9 @@ class SettingsInterface(ScrollArea):
         self.antiAfkCard.setChecked(cfg.global_settings.get("enable_anti_afk", False))
         self.soundAlertCard.setChecked(
             cfg.global_settings.get("enable_sound_alert", False)
+        )
+        self.fishRecognitionCard.setChecked(
+            cfg.global_settings.get("enable_fish_recognition", True)
         )
         self.autoReleaseEnabledCard.setChecked(
             cfg.global_settings.get("auto_release_enabled", False)
@@ -577,6 +588,9 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["auto_click_sell"] = self.autoClickSellCard.isChecked()
         cfg.global_settings["enable_anti_afk"] = self.antiAfkCard.isChecked()
         cfg.global_settings["enable_sound_alert"] = self.soundAlertCard.isChecked()
+        cfg.global_settings["enable_fish_recognition"] = (
+            self.fishRecognitionCard.isChecked()
+        )
         cfg.global_settings["auto_release_enabled"] = (
             self.autoReleaseEnabledCard.isChecked()
         )

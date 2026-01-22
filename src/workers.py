@@ -507,6 +507,12 @@ class FishingWorker(QThread):
         """
         if not self.running:
             return False
+
+        # 检查是否启用鱼类识别
+        if not cfg.global_settings.get("enable_fish_recognition", True):
+            self.log_updated.emit("鱼类识别已关闭，跳过识别")
+            return True
+
         self.status_updated.emit("记录渔获")
         self.log_updated.emit("正在识别渔获信息...")
 
@@ -753,7 +759,8 @@ class FishingWorker(QThread):
             bait_name = cfg.current_bait
             bait_cost = cfg.BAIT_PRICES.get(bait_name, 0)
 
-            with open(csv_file, "a", encoding="utf-8") as f:
+            encoding = "utf-8-sig" if not file_exists else "utf-8"
+            with open(csv_file, "a", encoding=encoding) as f:
                 if not file_exists:
                     f.write("Timestamp,Name,Quality,Weight,IsNewRecord,Bait,BaitCost\n")
 
@@ -797,6 +804,11 @@ class FishingWorker(QThread):
         """
         记录一个通用事件到CSV文件, 例如 "鱼跑了"
         """
+        # 检查是否启用鱼类识别
+        if not cfg.global_settings.get("enable_fish_recognition", True):
+            return
+
+        # Persistence: Write to CSV
         try:
             csv_file = cfg.records_file
             file_exists = csv_file.is_file()
@@ -811,23 +823,23 @@ class FishingWorker(QThread):
             bait_name = cfg.current_bait
             bait_cost = cfg.BAIT_PRICES.get(bait_name, 0)
 
-            with open(csv_file, "a", encoding="utf-8") as f:
+            encoding = "utf-8-sig" if not file_exists else "utf-8"
+            with open(csv_file, "a", encoding=encoding) as f:
                 if not file_exists:
                     f.write("Timestamp,Name,Quality,Weight,IsNewRecord,Bait,BaitCost\n")
                 # 对于事件，我们只记录名称，其他字段留空，IsNewRecord为No
                 f.write(f"{timestamp},{event_type},,,No,{bait_name},{bait_cost}\n")
-
-            # Emit signal to update UI immediately
-            event_data = {
-                "name": event_type,
-                "weight": "",
-                "quality": "",
-                "is_new_record": False,
-            }
-            self.record_added.emit(event_data)
-
         except Exception as e:
-            self.log_updated.emit(f"写入事件记录失败: {e}")
+            self.log_updated.emit(f"写入记录文件失败: {e}")
+
+        # Emit signal to update UI immediately
+        event_data = {
+            "name": event_type,
+            "weight": "",
+            "quality": "",
+            "is_new_record": False,
+        }
+        self.record_added.emit(event_data)
 
     def pause(self, reason: str = None):
         """
@@ -1120,7 +1132,6 @@ class FishingWorker(QThread):
                             + row * scaled_cell_height
                             + scaled_cell_height // 2
                         )
-                        print(f"[调试] 点击鱼位置: ({fish_x}, {fish_y})")
                         self.inputs.click(
                             fish_x + cfg.window_offset_x,
                             fish_y + cfg.window_offset_y,
@@ -1148,14 +1159,12 @@ class FishingWorker(QThread):
                             break
 
                         if release_pos:
-                            print(f"[调试] OCR检测到放生按钮位置: {release_pos}")
                             self.inputs.click(
                                 release_pos[0] + cfg.window_offset_x,
                                 release_pos[1] + cfg.window_offset_y,
                             )
                             self.smart_sleep(0.3)
                         else:
-                            print("[警告] 未检测到放生按钮，跳过此鱼")
                             continue
 
                         if not self.running or self.paused:
@@ -1163,9 +1172,6 @@ class FishingWorker(QThread):
 
                         released_count += 1
                         released_in_row = True
-                        self.log_updated.emit(
-                            f"已放生{quality}品质的鱼 位置:行{row+1}列{col+1}"
-                        )
                         break  # 放生后重新检查该行
 
                 # 如果这一行没有有效的鱼，或者没有放生任何鱼，进入下一行

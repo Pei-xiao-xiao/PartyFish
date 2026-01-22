@@ -650,6 +650,7 @@ class Config(metaclass=SingletonMeta):
                 "theme": "Light",
                 "enable_anti_afk": True,
                 "enable_sound_alert": False,
+                "enable_fish_recognition": True,  # 鱼类识别开关
                 "server_region": "CN",
                 "overlay_visible": False,
                 "overlay_position": None,  # [x, y] 或 None
@@ -699,6 +700,7 @@ class Config(metaclass=SingletonMeta):
             "theme": "Light",
             "enable_anti_afk": True,
             "enable_sound_alert": False,
+            "enable_record": True,  # 钓鱼记录开关
             "server_region": "CN",
             "overlay_visible": False,
             "overlay_position": None,
