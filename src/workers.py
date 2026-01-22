@@ -753,7 +753,8 @@ class FishingWorker(QThread):
             bait_name = cfg.current_bait
             bait_cost = cfg.BAIT_PRICES.get(bait_name, 0)
 
-            with open(csv_file, "a", encoding="utf-8") as f:
+            encoding = "utf-8-sig" if not file_exists else "utf-8"
+            with open(csv_file, "a", encoding=encoding) as f:
                 if not file_exists:
                     f.write("Timestamp,Name,Quality,Weight,IsNewRecord,Bait,BaitCost\n")
 
@@ -811,7 +812,8 @@ class FishingWorker(QThread):
             bait_name = cfg.current_bait
             bait_cost = cfg.BAIT_PRICES.get(bait_name, 0)
 
-            with open(csv_file, "a", encoding="utf-8") as f:
+            encoding = "utf-8-sig" if not file_exists else "utf-8"
+            with open(csv_file, "a", encoding=encoding) as f:
                 if not file_exists:
                     f.write("Timestamp,Name,Quality,Weight,IsNewRecord,Bait,BaitCost\n")
                 # 对于事件，我们只记录名称，其他字段留空，IsNewRecord为No
