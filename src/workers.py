@@ -110,9 +110,9 @@ class FishingWorker(QThread):
                     if reel_in_finished:
                         self._record_catch()
                         self.log_updated.emit("收起渔获, 准备下一轮。")
-                        self.msleep(200)  # 稍微等待一下
+                        self.msleep(100)  # 稍微等待一下
                         self.inputs.left_click()
-                        self.smart_sleep(0.5)  # 点击后等待弹窗消失
+                        self.smart_sleep(0.3)  # 点击后等待弹窗消失
                     # 无论成功与否，都重置到初始状态
                     self.state = "finding_prompt"
 
@@ -256,22 +256,21 @@ class FishingWorker(QThread):
                         )
                         return False
 
-                    bait_amount = self.vision.get_bait_amount()
-                    if bait_amount == 0:
-                        self.log_updated.emit("错误：抛竿后状态未改变，且鱼饵数量为0。")
-                        if cfg.global_settings.get("enable_sound_alert", False):
-                            self.sound_alert_requested.emit("no_bait")
-                        self.pause(reason="没有鱼饵了")
-                    else:
-                        self.log_updated.emit("错误：抛竿后状态未改变，可能鱼桶已满。")
+                    # 根据抛竿图标是否消失判断鱼桶状态
+                    if not cast_icon_ever_gone:
+                        # 抛竿图标从未消失，说明无法抛竿，判定为鱼桶满
+                        self.log_updated.emit("检测到鱼桶已满（抛竿图标未消失）。")
                         if cfg.global_settings.get("enable_sound_alert", False):
                             self.sound_alert_requested.emit("inventory_full")
-
-                        # 如果启用了自动放生，先执行放生
+                        # 检查是否启用自动放生：启用则执行放生，否则暂停脚本
                         if cfg.global_settings.get("auto_release_enabled", False):
                             self.check_and_auto_release()
                         else:
-                            self.pause(reason="鱼桶可能已满")
+                            self.pause(reason="鱼桶已满")
+                        return False
+
+                    # 抛竿图标曾经消失，说明不是鱼桶满，可能是位置冲突或网络延迟
+                    self.log_updated.emit("抛竿验证超时，将重新尝试。")
                     return False
                     # -- 验证结束 --
 
