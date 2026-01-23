@@ -1,4 +1,5 @@
 import csv
+import re
 from pathlib import Path
 from datetime import datetime
 from src.config import cfg
@@ -24,16 +25,10 @@ class RecordManager:
             if not records_file.exists():
                 return False
 
-            # 读取所有记录
-            records = []
-            with open(records_file, "r", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    records.append(row)
-
             if format_type == "csv":
-                # 直接导出为CSV格式
-                with open(file_path, "w", encoding="utf-8-sig", newline="") as f:
+                # 流式导出为CSV格式
+                with open(records_file, "r", encoding="utf-8-sig") as src, \
+                     open(file_path, "w", encoding="utf-8-sig", newline="") as dst:
                     fieldnames = [
                         "Timestamp",
                         "Name",
@@ -43,18 +38,19 @@ class RecordManager:
                         "Bait",
                         "BaitCost",
                     ]
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    reader = csv.DictReader(src)
+                    writer = csv.DictWriter(dst, fieldnames=fieldnames)
                     writer.writeheader()
-                    for record in records:
-                        writer.writerow(record)
+                    writer.writerows(reader)
 
             elif format_type == "txt":
-                # 导出为 |时间|鱼名|品质|重量 格式
-                with open(file_path, "w", encoding="utf-8") as f:
-                    for record in records:
-                        # 格式化记录
+                # 流式导出为 |时间|鱼名|品质|重量 格式
+                with open(records_file, "r", encoding="utf-8-sig") as src, \
+                     open(file_path, "w", encoding="utf-8") as dst:
+                    reader = csv.DictReader(src)
+                    for record in reader:
                         formatted = f"|{record['Timestamp']}|{record['Name']}|{record['Quality']}|{record['Weight']}|"
-                        f.write(formatted + "\n")
+                        dst.write(formatted + "\n")
 
             return True
         except Exception as e:
@@ -76,26 +72,70 @@ class RecordManager:
             records_file = cfg.records_file
             file_extension = file_path.suffix.lower()
 
-            records_to_import = []
-
             if file_extension == ".csv":
-                # 从CSV文件导入
-                with open(file_path, "r", encoding="utf-8-sig") as f:
-                    reader = csv.DictReader(f)
+                # 从CSV文件导入并流式写入
+                with open(file_path, "r", encoding="utf-8-sig") as src, \
+                     open(records_file, "a", encoding="utf-8", newline="") as dst:
+                    reader = csv.DictReader(src)
+                    fieldnames = [
+                        "Timestamp",
+                        "Name",
+                        "Quality",
+                        "Weight",
+                        "IsNewRecord",
+                        "Bait",
+                        "BaitCost",
+                    ]
+                    writer = csv.DictWriter(dst, fieldnames=fieldnames)
+
+                    # 如果文件不存在，写入表头
+                    if not records_file.exists():
+                        writer.writeheader()
+
+                    count = 0
                     for row in reader:
                         # 验证必要字段
-                        if all(
-                            field in row
-                            for field in ["Timestamp", "Name", "Quality", "Weight"]
-                        ):
-                            records_to_import.append(row)
-                        else:
+                        if not all(field in row for field in ["Timestamp", "Name", "Quality", "Weight"]):
                             return False, f"CSV文件格式不正确，缺少必要字段: {row}"
+                        
+                        # 直接写入，减少字典创建
+                        writer.writerow({
+                            "Timestamp": row.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                            "Name": row.get("Name", ""),
+                            "Quality": row.get("Quality", ""),
+                            "Weight": row.get("Weight", ""),
+                            "IsNewRecord": row.get("IsNewRecord", "No"),
+                            "Bait": row.get("Bait", "蔓越莓"),
+                            "BaitCost": row.get("BaitCost", "1"),
+                        })
+                        count += 1
+
+                    if count == 0:
+                        return False, "没有找到可导入的记录"
+                    
+                    return True, f"成功导入 {count} 条记录"
 
             elif file_extension == ".txt":
-                # 从TXT文件导入，格式为 |时间|鱼名|品质|重量|
-                with open(file_path, "r", encoding="utf-8") as f:
-                    for line_num, line in enumerate(f, 1):
+                # 从TXT文件导入并流式写入
+                with open(file_path, "r", encoding="utf-8") as src, \
+                     open(records_file, "a", encoding="utf-8", newline="") as dst:
+                    fieldnames = [
+                        "Timestamp",
+                        "Name",
+                        "Quality",
+                        "Weight",
+                        "IsNewRecord",
+                        "Bait",
+                        "BaitCost",
+                    ]
+                    writer = csv.DictWriter(dst, fieldnames=fieldnames)
+
+                    # 如果文件不存在，写入表头
+                    if not records_file.exists():
+                        writer.writeheader()
+
+                    count = 0
+                    for line_num, line in enumerate(src, 1):
                         line = line.strip()
                         if not line:
                             continue
@@ -103,54 +143,19 @@ class RecordManager:
                         # 解析TXT格式记录
                         record = RecordManager._parse_txt_record(line)
                         if record:
-                            records_to_import.append(record)
+                            writer.writerow(record)
+                            count += 1
                         else:
                             return False, f"TXT文件格式不正确，第{line_num}行: {line}"
+
+                    if count == 0:
+                        return False, "没有找到可导入的记录"
+                    
+                    return True, f"成功导入 {count} 条记录"
 
             else:
                 return False, f"不支持的文件格式: {file_extension}"
 
-            if not records_to_import:
-                return False, "没有找到可导入的记录"
-
-            # 追加到现有记录文件
-            file_exists = records_file.exists()
-            encoding = "utf-8-sig" if not file_exists else "utf-8"
-            with open(records_file, "a", encoding=encoding, newline="") as f:
-                fieldnames = [
-                    "Timestamp",
-                    "Name",
-                    "Quality",
-                    "Weight",
-                    "IsNewRecord",
-                    "Bait",
-                    "BaitCost",
-                ]
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-
-                # 如果文件不存在，写入表头
-                if not file_exists:
-                    writer.writeheader()
-
-                # 写入导入的记录
-                for record in records_to_import:
-                    # 确保所有字段都存在
-                    writer.writerow(
-                        {
-                            "Timestamp": record.get(
-                                "Timestamp",
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            ),
-                            "Name": record.get("Name", ""),
-                            "Quality": record.get("Quality", ""),
-                            "Weight": record.get("Weight", ""),
-                            "IsNewRecord": record.get("IsNewRecord", "No"),
-                            "Bait": record.get("Bait", "蔓越莓"),
-                            "BaitCost": record.get("BaitCost", "1"),
-                        }
-                    )
-
-            return True, f"成功导入 {len(records_to_import)} 条记录"
         except Exception as e:
             return False, f"导入记录失败: {str(e)}"
 
@@ -167,59 +172,34 @@ class RecordManager:
             dict or None: 解析后的记录字典，解析失败返回None
         """
         try:
-            # 处理可能的空格
             line = line.strip()
 
-            # 检查是否是我们导出的格式
+            timestamp = name = quality = weight = None
+
             if line.startswith("|") and line.endswith("|"):
-                # 移除首尾的 | 字符
                 content = line[1:-1]
-                # 分割字段
                 parts = content.split("|")
                 if len(parts) != 4:
                     return None
-
-                # 提取字段
                 timestamp, name, quality, weight = parts
             else:
-                # 尝试处理其他格式（如 | 分隔但没有首尾 |）
                 parts = line.split("|")
                 if len(parts) < 3:
                     return None
 
-                # 根据字段数量处理
                 if len(parts) == 5:
-                    # 格式：文件名|时间|名称|品质|重量
-                    # 例如：20251222_043604|2025-12-22 04:36:40|黄鸭叫|史诗|15.54kg
-                    timestamp, name, quality, weight = (
-                        parts[1],
-                        parts[2],
-                        parts[3],
-                        parts[4],
-                    )
+                    timestamp, name, quality, weight = parts[1], parts[2], parts[3], parts[4]
                 elif len(parts) == 4:
-                    # 可能的格式：文件名|时间|名称|重量
-                    # 或者：时间|名称|品质|重量
-                    # 尝试解析时间字段
                     try:
-                        # 尝试将第二个字段解析为时间
                         datetime.strptime(parts[1], "%Y-%m-%d %H:%M:%S")
-                        timestamp, name, quality, weight = (
-                            parts[1],
-                            parts[2],
-                            parts[0],
-                            parts[3],
-                        )
+                        timestamp, name, quality, weight = parts[1], parts[2], parts[0], parts[3]
                     except ValueError:
-                        # 尝试将第一个字段解析为时间
                         try:
                             datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S")
                             timestamp, name, quality, weight = parts
                         except ValueError:
                             return None
                 elif len(parts) == 3:
-                    # 格式：时间|名称|重量
-                    # 品质默认为"标准"
                     try:
                         datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S")
                         timestamp, name, weight = parts
@@ -229,18 +209,12 @@ class RecordManager:
                 else:
                     return None
 
-            # 清理字段
             timestamp = timestamp.strip()
             name = name.strip()
             quality = quality.strip()
             weight = weight.strip()
 
-            # 验证时间格式
-            # 处理可能的时间格式问题，如缺少空格
             if " " not in timestamp:
-                # 尝试修复时间格式，如 2025-12-2204:36:40 -> 2025-12-22 04:36:40
-                import re
-
                 fixed_timestamp = re.sub(
                     r"(\d{4}-\d{2}-\d{2})(\d{2}:\d{2}:\d{2})", r"\1 \2", timestamp
                 )
@@ -249,7 +223,6 @@ class RecordManager:
             else:
                 datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
 
-            # 清理重量单位
             if weight.endswith("kg"):
                 weight = weight[:-2].strip()
 
