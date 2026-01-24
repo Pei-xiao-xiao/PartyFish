@@ -106,10 +106,6 @@ class Config(metaclass=SingletonMeta):
                 "coords": (2242, 1314, 80, 40),
                 "anchor": "bottom_right",
             },  # UNO 卡片检测区域
-            "minimap": {
-                "center": (2363, 188),
-                "radius": 136,
-            },  # 小地图区域配置
             "fish_inventory": {
                 "zones": [
                     {
