@@ -15,7 +15,6 @@ from src.gui.records_interface import RecordsInterface
 from src.gui.profit_interface import ProfitInterface
 from src.gui.settings_interface import SettingsInterface
 from src.gui.pokedex_interface import PokedexInterface
-from src.gui.navigation_interface import NavigationInterface
 from src.gui.overlay_window import OverlayWindow
 from src.workers import FishingWorker, PopupWorker
 from src.inputs import InputController
@@ -63,7 +62,6 @@ class MainWindow(FluentWindow):
         self.records_interface = RecordsInterface(self)
         self.profit_interface = ProfitInterface(self)
         self.pokedex_interface = PokedexInterface(self)
-        self.navigation_interface = NavigationInterface(self)
         self.settings_interface = SettingsInterface(self)
  
         self.overlay = OverlayWindow()
@@ -87,7 +85,6 @@ class MainWindow(FluentWindow):
         self.addSubInterface(self.records_interface, FluentIcon.HISTORY, "记录")
         self.addSubInterface(self.profit_interface, FluentIcon.SHOPPING_CART, "收益")
         self.addSubInterface(self.pokedex_interface, FluentIcon.LIBRARY, "图鉴")
-        self.addSubInterface(self.navigation_interface, FluentIcon.VIEW, "导航")
         self.addSubInterface(self.settings_interface, FluentIcon.SETTING, "设置", NavigationItemPosition.BOTTOM)
 
         print("Connecting signals...")
