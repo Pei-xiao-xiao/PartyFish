@@ -37,7 +37,7 @@ resources/   : 存放核心资源文件 (图片、音频)
 
 - config.json : 全局配置文件
 - accounts/   : 多账号数据文件夹 (包含各账号的 records.csv, sales.csv)
-              - accounts/<账号名>/pokedex.json : 图鉴收集进度数据
+- accounts/<账号名>/pokedex.json : 图鉴收集进度数据
 
 自定义提示音：
 如果您想更换提示音，请进入 resources/audio 文件夹，替换以下文件（文件名必须保持一致）：
@@ -76,6 +76,7 @@ def run_pyinstaller():
 
 def post_build(version):
     import time
+
     dist = Path("dist/partyfish")
     target = Path(f"dist/partyfish-{version}")
 

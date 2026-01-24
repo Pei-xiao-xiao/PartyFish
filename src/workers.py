@@ -110,9 +110,39 @@ class FishingWorker(QThread):
                     if reel_in_finished:
                         self._record_catch()
                         self.log_updated.emit("收起渔获, 准备下一轮。")
-                        self.msleep(100)  # 稍微等待一下
-                        self.inputs.left_click()
-                        self.smart_sleep(0.3)  # 点击后等待弹窗消失
+
+                        # 改进的关闭弹窗逻辑：循环检测直到弹窗消失
+                        max_close_attempts = 10
+                        shangyu_region = cfg.get_rect("shangyu")
+                        popup_closed = False
+
+                        for close_attempt in range(max_close_attempts):
+                            if not self.running or self.paused:
+                                break
+
+                            # 检查"收起"按钮是否还在（弹窗是否还存在）
+                            if not self.vision.find_template(
+                                "shangyu_grayscale",
+                                region=shangyu_region,
+                                threshold=0.8,
+                            ):
+                                # 弹窗已消失，成功关闭
+                                if close_attempt > 0:  # 只有尝试过点击才输出日志
+                                    self.log_updated.emit("渔获弹窗已关闭")
+                                popup_closed = True
+                                break
+
+                            # 弹窗还在，点击关闭
+                            self.msleep(100)
+                            self.inputs.left_click()
+                            self.smart_sleep(0.3)
+
+                        if not popup_closed and (self.running and not self.paused):
+                            # 达到最大尝试次数仍未关闭
+                            self.log_updated.emit(
+                                "警告: 渔获弹窗可能未完全关闭，继续下一轮"
+                            )
+
                     # 无论成功与否，都重置到初始状态
                     self.state = "finding_prompt"
 
@@ -267,12 +297,27 @@ class FishingWorker(QThread):
                             self.pause(reason="没有鱼饵了")
                         else:
                             self.log_updated.emit("检测到鱼桶已满（抛竿图标未消失）。")
-                            if cfg.global_settings.get("enable_sound_alert", False):
-                                self.sound_alert_requested.emit("inventory_full")
                             # 检查是否启用自动放生：启用则执行放生，否则暂停脚本
                             if cfg.global_settings.get("auto_release_enabled", False):
-                                self.check_and_auto_release()
+                                # 开启放生时，先不播放提示音，执行放生后再判断
+                                released_count = self.check_and_auto_release()
+                                # 如果放生后仍然无法抛竿（没有放生任何鱼或鱼桶还是满的），暂停脚本并播放提示音
+                                if released_count == 0:
+                                    self.log_updated.emit(
+                                        "自动放生未放生任何鱼，鱼桶可能仍然满载或没有符合放生条件的鱼。"
+                                    )
+                                    # 在这里播放提示音：没有可放生的鱼但桶满了
+                                    if cfg.global_settings.get(
+                                        "enable_sound_alert", False
+                                    ):
+                                        self.sound_alert_requested.emit(
+                                            "inventory_full"
+                                        )
+                                    self.pause(reason="鱼桶已满且无法自动放生")
                             else:
+                                # 未开启放生时，鱼桶满就正常播放提示音
+                                if cfg.global_settings.get("enable_sound_alert", False):
+                                    self.sound_alert_requested.emit("inventory_full")
                                 self.pause(reason="鱼桶已满")
                         return False
 
@@ -516,7 +561,33 @@ class FishingWorker(QThread):
 
         # 检查是否启用鱼类识别
         if not cfg.global_settings.get("enable_fish_recognition", True):
-            self.log_updated.emit("鱼类识别已关闭，跳过识别")
+            self.log_updated.emit("鱼类识别已关闭，等待并关闭渔获弹窗")
+            self.status_updated.emit("关闭渔获弹窗")
+
+            # 等待弹窗完全显示
+            self.smart_sleep(0.5)
+
+            # 检测"收起"按钮，确保弹窗已显示
+            max_attempts = 10  # 最多尝试5秒
+            shangyu_region = cfg.get_rect("shangyu")
+            shangyu_found = False
+
+            for attempt in range(max_attempts):
+                if not self.running:
+                    return False
+
+                if self.vision.find_template(
+                    "shangyu_grayscale", region=shangyu_region, threshold=0.8
+                ):
+                    self.log_updated.emit("检测到'收起'按钮，准备关闭弹窗")
+                    shangyu_found = True
+                    break
+
+                self.msleep(500)  # 每次等待500ms
+
+            if not shangyu_found:
+                self.log_updated.emit("警告: 未检测到'收起'按钮，尝试直接点击关闭")
+
             return True
 
         self.status_updated.emit("记录渔获")
@@ -1103,6 +1174,19 @@ class FishingWorker(QThread):
                     # 检测不到星星时跳过该位置
                     if color is None:
                         continue
+                    # 【新增】对史诗和传奇进行二次验证，避免误放生
+                    if color in ["purple", "yellow"]:
+                        # 等待50ms后再次检测，确保不是误判
+                        self.msleep(50)
+                        star_img_verify = self.vision.screenshot(star_region)
+                        color_verify = self.vision.detect_star_color(star_img_verify)
+
+                        if color_verify != color:
+                            # 两次检测结果不一致，为安全起见跳过
+                            self.log_updated.emit(
+                                f"位置({row},{col})高品质验证失败: {color} != {color_verify}，跳过"
+                            )
+                            continue
 
                     valid_fish_count += 1  # 发现有效的鱼
 
@@ -1115,7 +1199,15 @@ class FishingWorker(QThread):
                     }
                     quality = quality_map.get(color, "标准")
 
-                    # 判断是否放生
+                    # 【安全保护】史诗和传奇品质默认不放生，除非用户明确启用
+                    # 即使检测为低品质，如果是紫色或黄色也不放生（防止误判）
+                    if color in ["purple", "yellow"]:
+                        self.log_updated.emit(
+                            f"位置({row},{col})检测到高品质颜色({color})，品质:{quality}，安全起见不放生"
+                        )
+                        continue
+
+                    # 判断是否放生（仅对灰、绿、蓝色）
                     release_map = {
                         "标准": "release_standard",
                         "非凡": "release_uncommon",
@@ -1132,6 +1224,7 @@ class FishingWorker(QThread):
                             scaled_zone_x
                             + col * scaled_cell_width
                             + scaled_cell_width // 2
+                            + 30  # 向右偏移10像素
                         )
                         fish_y = (
                             scaled_zone_y
@@ -1147,37 +1240,47 @@ class FishingWorker(QThread):
                         if not self.running or self.paused:
                             break
 
-                        # 使用OCR检测"放生"按钮位置（限定菜单区域）
-                        # 基础分辨率(2560x1440)下的菜单区域坐标
-                        base_menu_x, base_menu_y = 1856, 519
-                        base_menu_w, base_menu_h = 643, 665
-                        # 根据当前分辨率缩放
-                        menu_x = int(base_menu_x * cfg.scale_x)
-                        menu_y = int(base_menu_y * cfg.scale_y)
-                        menu_w = int(base_menu_w * cfg.scale_x)
-                        menu_h = int(base_menu_h * cfg.scale_y)
-                        menu_region = (menu_x, menu_y, menu_w, menu_h)
-                        release_pos = self.vision.find_text_position(
-                            "放生", region=menu_region
+                        # 使用固定偏移量点击"放生"按钮（相对于鱼的中心点）
+                        # 基于2560x1440分辨率的偏移量
+                        base_release_offset_x = 50  # 向右偏移
+                        base_release_offset_y = 150  # 向下偏移
+
+                        # 应用分辨率缩放
+                        release_offset_x = int(base_release_offset_x * cfg.scale_x)
+                        release_offset_y = int(base_release_offset_y * cfg.scale_y)
+
+                        # 计算放生按钮的绝对坐标
+                        release_x = fish_x + release_offset_x
+                        release_y = fish_y + release_offset_y
+
+                        # 调试：输出点击坐标
+                        self.log_updated.emit(
+                            f"[调试] 放生坐标 - 鱼中心:({fish_x},{fish_y}) "
+                            f"偏移:({release_offset_x},{release_offset_y}) "
+                            f"放生按钮:({release_x},{release_y}) "
+                            f"屏幕绝对坐标:({release_x + cfg.window_offset_x},{release_y + cfg.window_offset_y})"
                         )
+                        self.inputs.click(
+                            release_x + cfg.window_offset_x,
+                            release_y + cfg.window_offset_y,
+                        )
+                        self.smart_sleep(0.3)  # 等待点击响应
 
-                        if not self.running or self.paused:
-                            break
+                        # 将鼠标移到右上角，避免干扰后续操作
+                        import ctypes
 
-                        if release_pos:
-                            self.inputs.click(
-                                release_pos[0] + cfg.window_offset_x,
-                                release_pos[1] + cfg.window_offset_y,
-                            )
-                            self.smart_sleep(0.3)
-                        else:
-                            continue
+                        screen_right = cfg.window_offset_x + cfg.screen_width - 10
+                        screen_top = cfg.window_offset_y + 10
+                        ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
+
+                        self.smart_sleep(0.2)  # 等待放生动画完成
 
                         if not self.running or self.paused:
                             break
 
                         released_count += 1
                         released_in_row = True
+                        self.smart_sleep(0.3)  # 放生后额外延迟，确保UI更新完成
                         break  # 放生后重新检查该行
 
                 # 如果这一行没有有效的鱼，或者没有放生任何鱼，进入下一行
@@ -1193,6 +1296,8 @@ class FishingWorker(QThread):
         else:
             self.log_updated.emit(f"自动放生完成，共放生{released_count}条鱼")
         self.status_updated.emit("运行中")
+
+        return released_count
 
 
 class PopupWorker(QThread):

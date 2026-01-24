@@ -860,48 +860,90 @@ class Vision:
 
     def detect_star_color(self, image):
         """识别星星外围背景色（品质颜色），如果检测不到返回None"""
+        if image is None or image.size == 0:
+            return None
+
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # 优化后的颜色范围（更精确，减少重叠）
         color_ranges = {
             "gray": ([0, 0, 50], [180, 50, 210]),
             "green": ([35, 100, 150], [55, 200, 255]),  # #8FC659
             "blue": ([95, 100, 200], [115, 200, 255]),  # #6EACF1
-            "purple": ([125, 100, 200], [145, 200, 255]),  # #AA68F9
+            "purple": (
+                [130, 100, 200],
+                [150, 200, 255],
+            ),  # #AA68F9 (调整范围避免与蓝色重叠)
             "yellow": ([15, 150, 200], [30, 255, 255]),  # #FAC439
         }
 
-        max_pixels = 0
-        second_max_pixels = 0
-        detected_color = "gray"
-        pixel_counts = {}
+        # 按优先级检测（高品质优先，避免误判）
+        priority_order = ["yellow", "purple", "blue", "green", "gray"]
 
-        for color, (lower, upper) in color_ranges.items():
+        pixel_counts = {}
+        for color in priority_order:
+            lower, upper = color_ranges[color]
             mask = cv2.inRange(hsv, np.array(lower), np.array(upper))
             pixel_count = cv2.countNonZero(mask)
             pixel_counts[color] = pixel_count
-            if pixel_count > max_pixels:
-                second_max_pixels = max_pixels
-                max_pixels = pixel_count
-                detected_color = color
-            elif pixel_count > second_max_pixels:
-                second_max_pixels = pixel_count
 
         # 调试输出
-        print(
-            f"[颜色检测] 像素统计: {pixel_counts}, 最大: {detected_color}={max_pixels}, 次大: {second_max_pixels}"
-        )
+        print(f"[颜色检测] 像素统计: {pixel_counts}")
+
+        # 找出最大值和次大值
+        sorted_counts = sorted(pixel_counts.items(), key=lambda x: x[1], reverse=True)
+        max_color, max_pixels = sorted_counts[0]
+        second_max_pixels = sorted_counts[1][1] if len(sorted_counts) > 1 else 0
 
         # 如果检测到的像素太少，说明没有星星
         if max_pixels < 10:
+            print(f"[颜色检测] 像素数太少({max_pixels})，判定为无星星")
             return None
 
-        # 置信度检查：最大值必须明显大于次大值（至少2倍）
-        if second_max_pixels > 0 and max_pixels < second_max_pixels * 2:
-            print(
-                f"[颜色检测] 置信度不足，最大值{max_pixels}未达到次大值{second_max_pixels}的2倍"
-            )
-            return None
+        # 【关键改进】如果检测为灰色，但紫色或黄色像素数也很多，则优先判定为高品质
+        if max_color == "gray":
+            purple_pixels = pixel_counts.get("purple", 0)
+            yellow_pixels = pixel_counts.get("yellow", 0)
 
-        return detected_color
+            # 如果紫色像素数超过灰色的20%且大于15个，判定为紫色（史诗）
+            if purple_pixels > max_pixels * 0.2 and purple_pixels > 15:
+                print(
+                    f"[颜色检测] 灰色误判修正: 检测到紫色像素{purple_pixels}，修正为purple"
+                )
+                max_color = "purple"
+                max_pixels = purple_pixels
+            # 如果黄色像素数超过灰色的20%且大于15个，判定为黄色（传奇）
+            elif yellow_pixels > max_pixels * 0.2 and yellow_pixels > 15:
+                print(
+                    f"[颜色检测] 灰色误判修正: 检测到黄色像素{yellow_pixels}，修正为yellow"
+                )
+                max_color = "yellow"
+                max_pixels = yellow_pixels
+
+        # 针对高品质（史诗、传奇）使用更严格的置信度要求
+        if max_color in ["purple", "yellow"]:
+            # 高品质要求：最大值必须是次大值的3倍以上
+            required_ratio = 3.0
+            if (
+                second_max_pixels > 0
+                and max_pixels < second_max_pixels * required_ratio
+            ):
+                print(
+                    f"[颜色检测] 高品质({max_color})置信度不足: {max_pixels} < {second_max_pixels} * {required_ratio}"
+                )
+                return None
+            # 额外要求：高品质必须有足够的像素数（至少30个）
+            if max_pixels < 30:
+                print(f"[颜色检测] 高品质({max_color})像素数不足: {max_pixels} < 30")
+                return None
+        else:
+            # 普通品质：最大值必须是次大值的2倍以上
+            if second_max_pixels > 0 and max_pixels < second_max_pixels * 2:
+                print(f"[颜色检测] 置信度不足: {max_pixels} < {second_max_pixels} * 2")
+                return None
+
+        print(f"[颜色检测] 识别为: {max_color} (像素数: {max_pixels})")
+        return max_color
 
     def find_text_position(self, text, region=None):
         """使用OCR检测文字位置，返回中心坐标(x, y)，未找到返回None"""
