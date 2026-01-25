@@ -507,7 +507,7 @@ class ProfitInterface(QWidget):
             return
 
         new_lines = []
-        with open(sales_path, "r", encoding="utf-8") as f:
+        with open(sales_path, "r", encoding="utf-8-sig") as f:
             reader = csv.reader(f)
             header = next(reader, None)
             if header:
@@ -517,7 +517,7 @@ class ProfitInterface(QWidget):
                     continue  # 跳过要删除的记录
                 new_lines.append(csv_row)
 
-        with open(sales_path, "w", encoding="utf-8", newline="") as f:
+        with open(sales_path, "w", encoding="utf-8-sig", newline="") as f:
             writer = csv.writer(f)
             writer.writerows(new_lines)
 
@@ -550,7 +550,7 @@ class ProfitInterface(QWidget):
             return
 
         new_lines = []
-        with open(sales_path, "r", encoding="utf-8") as f:
+        with open(sales_path, "r", encoding="utf-8-sig") as f:
             reader = csv.reader(f)
             header = next(reader, None)
             if header:
@@ -561,7 +561,7 @@ class ProfitInterface(QWidget):
                     csv_row[1] = new_amount
                 new_lines.append(csv_row)
 
-        with open(sales_path, "w", encoding="utf-8", newline="") as f:
+        with open(sales_path, "w", encoding="utf-8-sig", newline="") as f:
             writer = csv.writer(f)
             writer.writerows(new_lines)
 
@@ -613,7 +613,7 @@ class ProfitInterface(QWidget):
 
         if sales_path.exists():
             try:
-                with open(sales_path, "r", encoding="utf-8") as f:
+                with open(sales_path, "r", encoding="utf-8-sig") as f:
                     reader = csv.reader(f)
                     next(reader, None)  # Skip header
                     # Read all rows first to sort by time if needed, assuming sorted
@@ -654,7 +654,7 @@ class ProfitInterface(QWidget):
         # Load Sales History
         if sales_path.exists():
             try:
-                with open(sales_path, "r", encoding="utf-8") as f:
+                with open(sales_path, "r", encoding="utf-8-sig") as f:
                     reader = csv.reader(f)
                     next(reader, None)
                     for row in reader:
@@ -865,7 +865,7 @@ class ProfitInterface(QWidget):
 
             file_exists = sales_path.exists()
 
-            with open(sales_path, "a", encoding="utf-8", newline="") as f:
+            with open(sales_path, "a", encoding="utf-8-sig", newline="") as f:
                 writer = csv.writer(f)
                 if not file_exists:
                     writer.writerow(["Timestamp", "Amount", "BaitUsed"])

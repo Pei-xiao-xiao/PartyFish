@@ -27,26 +27,19 @@ class RecordManager:
 
             if format_type == "csv":
                 # 流式导出为CSV格式
-                with open(records_file, "r", encoding="utf-8-sig") as src, \
-                     open(file_path, "w", encoding="utf-8-sig", newline="") as dst:
-                    fieldnames = [
-                        "Timestamp",
-                        "Name",
-                        "Quality",
-                        "Weight",
-                        "IsNewRecord",
-                        "Bait",
-                        "BaitCost",
-                    ]
+                with open(records_file, "r", encoding="utf-8-sig") as src, open(
+                    file_path, "w", encoding="utf-8-sig", newline=""
+                ) as dst:
                     reader = csv.DictReader(src)
-                    writer = csv.DictWriter(dst, fieldnames=fieldnames)
+                    writer = csv.DictWriter(dst, fieldnames=reader.fieldnames)
                     writer.writeheader()
                     writer.writerows(reader)
 
             elif format_type == "txt":
                 # 流式导出为 |时间|鱼名|品质|重量 格式
-                with open(records_file, "r", encoding="utf-8-sig") as src, \
-                     open(file_path, "w", encoding="utf-8") as dst:
+                with open(records_file, "r", encoding="utf-8-sig") as src, open(
+                    file_path, "w", encoding="utf-8"
+                ) as dst:
                     reader = csv.DictReader(src)
                     for record in reader:
                         formatted = f"|{record['Timestamp']}|{record['Name']}|{record['Quality']}|{record['Weight']}|"
@@ -74,8 +67,9 @@ class RecordManager:
 
             if file_extension == ".csv":
                 # 从CSV文件导入并流式写入
-                with open(file_path, "r", encoding="utf-8-sig") as src, \
-                     open(records_file, "a", encoding="utf-8", newline="") as dst:
+                with open(file_path, "r", encoding="utf-8-sig") as src, open(
+                    records_file, "a", encoding="utf-8-sig", newline=""
+                ) as dst:
                     reader = csv.DictReader(src)
                     fieldnames = [
                         "Timestamp",
@@ -95,30 +89,39 @@ class RecordManager:
                     count = 0
                     for row in reader:
                         # 验证必要字段
-                        if not all(field in row for field in ["Timestamp", "Name", "Quality", "Weight"]):
+                        if not all(
+                            field in row
+                            for field in ["Timestamp", "Name", "Quality", "Weight"]
+                        ):
                             return False, f"CSV文件格式不正确，缺少必要字段: {row}"
-                        
+
                         # 直接写入，减少字典创建
-                        writer.writerow({
-                            "Timestamp": row.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                            "Name": row.get("Name", ""),
-                            "Quality": row.get("Quality", ""),
-                            "Weight": row.get("Weight", ""),
-                            "IsNewRecord": row.get("IsNewRecord", "No"),
-                            "Bait": row.get("Bait", "蔓越莓"),
-                            "BaitCost": row.get("BaitCost", "1"),
-                        })
+                        writer.writerow(
+                            {
+                                "Timestamp": row.get(
+                                    "Timestamp",
+                                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                ),
+                                "Name": row.get("Name", ""),
+                                "Quality": row.get("Quality", ""),
+                                "Weight": row.get("Weight", ""),
+                                "IsNewRecord": row.get("IsNewRecord", "No"),
+                                "Bait": row.get("Bait", "蔓越莓"),
+                                "BaitCost": row.get("BaitCost", "1"),
+                            }
+                        )
                         count += 1
 
                     if count == 0:
                         return False, "没有找到可导入的记录"
-                    
+
                     return True, f"成功导入 {count} 条记录"
 
             elif file_extension == ".txt":
                 # 从TXT文件导入并流式写入
-                with open(file_path, "r", encoding="utf-8") as src, \
-                     open(records_file, "a", encoding="utf-8", newline="") as dst:
+                with open(file_path, "r", encoding="utf-8") as src, open(
+                    records_file, "a", encoding="utf-8-sig", newline=""
+                ) as dst:
                     fieldnames = [
                         "Timestamp",
                         "Name",
@@ -150,7 +153,7 @@ class RecordManager:
 
                     if count == 0:
                         return False, "没有找到可导入的记录"
-                    
+
                     return True, f"成功导入 {count} 条记录"
 
             else:
@@ -188,11 +191,21 @@ class RecordManager:
                     return None
 
                 if len(parts) == 5:
-                    timestamp, name, quality, weight = parts[1], parts[2], parts[3], parts[4]
+                    timestamp, name, quality, weight = (
+                        parts[1],
+                        parts[2],
+                        parts[3],
+                        parts[4],
+                    )
                 elif len(parts) == 4:
                     try:
                         datetime.strptime(parts[1], "%Y-%m-%d %H:%M:%S")
-                        timestamp, name, quality, weight = parts[1], parts[2], parts[0], parts[3]
+                        timestamp, name, quality, weight = (
+                            parts[1],
+                            parts[2],
+                            parts[0],
+                            parts[3],
+                        )
                     except ValueError:
                         try:
                             datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S")

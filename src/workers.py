@@ -1002,7 +1002,7 @@ class FishingWorker(QThread):
             file_exists = sales_path.exists()
 
             # Write to file
-            with open(sales_path, "a", encoding="utf-8", newline="") as f:
+            with open(sales_path, "a", encoding="utf-8-sig", newline="") as f:
                 writer = csv.writer(f)
                 if not file_exists:
                     writer.writerow(["Timestamp", "Amount", "BaitUsed"])
