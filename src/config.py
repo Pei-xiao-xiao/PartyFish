@@ -146,6 +146,7 @@ class Config(metaclass=SingletonMeta):
                     },
                 ],
                 "release_button_offset": (200, 107),
+                "single_release_button_offset": (80, 150),
             },
         }
 
@@ -716,6 +717,11 @@ class Config(metaclass=SingletonMeta):
             "release_rare": False,
             "release_epic": False,
             "release_legendary": False,
+            "single_release_standard": True,
+            "single_release_uncommon": True,
+            "single_release_rare": False,
+            "single_release_epic": False,
+            "single_release_legendary": False,
         }
         loaded_global_settings = config_data.get("global_settings", {})
         default_global_settings.update(loaded_global_settings)

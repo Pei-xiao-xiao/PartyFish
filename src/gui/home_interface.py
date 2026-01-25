@@ -152,7 +152,7 @@ class HomeInterface(QWidget):
 
         # Line 1: Author & Open Source Declaration
         self.author_label = BodyLabel(
-            f"Created by R1ckyyyyy, FadedTUMI, MaiDong688, Pei-Xiao-Xiao | {__version__} | 本软件完全免费",
+            f"Created by R1ckyyyyy, FadedTUMI, MaiDong688, Pei-Xiao-Xiao | {__version__} | 本软件完全免费 如遇售卖 直接举报",
             self,
         )
         self.author_label.setTextColor(QColor(100, 100, 100), QColor(150, 150, 150))

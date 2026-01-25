@@ -108,7 +108,7 @@ class FishingWorker(QThread):
                 elif self.state == "reeling_in":
                     reel_in_finished = self._reel_in()
                     if reel_in_finished:
-                        self._record_catch()
+                        should_release = self._record_catch()
                         self.log_updated.emit("收起渔获, 准备下一轮。")
 
                         # 改进的关闭弹窗逻辑：循环检测直到弹窗消失
@@ -142,6 +142,10 @@ class FishingWorker(QThread):
                             self.log_updated.emit(
                                 "警告: 渔获弹窗可能未完全关闭，继续下一轮"
                             )
+
+                        # 在关闭弹窗后、重新抛竿前执行单条放生
+                        if should_release and popup_closed:
+                            self._execute_single_release()
 
                     # 无论成功与否，都重置到初始状态
                     self.state = "finding_prompt"
@@ -850,6 +854,17 @@ class FishingWorker(QThread):
         except Exception as e:
             self.log_updated.emit(f"写入记录文件失败: {e}")
 
+        # 检查是否需要单条放生（返回标志，不在此处执行）
+        release_map = {
+            "标准": "single_release_standard",
+            "非凡": "single_release_uncommon",
+            "稀有": "single_release_rare",
+            "史诗": "single_release_epic",
+            "传奇": "single_release_legendary",
+        }
+
+        should_release = cfg.global_settings.get(release_map.get(quality), False)
+
         if quality == "传奇":
             self.log_updated.emit("哇! 钓到了传奇品质的鱼, 正在截图保存...")
             try:
@@ -875,7 +890,7 @@ class FishingWorker(QThread):
 
         # 无论结果如何，尝试点击"收起"按钮以关闭弹窗，进入下一轮
         # 优化：交由主循环统一处理点击，避免此处重复点击导致异常
-        return True
+        return should_release
 
     def _record_event(self, event_type: str):
         """
@@ -1339,6 +1354,139 @@ class FishingWorker(QThread):
         self.status_updated.emit("运行中")
 
         return released_count
+
+    def _execute_single_release(self):
+        """执行单条放生操作（在识别到鱼后立即调用）"""
+        try:
+            # 打开鱼桶
+            self.inputs.hold_key("C")
+            self.msleep(300)
+
+            bucket_pos = self.vision.find_template("tong_gray", threshold=0.8)
+            self.msleep(200)
+
+            if bucket_pos:
+                import ctypes
+
+                ctypes.windll.user32.SetCursorPos(
+                    bucket_pos[0] + cfg.window_offset_x,
+                    bucket_pos[1] + cfg.window_offset_y,
+                )
+                self.msleep(500)
+
+            self.inputs.release_key("C")
+            self.msleep(1200)
+
+            if not bucket_pos:
+                self.log_updated.emit("未识别到桶图标，放生操作失败。")
+                return
+
+            # 使用固定坐标点击第一条鱼（2K基准：1933, 600）
+            fish_x = int(1933 * cfg.scale_x)
+            fish_y = int(600 * cfg.scale_y)
+
+            # 窗口化模式修正：向左偏移一个半格子宽度
+            if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
+                fish_x -= int(228 * cfg.scale_x)
+
+            self.msleep(200)
+
+            self.inputs.click(
+                fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
+            )
+            self.msleep(800)
+
+            # 使用配置的偏移点击放生按钮（相对于鱼的位置，向右下偏移）
+            offset = cfg.REGIONS["fish_inventory"]["single_release_button_offset"]
+            release_x = fish_x + int(offset[0] * cfg.scale_x)
+            release_y = fish_y + int(offset[1] * cfg.scale_y)
+            self.msleep(200)
+
+            self.inputs.click(
+                release_x + cfg.window_offset_x,
+                release_y + cfg.window_offset_y,
+            )
+            self.log_updated.emit("已点击放生按钮，鱼已放生")
+            self.msleep(800)
+
+            # 关闭鱼桶
+            self.inputs.press_key("ESC")
+            self.msleep(500)
+
+        except Exception as e:
+            self.log_updated.emit(f"单条放生操作发生错误: {e}")
+            self.inputs.press_key("ESC")
+
+    @Slot()
+    def trigger_release_single(self):
+        """触发单条放生逻辑"""
+        if self.running and not self.paused:
+            self.log_updated.emit("脚本运行中，请先暂停再执行单条放生操作。")
+            return
+
+        self.log_updated.emit("正在执行单条放生操作...")
+
+        try:
+            # 打开鱼桶
+            self.inputs.hold_key("C")
+            self.msleep(300)
+
+            bucket_pos = self.vision.find_template("tong_gray", threshold=0.8)
+            self.msleep(200)
+
+            if bucket_pos:
+                import ctypes
+
+                ctypes.windll.user32.SetCursorPos(
+                    bucket_pos[0] + cfg.window_offset_x,
+                    bucket_pos[1] + cfg.window_offset_y,
+                )
+                self.msleep(500)
+
+            self.inputs.release_key("C")
+            self.msleep(800)
+
+            if not bucket_pos:
+                self.log_updated.emit("未识别到桶图标，放生操作失败。")
+                self.inputs.press_key("ESC")
+                return
+
+            # 使用固定坐标点击第一条鱼（2K基准：1933, 600）
+            fish_x = int(1933 * cfg.scale_x)
+            fish_y = int(600 * cfg.scale_y)
+
+            # 窗口化模式修正：向左偏移两个格子宽度
+            if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
+                fish_x -= int(152 * cfg.scale_x)
+
+            self.msleep(200)
+
+            self.inputs.click(
+                fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
+            )
+
+            # 使用配置的偏移点击放生按钮（相对于鱼的位置，向右下偏移）
+            offset = cfg.REGIONS["fish_inventory"]["single_release_button_offset"]
+            release_x = fish_x + int(offset[0] * cfg.scale_x)
+            release_y = fish_y + int(offset[1] * cfg.scale_y)
+            self.msleep(200)
+
+            self.inputs.click(
+                release_x + cfg.window_offset_x,
+                release_y + cfg.window_offset_y,
+            )
+            self.log_updated.emit("已点击放生按钮")
+            self.msleep(600)
+
+            # 关闭鱼桶
+            self.inputs.press_key("ESC")
+            self.msleep(500)
+
+            self.log_updated.emit("单条放生操作完成。")
+
+        except Exception as e:
+            self.log_updated.emit(f"单条放生操作发生错误: {e}")
+            self.inputs.press_key("ESC")
 
 
 class PopupWorker(QThread):

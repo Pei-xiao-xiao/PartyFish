@@ -27,13 +27,13 @@ class InputController(QObject):
         self._sell_hotkey_handler = None
         self._uno_hotkey_handler = None
         self.is_mouse_down = False
-        
+
         # Store configured hotkeys as strings for mouse hotkey matching
         self._main_hotkey_str = cfg.hotkey
         self._debug_hotkey_str = cfg.global_settings.get("debug_hotkey", "F10")
         self._sell_hotkey_str = cfg.global_settings.get("sell_hotkey", "F4")
         self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
-        
+
         self._update_hotkey_handler()
         self._update_debug_hotkey_handler()
         self._update_sell_hotkey_handler()
@@ -83,12 +83,12 @@ class InputController(QObject):
         # 鼠标侧键映射
         mouse_buttons = {
             "mouse1": "Button.left",
-            "mouse2": "Button.right", 
+            "mouse2": "Button.right",
             "mouse3": "Button.middle",
             "mouse4": "Button.x1",  # 侧键1
             "mouse5": "Button.x2",  # 侧键2
-            "x1": "Button.x1",      # 侧键1 (简化写法)
-            "x2": "Button.x2",      # 侧键2 (简化写法)
+            "x1": "Button.x1",  # 侧键1 (简化写法)
+            "x2": "Button.x2",  # 侧键2 (简化写法)
             "侧键1": "Button.x1",
             "侧键2": "Button.x2",
         }
@@ -109,12 +109,12 @@ class InputController(QObject):
         Parses the main hotkey from config and creates a pynput HotKey handler.
         """
         self._main_hotkey_str = cfg.hotkey
-        
+
         # Skip keyboard.HotKey for mouse buttons
         if self._main_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._hotkey_handler = None
             return
-            
+
         try:
             formatted_hotkey = self._parse_hotkey_string(cfg.hotkey)
             self._hotkey_handler = keyboard.HotKey(
@@ -129,24 +129,20 @@ class InputController(QObject):
         Parses the debug hotkey from config and creates a pynput HotKey handler.
         """
         self._debug_hotkey_str = cfg.global_settings.get("debug_hotkey", "F10")
-        
+
         # Skip keyboard.HotKey for mouse buttons
         if self._debug_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._debug_hotkey_handler = None
             return
-            
+
         try:
-            formatted_hotkey = self._parse_hotkey_string(
-                self._debug_hotkey_str
-            )
+            formatted_hotkey = self._parse_hotkey_string(self._debug_hotkey_str)
             self._debug_hotkey_handler = keyboard.HotKey(
                 keyboard.HotKey.parse(formatted_hotkey),
                 self.debug_screenshot_signal.emit,
             )
         except Exception as e:
-            print(
-                f"Error parsing debug hotkey '{self._debug_hotkey_str}': {e}"
-            )
+            print(f"Error parsing debug hotkey '{self._debug_hotkey_str}': {e}")
             self._debug_hotkey_handler = None
 
     def _update_sell_hotkey_handler(self):
@@ -154,23 +150,19 @@ class InputController(QObject):
         Parses the sell hotkey from config and creates a pynput HotKey handler.
         """
         self._sell_hotkey_str = cfg.global_settings.get("sell_hotkey", "F4")
-        
+
         # Skip keyboard.HotKey for mouse buttons
         if self._sell_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._sell_hotkey_handler = None
             return
-            
+
         try:
-            formatted_hotkey = self._parse_hotkey_string(
-                self._sell_hotkey_str
-            )
+            formatted_hotkey = self._parse_hotkey_string(self._sell_hotkey_str)
             self._sell_hotkey_handler = keyboard.HotKey(
                 keyboard.HotKey.parse(formatted_hotkey), self.sell_hotkey_signal.emit
             )
         except Exception as e:
-            print(
-                f"Error parsing sell hotkey '{self._sell_hotkey_str}': {e}"
-            )
+            print(f"Error parsing sell hotkey '{self._sell_hotkey_str}': {e}")
             self._sell_hotkey_handler = None
 
     def _update_uno_hotkey_handler(self):
@@ -178,23 +170,19 @@ class InputController(QObject):
         Parses the uno hotkey from config and creates a pynput HotKey handler.
         """
         self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
-        
+
         # Skip keyboard.HotKey for mouse buttons
         if self._uno_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._uno_hotkey_handler = None
             return
-            
+
         try:
-            formatted_hotkey = self._parse_hotkey_string(
-                self._uno_hotkey_str
-            )
+            formatted_hotkey = self._parse_hotkey_string(self._uno_hotkey_str)
             self._uno_hotkey_handler = keyboard.HotKey(
                 keyboard.HotKey.parse(formatted_hotkey), self.uno_hotkey_signal.emit
             )
         except Exception as e:
-            print(
-                f"Error parsing uno hotkey '{self._uno_hotkey_str}': {e}"
-            )
+            print(f"Error parsing uno hotkey '{self._uno_hotkey_str}': {e}")
             self._uno_hotkey_handler = None
 
     def add_jitter(self, base_time):
@@ -359,11 +347,9 @@ class InputController(QObject):
             on_press=self._on_press, on_release=self._on_release
         )
         self.keyboard_listener.start()
-        
+
         # 添加鼠标监听器支持侧键
-        self.mouse_listener = mouse.Listener(
-            on_click=self._on_mouse_click
-        )
+        self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
         self.mouse_listener.start()
 
     def stop_listening(self):
@@ -377,7 +363,7 @@ class InputController(QObject):
         if self.keyboard_listener:
             self.keyboard_listener.stop()
             self.keyboard_listener = None
-        if hasattr(self, 'mouse_listener') and self.mouse_listener:
+        if hasattr(self, "mouse_listener") and self.mouse_listener:
             self.mouse_listener.stop()
             self.mouse_listener = None
 
@@ -389,14 +375,14 @@ class InputController(QObject):
         vk = vk_map.get(key_name)
         if vk:
             ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
-            
+
     def _on_mouse_click(self, x, y, button, pressed):
         """
         鼠标点击事件处理，支持侧键热键
         """
         if not pressed:
             return
-            
+
         # 映射鼠标按键到字符串表示
         button_str = ""
         if button == mouse.Button.left:
@@ -409,10 +395,10 @@ class InputController(QObject):
             button_str = "Mouse4"
         elif button == mouse.Button.x2:
             button_str = "Mouse5"
-            
+
         if not button_str:
             return
-            
+
         # 检查是否匹配任何热键
         if button_str == self._main_hotkey_str:
             self.toggle_script_signal.emit()

@@ -331,7 +331,39 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.autoReleaseGroup)
 
-        # 7. Record Management Group
+        # 7. Single Release Group
+        self.singleReleaseGroup = SettingCardGroup(
+            self.tr("单条放生"), self.scrollWidget
+        )
+
+        self.singleReleaseStandardCard = SwitchSettingCard(
+            FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色")
+        )
+        self.singleReleaseGroup.addSettingCard(self.singleReleaseStandardCard)
+
+        self.singleReleaseUncommonCard = SwitchSettingCard(
+            FluentIcon.CANCEL, self.tr("放生非凡品质"), self.tr("绿色")
+        )
+        self.singleReleaseGroup.addSettingCard(self.singleReleaseUncommonCard)
+
+        self.singleReleaseRareCard = SwitchSettingCard(
+            FluentIcon.CANCEL, self.tr("放生稀有品质"), self.tr("蓝色")
+        )
+        self.singleReleaseGroup.addSettingCard(self.singleReleaseRareCard)
+
+        self.singleReleaseEpicCard = SwitchSettingCard(
+            FluentIcon.CANCEL, self.tr("放生史诗品质"), self.tr("紫色")
+        )
+        self.singleReleaseGroup.addSettingCard(self.singleReleaseEpicCard)
+
+        self.singleReleaseLegendaryCard = SwitchSettingCard(
+            FluentIcon.CANCEL, self.tr("放生传奇品质"), self.tr("黄色")
+        )
+        self.singleReleaseGroup.addSettingCard(self.singleReleaseLegendaryCard)
+
+        self.vBoxLayout.addWidget(self.singleReleaseGroup)
+
+        # 8. Record Management Group
         self.recordGroup = SettingCardGroup(self.tr("记录管理"), self.scrollWidget)
 
         self.exportRecordCard = SettingCard(
@@ -550,6 +582,21 @@ class SettingsInterface(ScrollArea):
         self.releaseLegendaryCard.setChecked(
             cfg.global_settings.get("release_legendary", False)
         )
+        self.singleReleaseStandardCard.setChecked(
+            cfg.global_settings.get("single_release_standard", True)
+        )
+        self.singleReleaseUncommonCard.setChecked(
+            cfg.global_settings.get("single_release_uncommon", True)
+        )
+        self.singleReleaseRareCard.setChecked(
+            cfg.global_settings.get("single_release_rare", False)
+        )
+        self.singleReleaseEpicCard.setChecked(
+            cfg.global_settings.get("single_release_epic", False)
+        )
+        self.singleReleaseLegendaryCard.setChecked(
+            cfg.global_settings.get("single_release_legendary", False)
+        )
         jitter_value = cfg.global_settings.get("jitter_range", 0)
         self.jitterSlider.setValue(jitter_value)
         self.jitterLabel.setText(f"{jitter_value}%")
@@ -622,6 +669,21 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["release_rare"] = self.releaseRareCard.isChecked()
         cfg.global_settings["release_epic"] = self.releaseEpicCard.isChecked()
         cfg.global_settings["release_legendary"] = self.releaseLegendaryCard.isChecked()
+        cfg.global_settings["single_release_standard"] = (
+            self.singleReleaseStandardCard.isChecked()
+        )
+        cfg.global_settings["single_release_uncommon"] = (
+            self.singleReleaseUncommonCard.isChecked()
+        )
+        cfg.global_settings["single_release_rare"] = (
+            self.singleReleaseRareCard.isChecked()
+        )
+        cfg.global_settings["single_release_epic"] = (
+            self.singleReleaseEpicCard.isChecked()
+        )
+        cfg.global_settings["single_release_legendary"] = (
+            self.singleReleaseLegendaryCard.isChecked()
+        )
         cfg.global_settings["jitter_range"] = self.jitterSlider.value()
         cfg.global_settings["theme"] = self.themeComboBox.currentText()
 
