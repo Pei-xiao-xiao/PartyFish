@@ -1240,47 +1240,42 @@ class FishingWorker(QThread):
                         if not self.running or self.paused:
                             break
 
-                        # 使用固定偏移点击放生按钮
-                        offsets_to_try = [
-                            {"name": "右侧", "x": 50, "y": 150},
-                            {"name": "左侧", "x": -50, "y": 150}
-                        ]
+                        # 根据列位置智能选择放生按钮方向
+                        # 前3列（第0、1、2列）使用右侧偏移，第4列（第3列）使用左侧偏移
+                        if col < 3:
+                            offset_name = "右侧"
+                            offset_x = 50
+                            offset_y = 150
+                        else:
+                            offset_name = "左侧"
+                            offset_x = -50
+                            offset_y = 150
                         
-                        click_success = False
-                        for offset in offsets_to_try:
-                            if not self.running or self.paused:
-                                break
-                                
-                            # 应用分辨率缩放
-                            release_offset_x = int(offset["x"] * cfg.scale_x)
-                            release_offset_y = int(offset["y"] * cfg.scale_y)
-                            
-                            # 计算放生按钮的绝对坐标
-                            release_x = fish_x + release_offset_x
-                            release_y = fish_y + release_offset_y
-                            
-                            self.log_updated.emit(
-                                f"使用{offset['name']}偏移点击放生按钮: ({offset['x']}, {offset['y']}) -> "
-                                f"坐标:({release_x}, {release_y})"
+                        # 应用分辨率缩放
+                        release_offset_x = int(offset_x * cfg.scale_x)
+                        release_offset_y = int(offset_y * cfg.scale_y)
+                        
+                        # 计算放生按钮的绝对坐标
+                        release_x = fish_x + release_offset_x
+                        release_y = fish_y + release_offset_y
+                        
+                        self.log_updated.emit(
+                            f"使用{offset_name}偏移点击放生按钮: ({offset_x}, {offset_y}) -> "
+                            f"坐标:({release_x}, {release_y})"
+                        )
+                        
+                        # 检查坐标是否在屏幕范围内
+                        if (0 <= release_x <= cfg.screen_width and 
+                            0 <= release_y <= cfg.screen_height):
+                            self.inputs.click(
+                                release_x + cfg.window_offset_x,
+                                release_y + cfg.window_offset_y,
                             )
-                            
-                            # 检查坐标是否在屏幕范围内
-                            if (0 <= release_x <= cfg.screen_width and 
-                                0 <= release_y <= cfg.screen_height):
-                                self.inputs.click(
-                                    release_x + cfg.window_offset_x,
-                                    release_y + cfg.window_offset_y,
-                                )
-                                click_success = True
-                                self.smart_sleep(0.3)  # 等待点击响应
-                                break
-                            else:
-                                self.log_updated.emit(
-                                    f"坐标超出屏幕范围，跳过{offset['name']}偏移"
-                                )
-                        
-                        if not click_success:
-                            self.log_updated.emit("所有固定偏移都超出屏幕范围")
+                            self.smart_sleep(0.3)  # 等待点击响应
+                        else:
+                            self.log_updated.emit(
+                                f"坐标超出屏幕范围，跳过{offset_name}偏移"
+                            )
                         self.smart_sleep(0.3)  # 等待点击响应
 
                         # 将鼠标移到右上角，避免干扰后续操作
