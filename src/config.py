@@ -110,14 +110,38 @@ class Config(metaclass=SingletonMeta):
                 "zones": [
                     {
                         "id": 1,
-                        "coords": (1812, 521, 608, 603),
+                        "coords": (1857, 521, 608, 603),
                         "grid": {
                             "rows": 4,
                             "cols": 4,
                             "cell_width": 152,
                             "cell_height": 151,
-                            "star_offset": (105, 113),
-                            "star_size": (40, 27),
+                            "star_offset": (58, 112),
+                            "star_size": (47, 33),
+                        },
+                    },
+                    {
+                        "id": 2,
+                        "coords": (1857, 521, 608, 603),
+                        "grid": {
+                            "rows": 4,
+                            "cols": 4,
+                            "cell_width": 152,
+                            "cell_height": 151,
+                            "star_offset": (58, 112),
+                            "star_size": (47, 33),
+                        },
+                    },
+                    {
+                        "id": 3,
+                        "coords": (1866, 599, 606, 599),
+                        "grid": {
+                            "rows": 4,
+                            "cols": 4,
+                            "cell_width": 152,
+                            "cell_height": 151,
+                            "star_offset": (48, 95),
+                            "star_size": (47, 33),
                         },
                     },
                 ],

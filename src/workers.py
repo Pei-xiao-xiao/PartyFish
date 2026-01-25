@@ -1123,184 +1123,210 @@ class FishingWorker(QThread):
             return
 
         released_count = 0
+        zones = cfg.REGIONS["fish_inventory"]["zones"]
 
-        # 只检测第一个区域的前4排
-        zone = cfg.REGIONS["fish_inventory"]["zones"][0]
-        grid = zone["grid"]
-
-        # 应用分辨率缩放
-        scaled_zone_x = int(zone["coords"][0] * cfg.scale_x)
-        scaled_zone_y = int(zone["coords"][1] * cfg.scale_y)
-        scaled_cell_width = int(grid["cell_width"] * cfg.scale_x)
-        scaled_cell_height = int(grid["cell_height"] * cfg.scale_y)
-        scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale_x)
-        scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale_y)
-        scaled_star_width = int(grid["star_size"][0] * cfg.scale_x)
-        scaled_star_height = int(grid["star_size"][1] * cfg.scale_y)
-
-        # 按行遍历，每行重复检查直到没有需要放生的鱼
-        for row in range(4):
+        # 依次检测3个区域
+        for zone_idx, zone in enumerate(zones):
             if not self.running or self.paused:
                 break
-            while True:  # 重复检查该行
+
+            zone_id = zone["id"]
+            self.log_updated.emit(f"检测区域 {zone_id}...")
+
+            grid = zone["grid"]
+            scaled_zone_x = int(zone["coords"][0] * cfg.scale_x)
+            scaled_zone_y = int(zone["coords"][1] * cfg.scale_y)
+            scaled_cell_width = int(grid["cell_width"] * cfg.scale_x)
+            scaled_cell_height = int(grid["cell_height"] * cfg.scale_y)
+            scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale_x)
+            scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale_y)
+            scaled_star_width = int(grid["star_size"][0] * cfg.scale_x)
+            scaled_star_height = int(grid["star_size"][1] * cfg.scale_y)
+
+            zone_released = 0
+
+            # 按行遍历，每行重复检查直到没有需要放生的鱼
+            for row in range(4):
                 if not self.running or self.paused:
                     break
-                released_in_row = False
-                valid_fish_count = 0  # 记录这一行有多少有效的鱼
-                for col in range(4):
+                while True:
                     if not self.running or self.paused:
                         break
+                    released_in_row = False
+                    valid_fish_count = 0
+                    for col in range(4):
+                        if not self.running or self.paused:
+                            break
 
-                    # 计算星星位置
-                    star_x = (
-                        scaled_zone_x + col * scaled_cell_width + scaled_star_offset_x
-                    )
-                    star_y = (
-                        scaled_zone_y + row * scaled_cell_height + scaled_star_offset_y
-                    )
+                        star_x = (
+                            scaled_zone_x
+                            + col * scaled_cell_width
+                            + scaled_star_offset_x
+                        )
+                        star_y = (
+                            scaled_zone_y
+                            + row * scaled_cell_height
+                            + scaled_star_offset_y
+                        )
+                        star_region = (
+                            star_x,
+                            star_y,
+                            scaled_star_width,
+                            scaled_star_height,
+                        )
+                        star_img = self.vision.screenshot(star_region)
+                        color = self.vision.detect_star_color(star_img)
 
-                    # 截取星星区域
-                    star_region = (
-                        star_x,
-                        star_y,
-                        scaled_star_width,
-                        scaled_star_height,
-                    )
-                    star_img = self.vision.screenshot(star_region)
+                        if color is None:
+                            continue
 
-                    # 识别颜色
-                    color = self.vision.detect_star_color(star_img)
+                        if color in ["purple", "yellow"]:
+                            self.msleep(50)
+                            star_img_verify = self.vision.screenshot(star_region)
+                            color_verify = self.vision.detect_star_color(
+                                star_img_verify
+                            )
+                            if color_verify != color:
+                                self.log_updated.emit(
+                                    f"位置({row},{col})高品质验证失败: {color} != {color_verify}，跳过"
+                                )
+                                continue
 
-                    # 检测不到星星时跳过该位置
-                    if color is None:
-                        continue
-                    # 【新增】对史诗和传奇进行二次验证，避免误放生
-                    if color in ["purple", "yellow"]:
-                        # 等待50ms后再次检测，确保不是误判
-                        self.msleep(50)
-                        star_img_verify = self.vision.screenshot(star_region)
-                        color_verify = self.vision.detect_star_color(star_img_verify)
+                        valid_fish_count += 1
 
-                        if color_verify != color:
-                            # 两次检测结果不一致，为安全起见跳过
+                        quality_map = {
+                            "gray": "标准",
+                            "green": "非凡",
+                            "blue": "稀有",
+                            "purple": "史诗",
+                            "yellow": "传奇",
+                        }
+                        quality = quality_map.get(color, "标准")
+
+                        if color in ["purple", "yellow"]:
                             self.log_updated.emit(
-                                f"位置({row},{col})高品质验证失败: {color} != {color_verify}，跳过"
+                                f"位置({row},{col})检测到高品质颜色({color})，品质:{quality}，安全起见不放生"
                             )
                             continue
 
-                    valid_fish_count += 1  # 发现有效的鱼
+                        release_map = {
+                            "标准": "release_standard",
+                            "非凡": "release_uncommon",
+                            "稀有": "release_rare",
+                            "史诗": "release_epic",
+                            "传奇": "release_legendary",
+                        }
+                        if cfg.global_settings.get(release_map.get(quality), False):
+                            if not self.running or self.paused:
+                                break
 
-                    quality_map = {
-                        "gray": "标准",
-                        "green": "非凡",
-                        "blue": "稀有",
-                        "purple": "史诗",
-                        "yellow": "传奇",
-                    }
-                    quality = quality_map.get(color, "标准")
+                            fish_x = (
+                                scaled_zone_x
+                                + col * scaled_cell_width
+                                + scaled_cell_width // 2
+                            )
+                            fish_y = (
+                                scaled_zone_y
+                                + row * scaled_cell_height
+                                + scaled_cell_height // 2
+                            )
+                            self.inputs.click(
+                                fish_x + cfg.window_offset_x,
+                                fish_y + cfg.window_offset_y,
+                            )
+                            self.smart_sleep(0.3)
 
-                    # 【安全保护】史诗和传奇品质默认不放生，除非用户明确启用
-                    # 即使检测为低品质，如果是紫色或黄色也不放生（防止误判）
-                    if color in ["purple", "yellow"]:
-                        self.log_updated.emit(
-                            f"位置({row},{col})检测到高品质颜色({color})，品质:{quality}，安全起见不放生"
-                        )
-                        continue
+                            if not self.running or self.paused:
+                                break
 
-                    # 判断是否放生（仅对灰、绿、蓝色）
-                    release_map = {
-                        "标准": "release_standard",
-                        "非凡": "release_uncommon",
-                        "稀有": "release_rare",
-                        "史诗": "release_epic",
-                        "传奇": "release_legendary",
-                    }
-                    if cfg.global_settings.get(release_map.get(quality), False):
-                        if not self.running or self.paused:
+                            # 在整个zone区域内识别"放生"按钮
+                            zone_width = 4 * scaled_cell_width
+                            zone_height = 4 * scaled_cell_height
+                            menu_region = (
+                                scaled_zone_x,
+                                scaled_zone_y,
+                                zone_width,
+                                zone_height,
+                            )
+                            menu_img = self.vision.screenshot(menu_region)
+
+                            if menu_img is None:
+                                self.log_updated.emit("截取菜单失败，跳过")
+                                continue
+
+                            ocr_result, _ = self.ocr(menu_img)
+                            release_found = False
+
+                            if ocr_result:
+                                for item in ocr_result:
+                                    text = item[1]
+                                    if "放生" in text:
+                                        box = item[0]
+                                        center_x = int((box[0][0] + box[2][0]) / 2)
+                                        center_y = int((box[0][1] + box[2][1]) / 2)
+                                        release_x = scaled_zone_x + center_x
+                                        release_y = scaled_zone_y + center_y
+                                        self.inputs.click(
+                                            release_x + cfg.window_offset_x,
+                                            release_y + cfg.window_offset_y,
+                                        )
+                                        release_found = True
+                                        self.log_updated.emit(
+                                            f"识别到放生按钮，位置:({release_x},{release_y})"
+                                        )
+                                        break
+
+                            if not release_found:
+                                self.log_updated.emit("未识别到放生按钮，跳过")
+                                continue
+
+                            time.sleep(0.3)
+
+                            import ctypes
+
+                            screen_right = cfg.window_offset_x + cfg.screen_width - 10
+                            screen_top = cfg.window_offset_y + 10
+                            ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
+
+                            self.smart_sleep(0.8)
+
+                            if not self.running or self.paused:
+                                break
+
+                            released_count += 1
+                            zone_released += 1
+                            released_in_row = True
+                            self.smart_sleep(0.3)
                             break
 
-                        # 点击鱼（使用缩放后的坐标）
-                        fish_x = (
-                            scaled_zone_x
-                            + col * scaled_cell_width
-                            + scaled_cell_width // 2
-                            + 30  # 向右偏移10像素
-                        )
-                        fish_y = (
-                            scaled_zone_y
-                            + row * scaled_cell_height
-                            + scaled_cell_height // 2
-                        )
-                        self.inputs.click(
-                            fish_x + cfg.window_offset_x,
-                            fish_y + cfg.window_offset_y,
-                        )
-                        self.smart_sleep(0.3)
+                    if valid_fish_count == 0 or not released_in_row:
+                        break
 
-                        if not self.running or self.paused:
-                            break
+            # 输出当前区域的放生结果
+            if zone_released > 0:
+                self.log_updated.emit(f"区域 {zone_id} 放生了 {zone_released} 条鱼")
+            else:
+                self.log_updated.emit(f"区域 {zone_id} 无可放生的鱼")
 
-                        # 使用OCR识别"放生"按钮位置
-                        menu_width = int(300 * cfg.scale_x)
-                        menu_height = int(300 * cfg.scale_y)
-                        menu_x = max(0, fish_x - menu_width // 4)
-                        menu_y = max(0, fish_y - menu_height // 4)
-                        menu_region = (menu_x, menu_y, menu_width, menu_height)
-                        menu_img = self.vision.screenshot(menu_region)
+            # 如果不是最后一个区域，滚动到下一个区域
+            if zone_idx < len(zones) - 1:
+                self.log_updated.emit("滚动到下一区域...")
+                # 将鼠标移到鱼桶中心位置，确保滚轮生效
+                import ctypes
 
-                        if menu_img is None:
-                            self.log_updated.emit("截取菜单失败，跳过")
-                            continue
-
-                        ocr_result, _ = self.ocr(menu_img)
-                        release_found = False
-
-                        if ocr_result:
-                            for item in ocr_result:
-                                text = item[1]
-                                if "放生" in text:
-                                    box = item[0]
-                                    center_x = int((box[0][0] + box[2][0]) / 2)
-                                    center_y = int((box[0][1] + box[2][1]) / 2)
-                                    release_x = menu_x + center_x
-                                    release_y = menu_y + center_y
-                                    self.inputs.click(
-                                        release_x + cfg.window_offset_x,
-                                        release_y + cfg.window_offset_y,
-                                    )
-                                    release_found = True
-                                    self.log_updated.emit(
-                                        f"识别到放生按钮，位置:({release_x},{release_y})"
-                                    )
-                                    break
-
-                        if not release_found:
-                            self.log_updated.emit("未识别到放生按钮，跳过")
-                            continue
-
-                        # 等待放生操作完成
-                        time.sleep(0.3)
-
-                        # 将鼠标移到右上角，避免干扰后续操作
-                        import ctypes
-
-                        screen_right = cfg.window_offset_x + cfg.screen_width - 10
-                        screen_top = cfg.window_offset_y + 10
-                        ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
-
-                        self.smart_sleep(0.5)  # 等待放生动画完成
-
-                        if not self.running or self.paused:
-                            break
-
-                        released_count += 1
-                        released_in_row = True
-                        self.smart_sleep(0.3)  # 放生后额外延迟，确保UI更新完成
-                        break  # 放生后重新检查该行
-
-                # 如果这一行没有有效的鱼，或者没有放生任何鱼，进入下一行
-                if valid_fish_count == 0 or not released_in_row:
-                    break
+                center_x = scaled_zone_x + (4 * scaled_cell_width) // 2
+                center_y = scaled_zone_y + (4 * scaled_cell_height) // 2
+                ctypes.windll.user32.SetCursorPos(
+                    center_x + cfg.window_offset_x, center_y + cfg.window_offset_y
+                )
+                self.smart_sleep(0.2)
+                # 向下滚动3次
+                for _ in range(3):
+                    if not self.running or self.paused:
+                        break
+                    self.inputs.scroll_wheel(-1)
+                    self.smart_sleep(0.8)
+                self.smart_sleep(0.5)
 
         # 关闭鱼桶
         self.inputs.press_key("ESC")
