@@ -187,6 +187,7 @@ class Pokedex(QObject):
             return 0
 
         new_count = 0
+        updated = False
         try:
             with open(records_path, "r", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
@@ -208,14 +209,22 @@ class Pokedex(QObject):
                     if not self.is_collected(name, quality):
                         new_count += 1
 
-                    # 更新收集状态（会自动保留最大重量）
-                    self.mark_caught(name, quality, weight)
+                    # 更新收集状态（不保存文件）
+                    if name not in self._collection:
+                        self._collection[name] = {}
+
+                    current = self._collection[name].get(quality)
+                    if current is None or (weight is not None and weight > current):
+                        self._collection[name][quality] = weight
+                        updated = True
+
+            # 批量保存一次
+            if updated:
+                self._save_collection()
+                self.data_changed.emit()
 
         except Exception as e:
             print(f"[Pokedex] 同步 records.csv 失败: {e}")
-
-        if new_count > 0:
-            self.data_changed.emit()
 
         return new_count
 

@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 from src.config import cfg
+from src.pokedex import pokedex
 
 
 class RecordManager:
@@ -51,12 +52,13 @@ class RecordManager:
             return False
 
     @staticmethod
-    def import_records(file_path: Path) -> tuple[bool, str]:
+    def import_records(file_path: Path, progress_callback=None) -> tuple[bool, str]:
         """
         从指定文件导入记录
 
         Args:
             file_path: 导入文件路径
+            progress_callback: 进度回调函数 callback(current, total)
 
         Returns:
             tuple[bool, str]: (导入是否成功, 错误信息或成功信息)
@@ -83,6 +85,10 @@ class RecordManager:
                             )
                             existing_records.add(key)
 
+                # 计算总行数
+                with open(file_path, "r", encoding="utf-8-sig") as f:
+                    total_rows = sum(1 for _ in csv.DictReader(f))
+
                 # 从CSV文件导入并流式写入
                 with open(file_path, "r", encoding="utf-8-sig") as src, open(
                     records_file, "a", encoding="utf-8-sig", newline=""
@@ -105,7 +111,12 @@ class RecordManager:
 
                     count = 0
                     skipped = 0
+                    processed = 0
+                    new_collected = 0
                     for row in reader:
+                        processed += 1
+                        if progress_callback and processed % 500 == 0:
+                            progress_callback(processed, total_rows)
                         # 验证必要字段
                         if not all(
                             field in row
@@ -141,12 +152,31 @@ class RecordManager:
                         existing_records.add(key)
                         count += 1
 
+                        # 直接更新图鉴
+                        if not pokedex.is_collected(name, quality):
+                            new_collected += 1
+                        try:
+                            weight_float = float(weight.replace("g", "").strip())
+                        except ValueError:
+                            weight_float = 0
+                        if name not in pokedex._collection:
+                            pokedex._collection[name] = {}
+                        current = pokedex._collection[name].get(quality)
+                        if current is None or weight_float > current:
+                            pokedex._collection[name][quality] = weight_float
+
                     if count == 0:
                         return False, "没有找到可导入的记录"
 
                     msg = f"成功导入 {count} 条记录"
                     if skipped > 0:
                         msg += f"，跳过 {skipped} 条重复记录"
+
+                    # 自动更新图鉴
+                    new_collected = pokedex.sync_from_records()
+                    if new_collected > 0:
+                        msg += f"，图鉴新增 {new_collected} 条"
+
                     return True, msg
 
             elif file_extension == ".txt":
@@ -166,6 +196,10 @@ class RecordManager:
                                 row.get("Weight", "").strip(),
                             )
                             existing_records.add(key)
+
+                # 计算总行数
+                with open(file_path, "r", encoding="utf-8") as f:
+                    total_lines = sum(1 for _ in f)
 
                 # 从TXT文件导入并流式写入
                 with open(file_path, "r", encoding="utf-8") as src, open(
@@ -188,7 +222,10 @@ class RecordManager:
 
                     count = 0
                     skipped = 0
+                    new_collected = 0
                     for line_num, line in enumerate(src, 1):
+                        if progress_callback and line_num % 500 == 0:
+                            progress_callback(line_num, total_lines)
                         line = line.strip()
                         if not line:
                             continue
@@ -211,15 +248,39 @@ class RecordManager:
                             writer.writerow(record)
                             existing_records.add(key)
                             count += 1
+
+                            # 直接更新图鉴
+                            name = record.get("Name", "").strip()
+                            quality = record.get("Quality", "").strip()
+                            weight = record.get("Weight", "").strip()
+                            if not pokedex.is_collected(name, quality):
+                                new_collected += 1
+                            try:
+                                weight_float = float(weight.replace("g", "").strip())
+                            except ValueError:
+                                weight_float = 0
+                            if name not in pokedex._collection:
+                                pokedex._collection[name] = {}
+                            current = pokedex._collection[name].get(quality)
+                            if current is None or weight_float > current:
+                                pokedex._collection[name][quality] = weight_float
                         else:
                             return False, f"TXT文件格式不正确，第{line_num}行: {line}"
 
                     if count == 0:
                         return False, "没有找到可导入的记录"
 
+                    # 批量保存图鉴
+                    if count > 0:
+                        pokedex._save_collection()
+                        pokedex.data_changed.emit()
+
                     msg = f"成功导入 {count} 条记录"
                     if skipped > 0:
                         msg += f"，跳过 {skipped} 条重复记录"
+                    if new_collected > 0:
+                        msg += f"，图鉴新增 {new_collected} 条"
+
                     return True, msg
 
             else:

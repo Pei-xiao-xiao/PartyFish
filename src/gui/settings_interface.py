@@ -1,6 +1,14 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QFileDialog
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QHBoxLayout,
+    QFileDialog,
+    QProgressDialog,
+)
+from PySide6.QtCore import Qt, Signal, QThread
 from datetime import datetime
+from pathlib import Path
 from qfluentwidgets import (
     ScrollArea,
     SettingCardGroup,
@@ -22,6 +30,21 @@ from qfluentwidgets import (
 from src.config import cfg
 from src.gui.components import KeyBindingWidget
 from src.record_manager import record_manager
+
+
+class ImportWorker(QThread):
+    progress = Signal(int, int)
+    finished = Signal(bool, str)
+
+    def __init__(self, file_path):
+        super().__init__()
+        self.file_path = file_path
+
+    def run(self):
+        success, message = record_manager.import_records(
+            self.file_path, self.progress.emit
+        )
+        self.finished.emit(success, message)
 
 
 class SettingsInterface(ScrollArea):
@@ -739,7 +762,6 @@ class SettingsInterface(ScrollArea):
 
     def _on_import_record(self):
         """导入记录"""
-        # 显示文件选择对话框
         file_path, _ = QFileDialog.getOpenFileName(
             self, "导入记录", "", "CSV Files (*.csv);;TXT Files (*.txt);;All Files (*)"
         )
@@ -747,30 +769,48 @@ class SettingsInterface(ScrollArea):
         if not file_path:
             return
 
-        from pathlib import Path
-
         file_path = Path(file_path)
 
-        # 调用记录管理模块导入记录
-        success, message = record_manager.import_records(file_path)
+        progress = QProgressDialog("正在导入记录...", None, 0, 100, self.window())
+        progress.setWindowTitle("导入记录")
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setCancelButton(None)
+        progress.setAutoClose(False)
+        progress.setValue(0)
+        progress.show()
 
-        if success:
-            InfoBar.success(
-                title=self.tr("导入成功"),
-                content=self.tr(message),
-                duration=2000,
-                position=InfoBarPosition.TOP,
-                parent=self.window(),
-            )
-            # 通知相关界面刷新数据
-            self.account_list_changed_signal.emit()
-            # 通知记录界面刷新数据
-            self.records_updated_signal.emit()
-        else:
-            InfoBar.error(
-                title=self.tr("导入失败"),
-                content=self.tr(message),
-                duration=2000,
-                position=InfoBarPosition.TOP,
-                parent=self.window(),
-            )
+        worker = ImportWorker(file_path)
+        self._import_worker = worker  # 保持引用
+
+        def on_progress(current, total):
+            if total > 0:
+                value = int(current * 100 / total)
+                progress.setValue(value)
+
+        def on_finished(success, message):
+            progress.setValue(100)
+            progress.close()
+            self._import_worker = None
+            if success:
+                InfoBar.success(
+                    title=self.tr("导入成功"),
+                    content=self.tr(message),
+                    duration=2000,
+                    position=InfoBarPosition.TOP,
+                    parent=self.window(),
+                )
+                self.account_list_changed_signal.emit()
+                self.records_updated_signal.emit()
+            else:
+                InfoBar.error(
+                    title=self.tr("导入失败"),
+                    content=self.tr(message),
+                    duration=2000,
+                    position=InfoBarPosition.TOP,
+                    parent=self.window(),
+                )
+
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.start()
