@@ -830,7 +830,7 @@ class Vision:
 
         # 默认检测区域（右下角，基于 2560x1440）
         if region is None:
-            base_x, base_y, base_w, base_h = 2242, 1314, 80, 40
+            base_x, base_y, base_w, base_h = 2242, 1314, 284, 100
             region = cfg.get_bottom_right_rect((base_x, base_y, base_w, base_h))
 
         screenshot = self.screenshot(region)
@@ -969,6 +969,12 @@ class Vision:
                 return (center_x, center_y)
 
         return None
+
+    def ocr_text_detection(self, image):
+        """使用OCR识别图像中的文字，返回OCR结果"""
+        if image is None or image.size == 0:
+            return None
+        return self.ocr(image)
 
 
 # Instantiate the vision class to be used by other modules

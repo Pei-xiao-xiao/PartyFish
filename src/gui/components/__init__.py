@@ -25,6 +25,36 @@ class KeyBindingWidget(QLineEdit):
     def mousePressEvent(self, event):
         if not self.is_capturing:
             self.start_capture()
+        else:
+            # Handle mouse button capture
+            button = event.button()
+            modifiers = event.modifiers()
+            parts = []
+
+            if modifiers & Qt.ControlModifier:
+                parts.append("Ctrl")
+            if modifiers & Qt.AltModifier:
+                parts.append("Alt")
+            if modifiers & Qt.ShiftModifier:
+                parts.append("Shift")
+
+            # Disable left and right mouse buttons
+            if button == Qt.LeftButton:
+                return  # Ignore left mouse button
+            elif button == Qt.RightButton:
+                return  # Ignore right mouse button
+            elif button == Qt.MiddleButton:
+                parts.append("Mouse3")
+            elif button == Qt.XButton1:
+                parts.append("Mouse4")  # Side button 1
+            elif button == Qt.XButton2:
+                parts.append("Mouse5")  # Side button 2
+
+            hotkey_str = "+ ".join(parts)
+            self.setText(hotkey_str)
+            self.stop_capture()
+            self.editingFinished.emit()
+            return
         super().mousePressEvent(event)
 
     def start_capture(self):
