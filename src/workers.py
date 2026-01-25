@@ -1240,31 +1240,43 @@ class FishingWorker(QThread):
                         if not self.running or self.paused:
                             break
 
-                        # 使用固定偏移量点击"放生"按钮（相对于鱼的中心点）
-                        # 基于2560x1440分辨率的偏移量
-                        base_release_offset_x = 50  # 向右偏移
-                        base_release_offset_y = 150  # 向下偏移
+                        # 使用OCR识别"放生"按钮位置
+                        menu_width = int(300 * cfg.scale_x)
+                        menu_height = int(300 * cfg.scale_y)
+                        menu_x = max(0, fish_x - menu_width // 4)
+                        menu_y = max(0, fish_y - menu_height // 4)
+                        menu_region = (menu_x, menu_y, menu_width, menu_height)
+                        menu_img = self.vision.screenshot(menu_region)
 
-                        # 应用分辨率缩放
-                        release_offset_x = int(base_release_offset_x * cfg.scale_x)
-                        release_offset_y = int(base_release_offset_y * cfg.scale_y)
+                        if menu_img is None:
+                            self.log_updated.emit("截取菜单失败，跳过")
+                            continue
 
-                        # 计算放生按钮的绝对坐标
-                        release_x = fish_x + release_offset_x
-                        release_y = fish_y + release_offset_y
+                        ocr_result, _ = self.ocr(menu_img)
+                        release_found = False
 
-                        # 调试：输出点击坐标
-                        self.log_updated.emit(
-                            f"[调试] 放生坐标 - 鱼中心:({fish_x},{fish_y}) "
-                            f"偏移:({release_offset_x},{release_offset_y}) "
-                            f"放生按钮:({release_x},{release_y}) "
-                            f"屏幕绝对坐标:({release_x + cfg.window_offset_x},{release_y + cfg.window_offset_y})"
-                        )
-                        self.inputs.click(
-                            release_x + cfg.window_offset_x,
-                            release_y + cfg.window_offset_y,
-                        )
-                        self.smart_sleep(0.3)  # 等待点击响应
+                        if ocr_result:
+                            for item in ocr_result:
+                                text = item[1]
+                                if "放生" in text:
+                                    box = item[0]
+                                    center_x = int((box[0][0] + box[2][0]) / 2)
+                                    center_y = int((box[0][1] + box[2][1]) / 2)
+                                    release_x = menu_x + center_x
+                                    release_y = menu_y + center_y
+                                    self.inputs.click(
+                                        release_x + cfg.window_offset_x,
+                                        release_y + cfg.window_offset_y,
+                                    )
+                                    release_found = True
+                                    self.log_updated.emit(
+                                        f"识别到放生按钮，位置:({release_x},{release_y})"
+                                    )
+                                    break
+
+                        if not release_found:
+                            self.log_updated.emit("未识别到放生按钮，跳过")
+                            continue
 
                         # 将鼠标移到右上角，避免干扰后续操作
                         import ctypes
@@ -1273,7 +1285,7 @@ class FishingWorker(QThread):
                         screen_top = cfg.window_offset_y + 10
                         ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
 
-                        self.smart_sleep(0.2)  # 等待放生动画完成
+                        self.smart_sleep(0.5)  # 等待放生动画完成
 
                         if not self.running or self.paused:
                             break
