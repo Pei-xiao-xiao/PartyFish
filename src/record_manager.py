@@ -66,6 +66,23 @@ class RecordManager:
             file_extension = file_path.suffix.lower()
 
             if file_extension == ".csv":
+                # 检查文件是否存在（在打开前检查）
+                file_exists = records_file.exists()
+
+                # 读取现有记录的唯一标识
+                existing_records = set()
+                if file_exists:
+                    with open(records_file, "r", encoding="utf-8-sig") as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            key = (
+                                row.get("Timestamp", "").strip(),
+                                row.get("Name", "").strip(),
+                                row.get("Quality", "").strip(),
+                                row.get("Weight", "").strip(),
+                            )
+                            existing_records.add(key)
+
                 # 从CSV文件导入并流式写入
                 with open(file_path, "r", encoding="utf-8-sig") as src, open(
                     records_file, "a", encoding="utf-8-sig", newline=""
@@ -83,10 +100,11 @@ class RecordManager:
                     writer = csv.DictWriter(dst, fieldnames=fieldnames)
 
                     # 如果文件不存在，写入表头
-                    if not records_file.exists():
+                    if not file_exists:
                         writer.writeheader()
 
                     count = 0
+                    skipped = 0
                     for row in reader:
                         # 验证必要字段
                         if not all(
@@ -95,29 +113,60 @@ class RecordManager:
                         ):
                             return False, f"CSV文件格式不正确，缺少必要字段: {row}"
 
-                        # 直接写入，减少字典创建
+                        timestamp = row.get(
+                            "Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ).strip()
+                        name = row.get("Name", "").strip()
+                        quality = row.get("Quality", "").strip()
+                        weight = row.get("Weight", "").strip()
+                        key = (timestamp, name, quality, weight)
+
+                        # 跳过重复记录
+                        if key in existing_records:
+                            skipped += 1
+                            continue
+
+                        # 写入记录
                         writer.writerow(
                             {
-                                "Timestamp": row.get(
-                                    "Timestamp",
-                                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                ),
-                                "Name": row.get("Name", ""),
-                                "Quality": row.get("Quality", ""),
-                                "Weight": row.get("Weight", ""),
+                                "Timestamp": timestamp,
+                                "Name": name,
+                                "Quality": quality,
+                                "Weight": weight,
                                 "IsNewRecord": row.get("IsNewRecord", "No"),
                                 "Bait": row.get("Bait", "蔓越莓"),
                                 "BaitCost": row.get("BaitCost", "1"),
                             }
                         )
+                        existing_records.add(key)
                         count += 1
 
                     if count == 0:
                         return False, "没有找到可导入的记录"
 
-                    return True, f"成功导入 {count} 条记录"
+                    msg = f"成功导入 {count} 条记录"
+                    if skipped > 0:
+                        msg += f"，跳过 {skipped} 条重复记录"
+                    return True, msg
 
             elif file_extension == ".txt":
+                # 检查文件是否存在（在打开前检查）
+                file_exists = records_file.exists()
+
+                # 读取现有记录的唯一标识
+                existing_records = set()
+                if file_exists:
+                    with open(records_file, "r", encoding="utf-8-sig") as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            key = (
+                                row.get("Timestamp", "").strip(),
+                                row.get("Name", "").strip(),
+                                row.get("Quality", "").strip(),
+                                row.get("Weight", "").strip(),
+                            )
+                            existing_records.add(key)
+
                 # 从TXT文件导入并流式写入
                 with open(file_path, "r", encoding="utf-8") as src, open(
                     records_file, "a", encoding="utf-8-sig", newline=""
@@ -134,10 +183,11 @@ class RecordManager:
                     writer = csv.DictWriter(dst, fieldnames=fieldnames)
 
                     # 如果文件不存在，写入表头
-                    if not records_file.exists():
+                    if not file_exists:
                         writer.writeheader()
 
                     count = 0
+                    skipped = 0
                     for line_num, line in enumerate(src, 1):
                         line = line.strip()
                         if not line:
@@ -146,7 +196,20 @@ class RecordManager:
                         # 解析TXT格式记录
                         record = RecordManager._parse_txt_record(line)
                         if record:
+                            key = (
+                                record.get("Timestamp", "").strip(),
+                                record.get("Name", "").strip(),
+                                record.get("Quality", "").strip(),
+                                record.get("Weight", "").strip(),
+                            )
+
+                            # 跳过重复记录
+                            if key in existing_records:
+                                skipped += 1
+                                continue
+
                             writer.writerow(record)
+                            existing_records.add(key)
                             count += 1
                         else:
                             return False, f"TXT文件格式不正确，第{line_num}行: {line}"
@@ -154,7 +217,10 @@ class RecordManager:
                     if count == 0:
                         return False, "没有找到可导入的记录"
 
-                    return True, f"成功导入 {count} 条记录"
+                    msg = f"成功导入 {count} 条记录"
+                    if skipped > 0:
+                        msg += f"，跳过 {skipped} 条重复记录"
+                    return True, msg
 
             else:
                 return False, f"不支持的文件格式: {file_extension}"
