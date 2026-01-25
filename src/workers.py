@@ -1278,6 +1278,9 @@ class FishingWorker(QThread):
                             self.log_updated.emit("未识别到放生按钮，跳过")
                             continue
 
+                        # 等待放生操作完成
+                        time.sleep(0.3)
+
                         # 将鼠标移到右上角，避免干扰后续操作
                         import ctypes
 
