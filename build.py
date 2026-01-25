@@ -2,8 +2,14 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "1.1.2"
-RELEASE_NOTES = "添加UNO卡牌小游戏支持"
+VERSION = "3.1.2"
+RELEASE_NOTES = """
+1.导入时直接更新图鉴
+2.导入去重
+3.修复不开鱼类识别偶尔会卡在收鱼的bug
+4.优化放生功能
+5.添加导入进度条
+6.想更新图鉴的去%APPDATA%\Partyfish\这个路径删除对应的文件重新导入"""
 
 
 def generate_readme(version, notes):
@@ -28,11 +34,11 @@ def generate_readme(version, notes):
 --------------------------------------------------
 软件资源（不可删除）：
 resources/   : 存放核心资源文件 (图片、音频)
-            resources/fish.json : 鱼类图鉴数据文件 (可自行更新数据，但请勿修改文件名)
+resources/fish.json : 鱼类图鉴数据文件 (可自行更新数据，但请勿修改文件名)
 
 用户数据与配置（重要）：
 数据现已存储在 Windows 标准应用数据目录下：
-%APPDATA%\\Partyfish\\
+%APPDATA%\Partyfish\
 (可在资源管理器地址栏输入上方路径直接访问)
 
 - config.json : 全局配置文件

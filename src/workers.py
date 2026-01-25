@@ -1297,7 +1297,7 @@ class FishingWorker(QThread):
                         screen_top = cfg.window_offset_y + 10
                         ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
 
-                        self.smart_sleep(0.2)  # 等待放生动画完成
+                        self.smart_sleep(0.5)  # 等待放生动画完成
 
                         if not self.running or self.paused:
                             break
