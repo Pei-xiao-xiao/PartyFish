@@ -229,7 +229,7 @@ class RecordManager:
             return False, f"导入记录失败: {str(e)}"
 
     @staticmethod
-    def _parse_txt_record(line: str) -> dict or None:
+    def _parse_txt_record(line: str) -> dict | None:
         """
         解析TXT格式的记录行
         支持格式: |时间|鱼名|品质|重量|
