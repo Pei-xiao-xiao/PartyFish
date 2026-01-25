@@ -282,27 +282,27 @@ class SettingsInterface(ScrollArea):
         self.autoReleaseGroup.addSettingCard(self.autoReleaseEnabledCard)
 
         self.releaseStandardCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色星星")
+            FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色")
         )
         self.autoReleaseGroup.addSettingCard(self.releaseStandardCard)
 
         self.releaseUncommonCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生非凡品质"), self.tr("绿色星星")
+            FluentIcon.CANCEL, self.tr("放生非凡品质"), self.tr("绿色")
         )
         self.autoReleaseGroup.addSettingCard(self.releaseUncommonCard)
 
         self.releaseRareCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生稀有品质"), self.tr("蓝色星星")
+            FluentIcon.CANCEL, self.tr("放生稀有品质"), self.tr("蓝色")
         )
         self.autoReleaseGroup.addSettingCard(self.releaseRareCard)
 
         self.releaseEpicCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生史诗品质"), self.tr("紫色星星")
+            FluentIcon.CANCEL, self.tr("放生史诗品质"), self.tr("紫色")
         )
         self.autoReleaseGroup.addSettingCard(self.releaseEpicCard)
 
         self.releaseLegendaryCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生传奇品质"), self.tr("黄色星星")
+            FluentIcon.CANCEL, self.tr("放生传奇品质"), self.tr("黄色")
         )
         self.autoReleaseGroup.addSettingCard(self.releaseLegendaryCard)
 
