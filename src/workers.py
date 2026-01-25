@@ -1240,14 +1240,7 @@ class FishingWorker(QThread):
                         if not self.running or self.paused:
                             break
 
-                        # 智能识别放生按钮位置
-                        release_clicked = self.find_and_click_release_button(fish_x, fish_y)
-                        
-                        if not release_clicked:
-                            # 如果智能识别失败，使用备用固定偏移量（先试右50下150，再试左50下150）
-                            self.log_updated.emit("智能识别放生按钮失败，使用备用固定位置")
-                        
-                        # 尝试右侧偏移（右50下150）
+                        # 使用固定偏移点击放生按钮
                         offsets_to_try = [
                             {"name": "右侧", "x": 50, "y": 150},
                             {"name": "左侧", "x": -50, "y": 150}
@@ -1267,8 +1260,8 @@ class FishingWorker(QThread):
                             release_y = fish_y + release_offset_y
                             
                             self.log_updated.emit(
-                                f"尝试{offset['name']}固定偏移: ({offset['x']}, {offset['y']}) -> "
-                                f"点击坐标:({release_x}, {release_y})"
+                                f"使用{offset['name']}偏移点击放生按钮: ({offset['x']}, {offset['y']}) -> "
+                                f"坐标:({release_x}, {release_y})"
                             )
                             
                             # 检查坐标是否在屏幕范围内
@@ -1323,104 +1316,7 @@ class FishingWorker(QThread):
 
         return released_count
 
-    def find_and_click_release_button(self, fish_center_x, fish_center_y):
-        """智能识别并点击放生按钮，返回是否成功点击"""
-        # 定义可能的放生按钮搜索区域（相对于鱼中心）
-        search_areas = [
-            # 右侧区域：右50下150
-            {
-                "name": "右侧",
-                "offset_x": 20,  # 向右偏移20，给OCR留出搜索空间
-                "offset_y": 100, # 向下偏移100，给OCR留出搜索空间
-                "width": 80,     # 搜索宽度80，覆盖50左右
-                "height": 80,    # 搜索高度80，覆盖150左右
-                "button_offset": (30, 50)  # 相对于搜索区域的按钮中心偏移
-            },
-            # 左侧区域：左50下150
-            {
-                "name": "左侧", 
-                "offset_x": -100, # 向左偏移100，给OCR留出搜索空间
-                "offset_y": 100,  # 向下偏移100，给OCR留出搜索空间
-                "width": 80,      # 搜索宽度80，覆盖50左右
-                "height": 80,     # 搜索高度80，覆盖150左右
-                "button_offset": (50, 50)   # 相对于搜索区域的按钮中心偏移
-            }
-        ]
 
-        # 应用分辨率缩放
-        for area in search_areas:
-            area["offset_x"] = int(area["offset_x"] * cfg.scale_x)
-            area["offset_y"] = int(area["offset_y"] * cfg.scale_y)
-            area["width"] = int(area["width"] * cfg.scale_x)
-            area["height"] = int(area["height"] * cfg.scale_y)
-            area["button_offset"] = (
-                int(area["button_offset"][0] * cfg.scale_x),
-                int(area["button_offset"][1] * cfg.scale_y)
-            )
-
-        # 尝试使用OCR识别放生按钮
-        release_button_found = False
-        
-        for area in search_areas:
-            if not self.running or self.paused:
-                break
-                
-            # 计算搜索区域
-            search_x = fish_center_x + area["offset_x"]
-            search_y = fish_center_y + area["offset_y"]
-            
-            # 确保搜索区域在屏幕范围内
-            if (search_x < 0 or search_y < 0 or 
-                search_x + area["width"] > cfg.screen_width or 
-                search_y + area["height"] > cfg.screen_height):
-                continue
-                
-            # 截取搜索区域
-            search_region = (search_x, search_y, area["width"], area["height"])
-            search_img = self.vision.screenshot(search_region)
-            
-            if search_img is None or search_img.size == 0:
-                continue
-            
-            # 使用OCR检测"放生"文字
-            result = self.vision.ocr_text_detection(search_img)
-            if result is None:
-                continue
-                
-            if result and isinstance(result, list):
-                for item in result:
-                    if isinstance(item, list) and len(item) >= 2:
-                        detected_text = item[1]
-                        if isinstance(detected_text, str) and "放生" in detected_text:
-                            # 找到放生按钮，计算点击位置
-                            box = item[0]
-                            # 直接在搜索区域的中心位置点击（简化方案）
-                            text_center_x = area["width"] // 2
-                            text_center_y = area["height"] // 2
-                            
-                            # 计算绝对点击坐标
-                            click_x = search_x + text_center_x
-                            click_y = search_y + text_center_y
-                            
-                            self.log_updated.emit(
-                                f"[智能识别] 在{area['name']}找到放生按钮，点击坐标:({click_x},{click_y})"
-                            )
-                            
-                            # 执行点击
-                            self.inputs.click(
-                                click_x + cfg.window_offset_x,
-                                click_y + cfg.window_offset_y
-                            )
-                            
-                            release_button_found = True
-                            break
-                    
-            if release_button_found:
-                break
-        
-        # OCR识别失败，已在主函数中使用固定偏移作为备用方案
-        
-        return release_button_found
 
 
 class PopupWorker(QThread):
