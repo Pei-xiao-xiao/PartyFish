@@ -2,14 +2,8 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.1.2"
-RELEASE_NOTES = """
-1.导入时直接更新图鉴
-2.导入去重
-3.修复不开鱼类识别偶尔会卡在收鱼的bug
-4.优化放生功能
-5.添加导入进度条
-6.想更新图鉴的去%APPDATA%\Partyfish\这个路径删除对应的文件重新导入"""
+VERSION = "3.1.5"
+RELEASE_NOTES = """修复单条放生未选品质依然执行的问题"""
 
 
 def generate_readme(version, notes):

@@ -982,6 +982,7 @@ class Vision:
 
         raw_template = self.raw_templates.get("lock")
         if raw_template is None:
+            print("[警告] lock 模板未加载")
             return False
 
         screenshot = self.screenshot(region)
@@ -990,11 +991,17 @@ class Vision:
 
         gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
 
+        # 转换模板为灰度图
+        if len(raw_template.shape) == 3:
+            gray_template = cv2.cvtColor(raw_template, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_template = raw_template
+
         # 多尺度匹配
         best_score = 0
         for scale in [0.5, 0.75, 1.0, cfg.scale, 1.5]:
-            w = int(raw_template.shape[1] * scale)
-            h = int(raw_template.shape[0] * scale)
+            w = int(gray_template.shape[1] * scale)
+            h = int(gray_template.shape[0] * scale)
             w = max(w, 1)
             h = max(h, 1)
 
@@ -1002,11 +1009,8 @@ class Vision:
                 continue
 
             resized_template = cv2.resize(
-                raw_template, (w, h), interpolation=cv2.INTER_LINEAR
+                gray_template, (w, h), interpolation=cv2.INTER_LINEAR
             )
-
-            if len(resized_template.shape) == 3:
-                resized_template = cv2.cvtColor(resized_template, cv2.COLOR_BGR2GRAY)
 
             result = cv2.matchTemplate(
                 gray_screenshot, resized_template, cv2.TM_CCOEFF_NORMED
@@ -1016,7 +1020,8 @@ class Vision:
             if max_val > best_score:
                 best_score = max_val
 
-        return best_score >= 0.7
+        print(f"[锁定检测] 匹配分数: {best_score:.3f}")
+        return best_score >= 0.8
 
 
 # Instantiate the vision class to be used by other modules
