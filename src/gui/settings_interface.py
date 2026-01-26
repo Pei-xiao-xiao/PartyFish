@@ -507,6 +507,18 @@ class SettingsInterface(ScrollArea):
         self.releaseEpicCard.checkedChanged.connect(self._save_global_settings)
         self.releaseLegendaryCard.checkedChanged.connect(self._save_global_settings)
 
+        self.singleReleaseStandardCard.checkedChanged.connect(
+            self._save_global_settings
+        )
+        self.singleReleaseUncommonCard.checkedChanged.connect(
+            self._save_global_settings
+        )
+        self.singleReleaseRareCard.checkedChanged.connect(self._save_global_settings)
+        self.singleReleaseEpicCard.checkedChanged.connect(self._save_global_settings)
+        self.singleReleaseLegendaryCard.checkedChanged.connect(
+            self._save_global_settings
+        )
+
         self.jitterSlider.valueChanged.connect(
             lambda v: self.jitterLabel.setText(f"{v}%")
         )

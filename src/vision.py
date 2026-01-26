@@ -976,6 +976,48 @@ class Vision:
             return None
         return self.ocr(image)
 
+    def detect_lock_icon(self, region):
+        """检测指定区域是否有锁定图标"""
+        self._ensure_loaded()
+
+        raw_template = self.raw_templates.get("lock")
+        if raw_template is None:
+            return False
+
+        screenshot = self.screenshot(region)
+        if screenshot is None or screenshot.size == 0:
+            return False
+
+        gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+
+        # 多尺度匹配
+        best_score = 0
+        for scale in [0.5, 0.75, 1.0, cfg.scale, 1.5]:
+            w = int(raw_template.shape[1] * scale)
+            h = int(raw_template.shape[0] * scale)
+            w = max(w, 1)
+            h = max(h, 1)
+
+            if w > gray_screenshot.shape[1] or h > gray_screenshot.shape[0]:
+                continue
+
+            resized_template = cv2.resize(
+                raw_template, (w, h), interpolation=cv2.INTER_LINEAR
+            )
+
+            if len(resized_template.shape) == 3:
+                resized_template = cv2.cvtColor(resized_template, cv2.COLOR_BGR2GRAY)
+
+            result = cv2.matchTemplate(
+                gray_screenshot, resized_template, cv2.TM_CCOEFF_NORMED
+            )
+            _, max_val, _, _ = cv2.minMaxLoc(result)
+
+            if max_val > best_score:
+                best_score = max_val
+
+        return best_score >= 0.7
+
 
 # Instantiate the vision class to be used by other modules
 vision = Vision()

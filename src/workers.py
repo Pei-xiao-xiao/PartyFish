@@ -592,7 +592,7 @@ class FishingWorker(QThread):
             if not shangyu_found:
                 self.log_updated.emit("警告: 未检测到'收起'按钮，尝试直接点击关闭")
 
-            return True
+            return False
 
         self.status_updated.emit("记录渔获")
         self.log_updated.emit("正在识别渔获信息...")
@@ -1139,6 +1139,7 @@ class FishingWorker(QThread):
 
         released_count = 0
         zones = cfg.REGIONS["fish_inventory"]["zones"]
+        locked_detected = False
 
         # 依次检测3个区域
         for zone_idx, zone in enumerate(zones):
@@ -1162,8 +1163,9 @@ class FishingWorker(QThread):
 
             # 按行遍历，每行重复检查直到没有需要放生的鱼
             for row in range(4):
-                if not self.running or self.paused:
+                if not self.running or self.paused or locked_detected:
                     break
+
                 while True:
                     if not self.running or self.paused:
                         break
@@ -1171,6 +1173,32 @@ class FishingWorker(QThread):
                     valid_fish_count = 0
                     for col in range(4):
                         if not self.running or self.paused:
+                            break
+
+                        # 检测锁定图标（在格子中心）
+                        lock_width = int(20 * cfg.scale_x)
+                        lock_height = int(20 * cfg.scale_y)
+
+                        center_x = (
+                            scaled_zone_x
+                            + col * scaled_cell_width
+                            + scaled_cell_width // 2
+                        )
+                        center_y = (
+                            scaled_zone_y
+                            + row * scaled_cell_height
+                            + scaled_cell_height // 2
+                        )
+
+                        lock_x = center_x - lock_width // 2
+                        lock_y = center_y - lock_height // 2
+                        lock_region = (lock_x, lock_y, lock_width, lock_height)
+
+                        if self.vision.detect_lock_icon(lock_region):
+                            self.log_updated.emit(
+                                f"位置({row},{col})检测到锁定，后续鱼均已锁定，停止检测"
+                            )
+                            locked_detected = True
                             break
 
                         star_x = (
@@ -1314,8 +1342,12 @@ class FishingWorker(QThread):
                             self.smart_sleep(0.3)
                             break
 
-                    if valid_fish_count == 0 or not released_in_row:
+                    if valid_fish_count == 0 or not released_in_row or locked_detected:
                         break
+
+            if locked_detected:
+                self.log_updated.emit("检测到锁定，停止所有检测")
+                break
 
             # 输出当前区域的放生结果
             if zone_released > 0:
