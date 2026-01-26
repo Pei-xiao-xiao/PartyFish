@@ -1118,6 +1118,9 @@ class FishingWorker(QThread):
         if not cfg.global_settings.get("auto_release_enabled", False):
             return
 
+        # 更新游戏窗口信息，确保窗口偏移量是最新的
+        cfg.update_game_window()
+
         self.log_updated.emit("开始自动放生...")
         self.status_updated.emit("自动放生中")
 
@@ -1166,6 +1169,10 @@ class FishingWorker(QThread):
             scaled_zone_y = int(zone["coords"][1] * cfg.scale_y)
             scaled_cell_width = int(grid["cell_width"] * cfg.scale_x)
             scaled_cell_height = int(grid["cell_height"] * cfg.scale_y)
+
+            # 窗口化模式修正：向左偏移一个半格子宽度
+            if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
+                scaled_zone_x -= int(228 * cfg.scale_x)
             scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale_x)
             scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale_y)
             scaled_star_width = int(grid["star_size"][0] * cfg.scale_x)
@@ -1199,6 +1206,10 @@ class FishingWorker(QThread):
                             + row * scaled_cell_height
                             + (scaled_cell_height - lock_size) // 2
                         )
+                        # 窗口化模式微调：向右和向下偏移
+                        if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
+                            lock_x += int(25 * cfg.scale_x)
+                            lock_y += int(10 * cfg.scale_y)
                         lock_region = (lock_x, lock_y, lock_size, lock_size)
 
                         lock_detected = self.vision.detect_lock_icon(lock_region)
