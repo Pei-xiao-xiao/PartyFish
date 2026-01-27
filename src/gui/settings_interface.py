@@ -337,27 +337,37 @@ class SettingsInterface(ScrollArea):
         )
 
         self.singleReleaseStandardCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色")
+            FluentIcon.CANCEL,
+            self.tr("放生标准品质"),
+            self.tr("打开直接生效 不能和自动放生一起用"),
         )
         self.singleReleaseGroup.addSettingCard(self.singleReleaseStandardCard)
 
         self.singleReleaseUncommonCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生非凡品质"), self.tr("绿色")
+            FluentIcon.CANCEL,
+            self.tr("放生非凡品质"),
+            self.tr("打开直接生效 不能和自动放生一起用"),
         )
         self.singleReleaseGroup.addSettingCard(self.singleReleaseUncommonCard)
 
         self.singleReleaseRareCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生稀有品质"), self.tr("蓝色")
+            FluentIcon.CANCEL,
+            self.tr("放生稀有品质"),
+            self.tr("打开直接生效 不能和自动放生一起用"),
         )
         self.singleReleaseGroup.addSettingCard(self.singleReleaseRareCard)
 
         self.singleReleaseEpicCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生史诗品质"), self.tr("紫色")
+            FluentIcon.CANCEL,
+            self.tr("放生史诗品质"),
+            self.tr("打开直接生效 不能和自动放生一起用"),
         )
         self.singleReleaseGroup.addSettingCard(self.singleReleaseEpicCard)
 
         self.singleReleaseLegendaryCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生传奇品质"), self.tr("黄色")
+            FluentIcon.CANCEL,
+            self.tr("放生传奇品质"),
+            self.tr("打开直接生效 不能和自动放生一起用"),
         )
         self.singleReleaseGroup.addSettingCard(self.singleReleaseLegendaryCard)
 
