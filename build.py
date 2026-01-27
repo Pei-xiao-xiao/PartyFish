@@ -2,8 +2,8 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.1.6"
-RELEASE_NOTES = """改进自动放生逻辑，添加锁定检测功能"""
+VERSION = "3.1.7"
+RELEASE_NOTES = """修复放生检测"""
 
 
 def generate_readme(version, notes):

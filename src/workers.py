@@ -1165,18 +1165,14 @@ class FishingWorker(QThread):
             self.log_updated.emit(f"检测区域 {zone_id}...")
 
             grid = zone["grid"]
-            scaled_zone_x = int(zone["coords"][0] * cfg.scale_x)
-            scaled_zone_y = int(zone["coords"][1] * cfg.scale_y)
-            scaled_cell_width = int(grid["cell_width"] * cfg.scale_x)
-            scaled_cell_height = int(grid["cell_height"] * cfg.scale_y)
-
-            # 窗口化模式修正：向左偏移一个半格子宽度
-            if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
-                scaled_zone_x -= int(228 * cfg.scale_x)
-            scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale_x)
-            scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale_y)
-            scaled_star_width = int(grid["star_size"][0] * cfg.scale_x)
-            scaled_star_height = int(grid["star_size"][1] * cfg.scale_y)
+            zone_rect = cfg.get_bottom_right_rect(zone["coords"])
+            scaled_zone_x, scaled_zone_y = zone_rect[0], zone_rect[1]
+            scaled_cell_width = int(grid["cell_width"] * cfg.scale)
+            scaled_cell_height = int(grid["cell_height"] * cfg.scale)
+            scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale)
+            scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale)
+            scaled_star_width = int(grid["star_size"][0] * cfg.scale)
+            scaled_star_height = int(grid["star_size"][1] * cfg.scale)
 
             zone_released = 0
 
@@ -1195,7 +1191,7 @@ class FishingWorker(QThread):
                             break
 
                         # 检测锁定图标（格子中心区域，约60x60像素）
-                        lock_size = int(60 * cfg.scale_x)
+                        lock_size = int(60 * cfg.scale)
                         lock_x = (
                             scaled_zone_x
                             + col * scaled_cell_width
@@ -1206,10 +1202,6 @@ class FishingWorker(QThread):
                             + row * scaled_cell_height
                             + (scaled_cell_height - lock_size) // 2
                         )
-                        # 窗口化模式微调：向右和向下偏移
-                        if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
-                            lock_x += int(25 * cfg.scale_x)
-                            lock_y += int(10 * cfg.scale_y)
                         lock_region = (lock_x, lock_y, lock_size, lock_size)
 
                         lock_detected = self.vision.detect_lock_icon(lock_region)
@@ -1453,13 +1445,11 @@ class FishingWorker(QThread):
                 self.log_updated.emit("未识别到桶图标，放生操作失败。")
                 return
 
-            # 使用固定坐标点击第一条鱼（2K基准：1933, 600）
-            fish_x = int(1933 * cfg.scale_x)
-            fish_y = int(600 * cfg.scale_y)
-
-            # 窗口化模式修正：向左偏移一个半格子宽度
-            if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
-                fish_x -= int(228 * cfg.scale_x)
+            # 使用配置的坐标点击第一条鱼
+            fish_pos = cfg.REGIONS["fish_inventory"]["single_release_fish_pos"]
+            fish_rect = cfg.get_bottom_right_rect((fish_pos[0], fish_pos[1], 1, 1))
+            fish_x = fish_rect[0]
+            fish_y = fish_rect[1]
 
             self.msleep(200)
 
@@ -1470,8 +1460,8 @@ class FishingWorker(QThread):
 
             # 使用配置的偏移点击放生按钮（相对于鱼的位置，向右下偏移）
             offset = cfg.REGIONS["fish_inventory"]["single_release_button_offset"]
-            release_x = fish_x + int(offset[0] * cfg.scale_x)
-            release_y = fish_y + int(offset[1] * cfg.scale_y)
+            release_x = fish_x + int(offset[0] * cfg.scale)
+            release_y = fish_y + int(offset[1] * cfg.scale)
             self.msleep(200)
 
             self.inputs.click(

@@ -107,6 +107,7 @@ class Config(metaclass=SingletonMeta):
                 "anchor": "bottom_right",
             },  # UNO 卡片检测区域
             "fish_inventory": {
+                "anchor": "bottom_right",
                 "zones": [
                     {
                         "id": 1,
@@ -147,6 +148,7 @@ class Config(metaclass=SingletonMeta):
                 ],
                 "release_button_offset": (200, 107),
                 "single_release_button_offset": (80, 150),
+                "single_release_fish_pos": (1933, 600),
             },
         }
 
