@@ -106,6 +106,10 @@ class Config(metaclass=SingletonMeta):
                 "coords": (2242, 1314, 80, 40),
                 "anchor": "bottom_right",
             },  # UNO 卡片检测区域
+            "fish_name_tooltip": {
+                "coords": (1819, 436, 235, 96),
+                "anchor": "bottom_right",
+            },  # 鱼名提示区域
             "fish_inventory": {
                 "anchor": "bottom_right",
                 "zones": [
@@ -613,6 +617,35 @@ class Config(metaclass=SingletonMeta):
             self.startup_errors.append(f"⚠️ 加载 fish.json 失败: {e}")
             self.fish_names_list = []
 
+        # 加载保护鱼配置
+        self._load_protected_fish()
+
+    def _load_protected_fish(self):
+        """加载保护鱼配置文件"""
+        base_path = self._get_base_path()
+        protected_fish_path = base_path / "resources" / "protected_fish.json"
+
+        if not protected_fish_path.exists():
+            self.protected_fish_list = []
+            return
+
+        try:
+            with open(protected_fish_path, "r", encoding="utf-8") as f:
+                self.protected_fish_list = json.load(f)
+        except Exception as e:
+            self.startup_errors.append(f"⚠️ 加载 protected_fish.json 失败: {e}")
+            self.protected_fish_list = []
+
+    def is_fish_protected(self, fish_name, quality):
+        """检查鱼是否在保护列表中"""
+        if not hasattr(self, "protected_fish_list"):
+            return False
+
+        for fish in self.protected_fish_list:
+            if fish.get("name") == fish_name and fish.get("quality") == quality:
+                return True
+        return False
+
     def _load_config_from_json(self):
         # Load from user data directory
         config_path = self.user_data_dir / "config.json"
@@ -690,6 +723,7 @@ class Config(metaclass=SingletonMeta):
             "uno_current_cards": 7,  # UNO 当前牌数
             "uno_max_cards": 35,  # UNO 最大牌数
             "auto_release_enabled": False,
+            "enable_fish_name_protection": False,
             "release_standard": True,
             "release_uncommon": False,
             "release_rare": False,

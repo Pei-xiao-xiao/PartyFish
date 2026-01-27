@@ -304,6 +304,13 @@ class SettingsInterface(ScrollArea):
         )
         self.autoReleaseGroup.addSettingCard(self.autoReleaseEnabledCard)
 
+        self.enableFishNameProtectionCard = SwitchSettingCard(
+            FluentIcon.CARE_UP_SOLID,
+            self.tr("启用放生保护"),
+            self.tr("保护配置文件中的鱼不被放生"),
+        )
+        self.autoReleaseGroup.addSettingCard(self.enableFishNameProtectionCard)
+
         self.releaseStandardCard = SwitchSettingCard(
             FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色")
         )
@@ -511,6 +518,9 @@ class SettingsInterface(ScrollArea):
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
         self.autoReleaseEnabledCard.checkedChanged.connect(self._save_global_settings)
+        self.enableFishNameProtectionCard.checkedChanged.connect(
+            self._save_global_settings
+        )
         self.releaseStandardCard.checkedChanged.connect(self._save_global_settings)
         self.releaseUncommonCard.checkedChanged.connect(self._save_global_settings)
         self.releaseRareCard.checkedChanged.connect(self._save_global_settings)
@@ -592,6 +602,9 @@ class SettingsInterface(ScrollArea):
         )
         self.autoReleaseEnabledCard.setChecked(
             cfg.global_settings.get("auto_release_enabled", False)
+        )
+        self.enableFishNameProtectionCard.setChecked(
+            cfg.global_settings.get("enable_fish_name_protection", False)
         )
         self.releaseStandardCard.setChecked(
             cfg.global_settings.get("release_standard", True)
@@ -685,6 +698,9 @@ class SettingsInterface(ScrollArea):
         )
         cfg.global_settings["auto_release_enabled"] = (
             self.autoReleaseEnabledCard.isChecked()
+        )
+        cfg.global_settings["enable_fish_name_protection"] = (
+            self.enableFishNameProtectionCard.isChecked()
         )
         cfg.global_settings["release_standard"] = self.releaseStandardCard.isChecked()
         cfg.global_settings["release_uncommon"] = self.releaseUncommonCard.isChecked()

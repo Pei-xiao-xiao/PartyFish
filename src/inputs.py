@@ -236,6 +236,20 @@ class InputController(QObject):
         """
         self.jitter_click(x, y)
 
+    @staticmethod
+    def double_click(x, y):
+        """
+        Simulates a double click at the given coordinates.
+        """
+        ctypes.windll.user32.SetCursorPos(x, y)
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.08))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.08))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.08))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
     def press_mouse_button(self):
         """Simulates pressing the left mouse button down without releasing."""
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)

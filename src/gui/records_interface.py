@@ -28,6 +28,7 @@ from qfluentwidgets import (
     setTheme,
     Theme,
     PrimaryPushButton,
+    SearchLineEdit,
 )
 from datetime import datetime
 import csv
@@ -93,6 +94,18 @@ class RecordsInterface(QWidget):
         top_controls_layout.addLayout(self.date_selector_layout)
 
         top_controls_layout.addStretch(1)
+
+        # 搜索鱼名
+        self.search_input = SearchLineEdit()
+        self.search_input.setPlaceholderText("搜索鱼名")
+        self.search_input.setFixedWidth(200)
+        self.search_input.textChanged.connect(self._filter_table)
+        top_controls_layout.addWidget(QLabel("搜索鱼名:"))
+        top_controls_layout.addWidget(self.search_input)
+
+        top_controls_layout.addSpacing(20)
+
+        # 筛选品质
         self.filter_combo = ComboBox()
         self.filter_combo.addItems(
             ["全部品质", "标准", "非凡", "稀有", "史诗", "传奇", "首次捕获"]
@@ -588,41 +601,42 @@ class RecordsInterface(QWidget):
             # Hide tooltip
             QToolTip.hideText()
 
-    def _filter_table(self, text=None):
-        """Filter rows based on quality"""
-        if text is None:
-            text = self.filter_combo.currentText()
-
-        filter_quality = text
+    def _filter_table(self):
+        """Filter rows based on fish name and quality"""
+        filter_quality = self.filter_combo.currentText()
+        search_text = self.search_input.text().strip().lower()
 
         for row in range(self.table.rowCount()):
-            item = self.table.item(row, 3)  # Quality column
-            # We can retrieve the record object if needed, but here we just need to know if it's a new record
-            # Since we populate table row by row from display_records, we might need a better way to check "is_new_record"
-            # However, for simplicity, let's look at the underlying data.
-            # Wait, the table item doesn't store the full record dict directly.
-            # To handle "首次捕获" properly without adding a column, we need to map row index back to data or store data in item.
+            quality_item = self.table.item(row, 3)  # Quality column
+            name_item = self.table.item(row, 1)  # Name column
 
-            # Let's use UserRole to store the is_new_record flag in the quality item
-            is_new_record = item.data(QtCoreQt.ItemDataRole.UserRole)
-
-            if not item:
+            if not quality_item or not name_item:
                 continue
 
-            should_show = False
+            is_new_record = quality_item.data(QtCoreQt.ItemDataRole.UserRole)
+
+            # 检查品质筛选
+            quality_match = False
             if filter_quality == "全部品质":
-                should_show = True
+                quality_match = True
             elif filter_quality == "首次捕获":
                 if is_new_record:
-                    should_show = True
+                    quality_match = True
             else:
-                # 搜索传奇品质时兼容传说品质的数据
-                quality_text = item.text()
+                quality_text = quality_item.text()
                 if filter_quality == "传奇":
-                    should_show = quality_text in ["传奇", "传说"]
+                    quality_match = quality_text in ["传奇", "传说"]
                 elif filter_quality in quality_text:
-                    should_show = True
+                    quality_match = True
 
+            # 检查鱼名搜索
+            name_match = True
+            if search_text:
+                fish_name = name_item.text().lower()
+                name_match = search_text in fish_name
+
+            # 同时满足两个条件才显示
+            should_show = quality_match and name_match
             self.table.setRowHidden(row, not should_show)
 
     def add_record(self, record: dict):

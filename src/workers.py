@@ -1269,7 +1269,7 @@ class FishingWorker(QThread):
                         if not self._wait_for_popup_clear(timeout=10):
                             self.log_updated.emit("等待弹窗清除超时，继续操作")
 
-                    # 点击鱼打开菜单
+                    # 计算鱼的中心位置
                     fish_x = (
                         scaled_zone_x + col * scaled_cell_width + scaled_cell_width // 2
                     )
@@ -1278,6 +1278,39 @@ class FishingWorker(QThread):
                         + row * scaled_cell_height
                         + scaled_cell_height // 2
                     )
+
+                    # 如果启用了鱼名保护功能，则识别鱼名
+                    if cfg.global_settings.get("enable_fish_name_protection", False):
+                        self.smart_sleep(0.2)
+
+                        # 双击鱼中心位置（显示鱼名区域）
+                        self.inputs.double_click(
+                            fish_x + cfg.window_offset_x,
+                            fish_y + cfg.window_offset_y,
+                        )
+                        self.smart_sleep(0.5)
+
+                        # OCR识别鱼名
+                        fish_name_region = cfg.get_rect("fish_name_tooltip")
+                        fish_name_img = self.vision.screenshot(fish_name_region)
+                        fish_name = None
+                        if fish_name_img is not None:
+                            ocr_result, _ = self.ocr(fish_name_img)
+                            if ocr_result:
+                                for item in ocr_result:
+                                    text = item[1].strip()
+                                    if text and len(text) > 1:
+                                        fish_name = text
+                                        break
+
+                        # 检查是否需要保护
+                        if fish_name and cfg.is_fish_protected(fish_name, quality):
+                            self.log_updated.emit(
+                                f"位置({row},{col})检测到保护鱼:{fish_name}({quality})，锁定"
+                            )
+                            should_release = False
+
+                    # 点击鱼打开菜单
                     self.inputs.click(
                         fish_x + cfg.window_offset_x,
                         fish_y + cfg.window_offset_y,
