@@ -95,6 +95,13 @@ def generate_debug_screenshot(show_image=True):
     except:
         pass
 
+    # 7. 鱼名提示区域检测（用于自动放生）
+    try:
+        fish_name_region = cfg.get_rect("fish_name_tooltip")
+        recognition_results.append(f"鱼名提示区域: {fish_name_region}")
+    except:
+        pass
+
     print("Drawing debug overlay...")
     # Modify the screenshot in-place using the new vision method
     # 传递识别结果给绘图函数
@@ -183,6 +190,23 @@ def generate_debug_screenshot(show_image=True):
         (0, 0, 255),
         2,
     )
+
+    # Draw fish name tooltip region (for auto-release)
+    try:
+        fish_name_region = cfg.get_rect("fish_name_tooltip")
+        x, y, w, h = fish_name_region
+        cv2.rectangle(screenshot, (x, y), (x + w, y + h), (0, 255, 255), 2)
+        cv2.putText(
+            screenshot,
+            "Fish Name",
+            (x, y - 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0, 255, 255),
+            2,
+        )
+    except:
+        pass
 
     # Save the debug image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
