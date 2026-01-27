@@ -1153,259 +1153,212 @@ class FishingWorker(QThread):
             return
 
         released_count = 0
-        zones = cfg.REGIONS["fish_inventory"]["zones"]
+        zone = cfg.REGIONS["fish_inventory"]["zones"][0]
         locked_detected = False
 
-        # 依次检测3个区域
-        for zone_idx, zone in enumerate(zones):
-            if not self.running or self.paused:
+        zone_id = zone["id"]
+        self.log_updated.emit(f"检测区域 {zone_id}...")
+
+        grid = zone["grid"]
+        zone_rect = cfg.get_bottom_right_rect(zone["coords"])
+        scaled_zone_x, scaled_zone_y = zone_rect[0], zone_rect[1]
+        scaled_cell_width = int(grid["cell_width"] * cfg.scale)
+        scaled_cell_height = int(grid["cell_height"] * cfg.scale)
+        scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale)
+        scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale)
+        scaled_star_width = int(grid["star_size"][0] * cfg.scale)
+        scaled_star_height = int(grid["star_size"][1] * cfg.scale)
+
+        # 按行遍历，每行重复检查直到没有需要放生的鱼
+        for row in range(4):
+            if not self.running or self.paused or locked_detected:
                 break
 
-            zone_id = zone["id"]
-            self.log_updated.emit(f"检测区域 {zone_id}...")
+            while True:
+                if not self.running or self.paused:
+                    break
+                action_in_row = False
+                valid_fish_count = 0
+                for col in range(4):
+                    if not self.running or self.paused:
+                        break
 
-            grid = zone["grid"]
-            zone_rect = cfg.get_bottom_right_rect(zone["coords"])
-            scaled_zone_x, scaled_zone_y = zone_rect[0], zone_rect[1]
-            scaled_cell_width = int(grid["cell_width"] * cfg.scale)
-            scaled_cell_height = int(grid["cell_height"] * cfg.scale)
-            scaled_star_offset_x = int(grid["star_offset"][0] * cfg.scale)
-            scaled_star_offset_y = int(grid["star_offset"][1] * cfg.scale)
-            scaled_star_width = int(grid["star_size"][0] * cfg.scale)
-            scaled_star_height = int(grid["star_size"][1] * cfg.scale)
+                    # 检测锁定图标（格子中心区域，约60x60像素）
+                    lock_size = int(60 * cfg.scale)
+                    lock_x = (
+                        scaled_zone_x
+                        + col * scaled_cell_width
+                        + (scaled_cell_width - lock_size) // 2
+                    )
+                    lock_y = (
+                        scaled_zone_y
+                        + row * scaled_cell_height
+                        + (scaled_cell_height - lock_size) // 2
+                    )
+                    lock_region = (lock_x, lock_y, lock_size, lock_size)
 
-            zone_released = 0
+                    lock_detected = self.vision.detect_lock_icon(lock_region)
+                    if lock_detected:
+                        self.log_updated.emit(
+                            f"位置({row},{col})检测到锁定图标，停止检测"
+                        )
+                        locked_detected = True
+                        break
 
-            # 按行遍历，每行重复检查直到没有需要放生的鱼
-            for row in range(4):
-                if not self.running or self.paused or locked_detected:
+                    star_x = (
+                        scaled_zone_x + col * scaled_cell_width + scaled_star_offset_x
+                    )
+                    star_y = (
+                        scaled_zone_y + row * scaled_cell_height + scaled_star_offset_y
+                    )
+                    star_region = (
+                        star_x,
+                        star_y,
+                        scaled_star_width,
+                        scaled_star_height,
+                    )
+                    star_img = self.vision.screenshot(star_region)
+                    color = self.vision.detect_star_color(star_img)
+
+                    if color is None:
+                        continue
+
+                    if color in ["purple", "yellow"]:
+                        self.msleep(50)
+                        star_img_verify = self.vision.screenshot(star_region)
+                        color_verify = self.vision.detect_star_color(star_img_verify)
+                        if color_verify != color:
+                            self.log_updated.emit(
+                                f"位置({row},{col})高品质验证失败: {color} != {color_verify}，跳过"
+                            )
+                            continue
+
+                    valid_fish_count += 1
+
+                    quality_map = {
+                        "gray": "标准",
+                        "green": "非凡",
+                        "blue": "稀有",
+                        "purple": "史诗",
+                        "yellow": "传奇",
+                    }
+                    quality = quality_map.get(color, "标准")
+
+                    release_map = {
+                        "标准": "release_standard",
+                        "非凡": "release_uncommon",
+                        "稀有": "release_rare",
+                        "史诗": "release_epic",
+                        "传奇": "release_legendary",
+                    }
+                    should_release = cfg.global_settings.get(
+                        release_map.get(quality), False
+                    )
+
+                    if not self.running or self.paused:
+                        break
+
+                    # 检测弹窗并等待处理完成
+                    popup_region = cfg.get_rect("popup_exclamation")
+                    if self.vision.find_template_popup(
+                        "exclamation_grayscale",
+                        region=popup_region,
+                        threshold=0.7,
+                    ):
+                        self.log_updated.emit("检测到弹窗，等待处理完成...")
+                        if not self._wait_for_popup_clear(timeout=10):
+                            self.log_updated.emit("等待弹窗清除超时，继续操作")
+
+                    # 点击鱼打开菜单
+                    fish_x = (
+                        scaled_zone_x + col * scaled_cell_width + scaled_cell_width // 2
+                    )
+                    fish_y = (
+                        scaled_zone_y
+                        + row * scaled_cell_height
+                        + scaled_cell_height // 2
+                    )
+                    self.inputs.click(
+                        fish_x + cfg.window_offset_x,
+                        fish_y + cfg.window_offset_y,
+                    )
+                    self.smart_sleep(0.3)
+
+                    if not self.running or self.paused:
+                        break
+
+                    # OCR识别菜单
+                    zone_width = 4 * scaled_cell_width
+                    zone_height = 4 * scaled_cell_height
+                    menu_region = (
+                        scaled_zone_x,
+                        scaled_zone_y,
+                        zone_width,
+                        zone_height,
+                    )
+                    menu_img = self.vision.screenshot(menu_region)
+
+                    if menu_img is None:
+                        self.log_updated.emit("截取菜单失败，跳过")
+                        continue
+
+                    ocr_result, _ = self.ocr(menu_img)
+                    action_found = False
+
+                    if ocr_result:
+                        target_text = "放生" if should_release else "锁定"
+                        for item in ocr_result:
+                            text = item[1]
+                            if target_text in text:
+                                box = item[0]
+                                center_x = int((box[0][0] + box[2][0]) / 2)
+                                center_y = int((box[0][1] + box[2][1]) / 2)
+                                action_x = scaled_zone_x + center_x
+                                action_y = scaled_zone_y + center_y
+                                self.inputs.click(
+                                    action_x + cfg.window_offset_x,
+                                    action_y + cfg.window_offset_y,
+                                )
+                                action_found = True
+                                self.log_updated.emit(
+                                    f"位置({row},{col})品质:{quality}，{'放生' if should_release else '锁定'}"
+                                )
+                                break
+
+                    if not action_found:
+                        self.log_updated.emit(
+                            f"未识别到{'放生' if should_release else '锁定'}按钮，跳过"
+                        )
+                        continue
+
+                    time.sleep(0.3)
+
+                    import ctypes
+
+                    screen_right = cfg.window_offset_x + cfg.screen_width - 10
+                    screen_top = cfg.window_offset_y + 10
+                    ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
+
+                    self.smart_sleep(0.8)
+
+                    if not self.running or self.paused:
+                        break
+
+                    if should_release:
+                        released_count += 1
+                        action_in_row = True
+                    elif row == 0:
+                        # 锁定操作只在第一排时重复检测
+                        action_in_row = True
+
+                    self.smart_sleep(0.3)
                     break
 
-                while True:
-                    if not self.running or self.paused:
-                        break
-                    action_in_row = False
-                    valid_fish_count = 0
-                    for col in range(4):
-                        if not self.running or self.paused:
-                            break
+                if valid_fish_count == 0 or not action_in_row or locked_detected:
+                    break
 
-                        # 检测锁定图标（格子中心区域，约60x60像素）
-                        lock_size = int(60 * cfg.scale)
-                        lock_x = (
-                            scaled_zone_x
-                            + col * scaled_cell_width
-                            + (scaled_cell_width - lock_size) // 2
-                        )
-                        lock_y = (
-                            scaled_zone_y
-                            + row * scaled_cell_height
-                            + (scaled_cell_height - lock_size) // 2
-                        )
-                        lock_region = (lock_x, lock_y, lock_size, lock_size)
-
-                        lock_detected = self.vision.detect_lock_icon(lock_region)
-                        if lock_detected:
-                            self.log_updated.emit(
-                                f"位置({row},{col})检测到锁定图标，停止检测"
-                            )
-                            locked_detected = True
-                            break
-
-                        star_x = (
-                            scaled_zone_x
-                            + col * scaled_cell_width
-                            + scaled_star_offset_x
-                        )
-                        star_y = (
-                            scaled_zone_y
-                            + row * scaled_cell_height
-                            + scaled_star_offset_y
-                        )
-                        star_region = (
-                            star_x,
-                            star_y,
-                            scaled_star_width,
-                            scaled_star_height,
-                        )
-                        star_img = self.vision.screenshot(star_region)
-                        color = self.vision.detect_star_color(star_img)
-
-                        if color is None:
-                            continue
-
-                        if color in ["purple", "yellow"]:
-                            self.msleep(50)
-                            star_img_verify = self.vision.screenshot(star_region)
-                            color_verify = self.vision.detect_star_color(
-                                star_img_verify
-                            )
-                            if color_verify != color:
-                                self.log_updated.emit(
-                                    f"位置({row},{col})高品质验证失败: {color} != {color_verify}，跳过"
-                                )
-                                continue
-
-                        valid_fish_count += 1
-
-                        quality_map = {
-                            "gray": "标准",
-                            "green": "非凡",
-                            "blue": "稀有",
-                            "purple": "史诗",
-                            "yellow": "传奇",
-                        }
-                        quality = quality_map.get(color, "标准")
-
-                        release_map = {
-                            "标准": "release_standard",
-                            "非凡": "release_uncommon",
-                            "稀有": "release_rare",
-                            "史诗": "release_epic",
-                            "传奇": "release_legendary",
-                        }
-                        should_release = cfg.global_settings.get(
-                            release_map.get(quality), False
-                        )
-
-                        # 高品质鱼不放生
-                        if color in ["purple", "yellow"]:
-                            should_release = False
-
-                        if not self.running or self.paused:
-                            break
-
-                        # 检测弹窗并等待处理完成
-                        popup_region = cfg.get_rect("popup_exclamation")
-                        if self.vision.find_template_popup(
-                            "exclamation_grayscale",
-                            region=popup_region,
-                            threshold=0.7,
-                        ):
-                            self.log_updated.emit("检测到弹窗，等待处理完成...")
-                            if not self._wait_for_popup_clear(timeout=10):
-                                self.log_updated.emit("等待弹窗清除超时，继续操作")
-
-                        # 点击鱼打开菜单
-                        fish_x = (
-                            scaled_zone_x
-                            + col * scaled_cell_width
-                            + scaled_cell_width // 2
-                        )
-                        fish_y = (
-                            scaled_zone_y
-                            + row * scaled_cell_height
-                            + scaled_cell_height // 2
-                        )
-                        self.inputs.click(
-                            fish_x + cfg.window_offset_x,
-                            fish_y + cfg.window_offset_y,
-                        )
-                        self.smart_sleep(0.3)
-
-                        if not self.running or self.paused:
-                            break
-
-                        # OCR识别菜单
-                        zone_width = 4 * scaled_cell_width
-                        zone_height = 4 * scaled_cell_height
-                        menu_region = (
-                            scaled_zone_x,
-                            scaled_zone_y,
-                            zone_width,
-                            zone_height,
-                        )
-                        menu_img = self.vision.screenshot(menu_region)
-
-                        if menu_img is None:
-                            self.log_updated.emit("截取菜单失败，跳过")
-                            continue
-
-                        ocr_result, _ = self.ocr(menu_img)
-                        action_found = False
-
-                        if ocr_result:
-                            target_text = "放生" if should_release else "锁定"
-                            for item in ocr_result:
-                                text = item[1]
-                                if target_text in text:
-                                    box = item[0]
-                                    center_x = int((box[0][0] + box[2][0]) / 2)
-                                    center_y = int((box[0][1] + box[2][1]) / 2)
-                                    action_x = scaled_zone_x + center_x
-                                    action_y = scaled_zone_y + center_y
-                                    self.inputs.click(
-                                        action_x + cfg.window_offset_x,
-                                        action_y + cfg.window_offset_y,
-                                    )
-                                    action_found = True
-                                    self.log_updated.emit(
-                                        f"位置({row},{col})品质:{quality}，{'放生' if should_release else '锁定'}"
-                                    )
-                                    break
-
-                        if not action_found:
-                            self.log_updated.emit(
-                                f"未识别到{'放生' if should_release else '锁定'}按钮，跳过"
-                            )
-                            continue
-
-                        time.sleep(0.3)
-
-                        import ctypes
-
-                        screen_right = cfg.window_offset_x + cfg.screen_width - 10
-                        screen_top = cfg.window_offset_y + 10
-                        ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
-
-                        self.smart_sleep(0.8)
-
-                        if not self.running or self.paused:
-                            break
-
-                        if should_release:
-                            released_count += 1
-                            zone_released += 1
-                            action_in_row = True
-                        elif row == 0:
-                            # 锁定操作只在第一排时重复检测
-                            action_in_row = True
-
-                        self.smart_sleep(0.3)
-                        break
-
-                    if valid_fish_count == 0 or not action_in_row or locked_detected:
-                        break
-
-            if locked_detected:
-                self.log_updated.emit("检测到锁定，停止所有检测")
-                break
-
-            # 输出当前区域的放生结果
-            if zone_released > 0:
-                self.log_updated.emit(f"区域 {zone_id} 放生了 {zone_released} 条鱼")
-            else:
-                self.log_updated.emit(f"区域 {zone_id} 无可放生的鱼")
-
-            # 如果不是最后一个区域，滚动到下一个区域
-            if zone_idx < len(zones) - 1:
-                self.log_updated.emit("滚动到下一区域...")
-                # 将鼠标移到鱼桶中心位置，确保滚轮生效
-                import ctypes
-
-                center_x = scaled_zone_x + (4 * scaled_cell_width) // 2
-                center_y = scaled_zone_y + (4 * scaled_cell_height) // 2
-                ctypes.windll.user32.SetCursorPos(
-                    center_x + cfg.window_offset_x, center_y + cfg.window_offset_y
-                )
-                self.smart_sleep(0.2)
-                # 向下滚动3次
-                for _ in range(3):
-                    if not self.running or self.paused:
-                        break
-                    self.inputs.scroll_wheel(-1)
-                    self.smart_sleep(0.8)
-                self.smart_sleep(0.5)
+        if locked_detected:
+            self.log_updated.emit("检测到锁定，停止所有检测")
 
         # 关闭鱼桶
         self.inputs.press_key("ESC")
