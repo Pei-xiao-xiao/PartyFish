@@ -1113,6 +1113,24 @@ class FishingWorker(QThread):
             self.msleep(200)
         return False
 
+    def _check_popup_and_abort_release(self, released_count):
+        """检测弹窗，如果存在则等待处理完成后关闭鱼桶并返回"""
+        popup_region = cfg.get_rect("popup_exclamation")
+        if self.vision.find_template_popup(
+            "exclamation_grayscale", region=popup_region, threshold=0.7
+        ):
+            self.log_updated.emit("放生过程中检测到加时弹窗，等待处理完成后关闭鱼桶...")
+            if not self._wait_for_popup_clear(timeout=10):
+                self.log_updated.emit("等待弹窗清除超时")
+            self.inputs.press_key("ESC")
+            self.smart_sleep(0.5)
+            self.log_updated.emit(
+                f"检测到弹窗，已关闭鱼桶，本次放生了{released_count}条鱼"
+            )
+            self.status_updated.emit("运行中")
+            return True
+        return False
+
     def check_and_auto_release(self):
         """检查鱼桶并执行自动放生（支持F2暂停，暂停后重新开始）"""
         if not cfg.global_settings.get("auto_release_enabled", False):
@@ -1130,6 +1148,7 @@ class FishingWorker(QThread):
         if self.paused:
             self.inputs.release_key("C")
             self.log_updated.emit("放生被暂停，已中止")
+            self.status_updated.emit("已暂停")
             return
 
         bucket_pos = self.vision.find_template("tong_gray", threshold=0.8)
@@ -1143,14 +1162,25 @@ class FishingWorker(QThread):
             if self.paused:
                 self.inputs.release_key("C")
                 self.log_updated.emit("放生被暂停，已中止")
+                self.status_updated.emit("已暂停")
                 return
+
+            # 检测弹窗
+            if self._check_popup_and_abort_release(0):
+                self.inputs.release_key("C")
+                return 0
 
         self.inputs.release_key("C")
         self.smart_sleep(1.0)
         if self.paused:
             self.inputs.press_key("ESC")
             self.log_updated.emit("放生被暂停，已中止")
+            self.status_updated.emit("已暂停")
             return
+
+        # 检测弹窗
+        if self._check_popup_and_abort_release(0):
+            return 0
 
         released_count = 0
         zone = cfg.REGIONS["fish_inventory"]["zones"][0]
@@ -1177,6 +1207,11 @@ class FishingWorker(QThread):
             while True:
                 if not self.running or self.paused:
                     break
+
+                # 检测弹窗
+                if self._check_popup_and_abort_release(released_count):
+                    return released_count
+
                 action_in_row = False
                 valid_fish_count = 0
                 for col in range(4):
@@ -1258,16 +1293,9 @@ class FishingWorker(QThread):
                     if not self.running or self.paused:
                         break
 
-                    # 检测弹窗并等待处理完成
-                    popup_region = cfg.get_rect("popup_exclamation")
-                    if self.vision.find_template_popup(
-                        "exclamation_grayscale",
-                        region=popup_region,
-                        threshold=0.7,
-                    ):
-                        self.log_updated.emit("检测到弹窗，等待处理完成...")
-                        if not self._wait_for_popup_clear(timeout=10):
-                            self.log_updated.emit("等待弹窗清除超时，继续操作")
+                    # 检测弹窗
+                    if self._check_popup_and_abort_release(released_count):
+                        return released_count
 
                     # 计算鱼的中心位置
                     fish_x = (
@@ -1281,7 +1309,7 @@ class FishingWorker(QThread):
 
                     # 如果启用了鱼名保护功能，则识别鱼名
                     if cfg.global_settings.get("enable_fish_name_protection", False):
-                        self.smart_sleep(0.2)
+                        self.smart_sleep(0.5)
 
                         # 双击鱼中心位置（显示鱼名区域）
                         self.inputs.double_click(
@@ -1289,6 +1317,10 @@ class FishingWorker(QThread):
                             fish_y + cfg.window_offset_y,
                         )
                         self.smart_sleep(0.5)
+
+                        # 检测弹窗
+                        if self._check_popup_and_abort_release(released_count):
+                            return released_count
 
                         # OCR识别鱼名
                         fish_name_region = cfg.get_rect("fish_name_tooltip")
@@ -1316,6 +1348,10 @@ class FishingWorker(QThread):
                         fish_y + cfg.window_offset_y,
                     )
                     self.smart_sleep(0.3)
+
+                    # 检测弹窗
+                    if self._check_popup_and_abort_release(released_count):
+                        return released_count
 
                     if not self.running or self.paused:
                         break
@@ -1366,6 +1402,10 @@ class FishingWorker(QThread):
 
                     time.sleep(0.3)
 
+                    # 检测弹窗
+                    if self._check_popup_and_abort_release(released_count):
+                        return released_count
+
                     import ctypes
 
                     screen_right = cfg.window_offset_x + cfg.screen_width - 10
@@ -1373,6 +1413,10 @@ class FishingWorker(QThread):
                     ctypes.windll.user32.SetCursorPos(screen_right, screen_top)
 
                     self.smart_sleep(0.8)
+
+                    # 检测弹窗
+                    if self._check_popup_and_abort_release(released_count):
+                        return released_count
 
                     if not self.running or self.paused:
                         break
@@ -1399,9 +1443,10 @@ class FishingWorker(QThread):
 
         if self.paused:
             self.log_updated.emit(f"放生被暂停，已放生{released_count}条鱼")
+            self.status_updated.emit("已暂停")
         else:
             self.log_updated.emit(f"自动放生完成，共放生{released_count}条鱼")
-        self.status_updated.emit("运行中")
+            self.status_updated.emit("运行中")
 
         return released_count
 
