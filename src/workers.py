@@ -865,6 +865,28 @@ class FishingWorker(QThread):
 
         should_release = cfg.global_settings.get(release_map.get(quality), False)
 
+        if is_new_record:
+            self.log_updated.emit("首次捕获! 正在截图保存...")
+            try:
+                with mss.mss() as sct:
+                    monitor = {
+                        "left": cfg.window_offset_x,
+                        "top": cfg.window_offset_y,
+                        "width": cfg.screen_width,
+                        "height": cfg.screen_height,
+                    }
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    filename = (
+                        cfg._get_base_path()
+                        / "screenshots"
+                        / f"first_catch_{fish_name.replace(':', '_')}_{timestamp}.png"
+                    )
+                    sct_img = sct.grab(monitor)
+                    mss.tools.to_png(sct_img.rgb, sct_img.size, output=str(filename))
+                    self.log_updated.emit(f"截图已保存至 {filename}")
+            except Exception as e:
+                self.log_updated.emit(f"截图失败: {e}")
+
         if quality == "传奇":
             self.log_updated.emit("哇! 钓到了传奇品质的鱼, 正在截图保存...")
             try:
