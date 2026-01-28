@@ -299,6 +299,21 @@ class HomeInterface(QWidget):
         )
         self.control_grid.addWidget(self.overlay_switch, 2, 1, Qt.AlignLeft)
 
+        # 3. Sound Switcher
+        self.sound_label = CaptionLabel("启动音效", self.banner)
+        self.sound_label.setStyleSheet(label_style)
+        self.sound_switch = SwitchButton(self.banner)
+        self.sound_switch.setOnText("开")
+        self.sound_switch.setOffText("关")
+        self.sound_switch.setChecked(
+            cfg.global_settings.get("control_sound_enabled", True)
+        )
+        self.sound_switch.checkedChanged.connect(self._on_sound_switch_changed)
+        self.control_grid.addWidget(
+            self.sound_label, 3, 0, Qt.AlignRight | Qt.AlignVCenter
+        )
+        self.control_grid.addWidget(self.sound_switch, 3, 1, Qt.AlignLeft)
+
         self.controls_layout.addLayout(self.control_grid)
 
         # 状态指示器 - 简洁竖向卡片
@@ -479,6 +494,11 @@ class HomeInterface(QWidget):
 
             # 延时 50ms 执行，给 UI 响应时间
             QTimer.singleShot(50, delayed_update)
+
+    def _on_sound_switch_changed(self, checked):
+        """处理音效开关变化"""
+        cfg.global_settings["control_sound_enabled"] = checked
+        cfg.save()
 
     def refresh_account_list(self):
         """刷新账号下拉框列表"""

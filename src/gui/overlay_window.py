@@ -38,7 +38,7 @@ class OverlayWindow(QWidget):
         self._cute_font_family = "YouYuan"  # 幼圆 - Windows自带的圆润字体
 
         # 尝试加载自定义字体作为备选
-        font_path = os.path.join("resources", "fonts", "ZCOOLKuaiLe-Regular.ttf")
+        font_path = os.path.join("resources", "fonts", "ZCOOLKuaiLe.ttf")
         if os.path.exists(font_path):
             font_id = QFontDatabase.addApplicationFont(font_path)
             if font_id >= 0:
