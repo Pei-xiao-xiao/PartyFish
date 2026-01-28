@@ -259,33 +259,7 @@ class HomeInterface(QWidget):
         # 标签样式
         label_style = "color: #6b7280; font-size: 13px; font-weight: 500;"
 
-        # 0. Account Switcher
-        self.account_label = CaptionLabel("账号", self.banner)
-        self.account_label.setStyleSheet(label_style)
-        self.accountComboBox = ComboBox(self.banner)
-        self.accountComboBox.addItems(cfg.get_accounts())
-        self.accountComboBox.setCurrentText(cfg.current_account)
-        self.accountComboBox.setFixedWidth(130)
-        self.accountComboBox.currentTextChanged.connect(self._on_account_changed)
-        self.control_grid.addWidget(
-            self.account_label, 0, 0, Qt.AlignRight | Qt.AlignVCenter
-        )
-        self.control_grid.addWidget(self.accountComboBox, 0, 1)
-
-        # 1. Preset Switcher
-        self.preset_label = CaptionLabel("预设", self.banner)
-        self.preset_label.setStyleSheet(label_style)
-        self.presetComboBox = ComboBox(self.banner)
-        self.presetComboBox.addItems(list(cfg.presets.keys()))
-        self.presetComboBox.setCurrentText(cfg.current_preset_name)
-        self.presetComboBox.setFixedWidth(130)
-        self.presetComboBox.currentTextChanged.connect(self._on_preset_changed)
-        self.control_grid.addWidget(
-            self.preset_label, 1, 0, Qt.AlignRight | Qt.AlignVCenter
-        )
-        self.control_grid.addWidget(self.presetComboBox, 1, 1)
-
-        # 2. Overlay Switcher
+        # 0. Overlay Switcher (左侧)
         self.overlay_label = CaptionLabel("悬浮窗", self.banner)
         self.overlay_label.setStyleSheet(label_style)
         self.overlay_switch = SwitchButton(self.banner)
@@ -295,24 +269,50 @@ class HomeInterface(QWidget):
             lambda _: self.toggle_overlay_signal.emit()
         )
         self.control_grid.addWidget(
-            self.overlay_label, 2, 0, Qt.AlignRight | Qt.AlignVCenter
+            self.overlay_label, 0, 0, Qt.AlignRight | Qt.AlignVCenter
         )
-        self.control_grid.addWidget(self.overlay_switch, 2, 1, Qt.AlignLeft)
+        self.control_grid.addWidget(self.overlay_switch, 0, 1, Qt.AlignLeft)
 
-        # 3. Sound Switcher
+        # 1. Account Switcher (右侧)
+        self.account_label = CaptionLabel("账号", self.banner)
+        self.account_label.setStyleSheet(label_style)
+        self.accountComboBox = ComboBox(self.banner)
+        self.accountComboBox.addItems(cfg.get_accounts())
+        self.accountComboBox.setCurrentText(cfg.current_account)
+        self.accountComboBox.setFixedWidth(130)
+        self.accountComboBox.currentTextChanged.connect(self._on_account_changed)
+        self.control_grid.addWidget(
+            self.account_label, 0, 2, Qt.AlignRight | Qt.AlignVCenter
+        )
+        self.control_grid.addWidget(self.accountComboBox, 0, 3)
+
+        # 2. Sound Switcher (左侧)
         self.sound_label = CaptionLabel("启动音效", self.banner)
         self.sound_label.setStyleSheet(label_style)
         self.sound_switch = SwitchButton(self.banner)
         self.sound_switch.setOnText("开")
         self.sound_switch.setOffText("关")
         self.sound_switch.setChecked(
-            cfg.global_settings.get("control_sound_enabled", True)
+            cfg.global_settings.get("control_sound_enabled", False)
         )
         self.sound_switch.checkedChanged.connect(self._on_sound_switch_changed)
         self.control_grid.addWidget(
-            self.sound_label, 3, 0, Qt.AlignRight | Qt.AlignVCenter
+            self.sound_label, 1, 0, Qt.AlignRight | Qt.AlignVCenter
         )
-        self.control_grid.addWidget(self.sound_switch, 3, 1, Qt.AlignLeft)
+        self.control_grid.addWidget(self.sound_switch, 1, 1, Qt.AlignLeft)
+
+        # 3. Preset Switcher (右侧)
+        self.preset_label = CaptionLabel("预设", self.banner)
+        self.preset_label.setStyleSheet(label_style)
+        self.presetComboBox = ComboBox(self.banner)
+        self.presetComboBox.addItems(list(cfg.presets.keys()))
+        self.presetComboBox.setCurrentText(cfg.current_preset_name)
+        self.presetComboBox.setFixedWidth(130)
+        self.presetComboBox.currentTextChanged.connect(self._on_preset_changed)
+        self.control_grid.addWidget(
+            self.preset_label, 1, 2, Qt.AlignRight | Qt.AlignVCenter
+        )
+        self.control_grid.addWidget(self.presetComboBox, 1, 3)
 
         self.controls_layout.addLayout(self.control_grid)
 

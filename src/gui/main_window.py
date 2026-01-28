@@ -318,7 +318,7 @@ class MainWindow(FluentWindow):
         try:
             from src.config import cfg
 
-            if not cfg.global_settings.get("control_sound_enabled", True):
+            if not cfg.global_settings.get("control_sound_enabled", False):
                 return
             base_path = cfg._get_base_path()
             sound_file = base_path / "resources" / "audio" / f"{sound_type}.mp3"
