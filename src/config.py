@@ -789,6 +789,21 @@ class Config(metaclass=SingletonMeta):
         else:
             raise ValueError(f"Preset '{name}' not found.")
 
+    def get_ui_font(self):
+        """
+        返回适合当前系统的UI字体名称。
+        台湾/香港用户使用微软正黑体，大陆用户使用微软雅黑。
+        """
+        import locale
+
+        try:
+            lang = locale.getdefaultlocale()[0]
+            if lang in ["zh_TW", "zh_HK"]:
+                return "Microsoft JhengHei"
+        except:
+            pass
+        return "Microsoft YaHei"
+
     def get_rect(self, name):
         """
         Calculates the scaled rectangle for a predefined region using an anchor-based dispatcher.

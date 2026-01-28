@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QFont
 from qfluentwidgets import setTheme, Theme
 from src.gui.main_window import MainWindow
 from src.gui.welcome_dialog import show_welcome_dialog
@@ -23,6 +24,11 @@ if __name__ == "__main__":
         cfg.set_base_path(application_path)
 
         app = QApplication(sys.argv)
+
+        # 设置应用程序字体
+        ui_font = cfg.get_ui_font()
+        app.setFont(QFont(ui_font, 9))
+        print(f"系统语言字体: {ui_font}")
 
         # 获取当前硬件信息
         from src.gui.welcome_dialog import (
@@ -60,6 +66,10 @@ if __name__ == "__main__":
             setTheme(Theme.LIGHT)
         else:
             setTheme(Theme.DARK)
+
+        # 调试：显示当前字体
+        font = app.font()
+        print(f"当前字体: {font.family()}, 大小: {font.pointSize()}")
 
         w = MainWindow()
         w.show()
