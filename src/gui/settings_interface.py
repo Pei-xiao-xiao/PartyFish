@@ -518,7 +518,7 @@ class SettingsInterface(ScrollArea):
     def _create_double_spinbox_card(self, icon, title, content, config_key):
         card = SettingCard(icon, title, content, parent=self.fishingGroup)
         spinbox = DoubleSpinBox(card)
-        spinbox.setRange(0.001, 10.0)
+        spinbox.setRange(0.01, 10.0)
         spinbox.setSingleStep(0.1)
         card.hBoxLayout.addWidget(spinbox, 0, Qt.AlignRight)
         margins = card.hBoxLayout.contentsMargins()

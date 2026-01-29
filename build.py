@@ -65,11 +65,11 @@ def write_version(version):
 def run_pyinstaller():
     import subprocess
 
-    # 清理旧的输出目录
-    dist_dir = Path("dist/partyfish")
-    if dist_dir.exists():
-        shutil.rmtree(dist_dir)
-        print("已清理旧输出目录")
+    # 清理旧的输出文件
+    dist_exe = Path("dist/partyfish.exe")
+    if dist_exe.exists():
+        dist_exe.unlink()
+        print("已清理旧输出文件")
 
     print("开始打包...")
     result = subprocess.run(
@@ -84,47 +84,68 @@ def run_pyinstaller():
 def post_build(version):
     import time
 
-    dist = Path("dist/partyfish")
-    target = Path(f"dist/partyfish-{version}")
+    dist_exe = Path("dist/partyfish.exe")
+    target_exe = Path(f"dist/partyfish-{version}.exe")
+    target_dir = Path(f"dist/partyfish-{version}")
 
-    # 复制资源
-    if Path("resources").exists():
-        shutil.copytree("resources", dist / "resources", dirs_exist_ok=True)
-        print("已复制 resources")
+    # 检查打包结果
+    if not dist_exe.exists():
+        print(f"错误: 找不到打包后的文件 {dist_exe}")
+        sys.exit(1)
 
-    # 复制说明文档
-    readme = Path("使用说明与版本更新.txt")
-    if readme.exists():
-        shutil.copy2(readme, dist / readme.name)
-        print("已复制使用说明")
-
-    # 重命名输出目录
-    if target.exists():
+    # 清理旧的目标目录和文件
+    if target_dir.exists():
         for i in range(5):
             try:
-                shutil.rmtree(target)
+                shutil.rmtree(target_dir)
                 break
             except PermissionError:
                 if i < 4:
                     print(f"等待删除旧目录，尝试 {i+1}/5...")
                     time.sleep(2)
                 else:
-                    print(f"警告: 无法删除旧目录 {target}，跳过")
-                    return
-    
-    # 使用 shutil.move 替代 Path.rename，更健壮
+                    print(f"警告: 无法删除旧目录 {target_dir}")
+
+    if target_exe.exists():
+        for i in range(5):
+            try:
+                target_exe.unlink()
+                break
+            except PermissionError:
+                if i < 4:
+                    print(f"等待删除旧文件，尝试 {i+1}/5...")
+                    time.sleep(2)
+                else:
+                    print(f"警告: 无法删除旧文件 {target_exe}")
+
+    # 创建目标目录
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # 移动 exe 到目标目录
     for i in range(5):
         try:
-            shutil.move(str(dist), str(target))
+            shutil.move(str(dist_exe), str(target_dir / "partyfish.exe"))
             break
         except PermissionError:
             if i < 4:
-                print(f"等待重命名目录，尝试 {i+1}/5...")
+                print(f"等待移动文件，尝试 {i+1}/5...")
                 time.sleep(2)
             else:
-                print(f"错误: 无法重命名目录 {dist} -> {target}")
+                print(f"错误: 无法移动文件 {dist_exe}")
                 raise
-    print(f"输出目录: {target}")
+
+    # 复制 resources 文件夹到目标目录
+    if Path("resources").exists():
+        shutil.copytree("resources", target_dir / "resources", dirs_exist_ok=True)
+        print("已复制 resources 文件夹")
+
+    # 复制说明文档
+    readme = Path("使用说明与版本更新.txt")
+    if readme.exists():
+        shutil.copy2(readme, target_dir / readme.name)
+        print("已复制使用说明")
+
+    print(f"输出目录: {target_dir}")
 
 
 def main():
