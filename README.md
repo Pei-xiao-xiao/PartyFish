@@ -18,33 +18,72 @@ fish/
 ├── build.py                         # 构建脚本
 ├── requirements.txt                 # Python 依赖
 ├── resources/                       # 资源文件
-│   ├── fish.json                   # 鱼类数据库
-│   ├── favicon.ico                 # 应用图标
-│   └── *.png                       # 游戏界面模板图片
-├── src/                            # 源代码目录
-│   ├── config.py                   # 配置管理（DPI 适配、多账号支持）
-│   ├── vision.py                   # 图像识别模块（OpenCV 模板匹配）
-│   ├── inputs.py                   # 输入控制（键盘鼠标模拟）
-│   ├── workers.py                  # 后台工作线程（钓鱼逻辑）
-│   ├── pokedex.py                  # 鱼类图鉴数据处理
-│   ├── uno.py                      # uno 游戏摸牌
-│   ├── debug_overlay.py            # 调试覆盖层
-│   ├── _version.py                 # 版本管理
-│   ├── record_manager.py           #导入和导出钓鱼记录
-│   └── gui/                        # GUI 界面模块
-│       ├── components/             # 可复用组件
-│       ├── main_window.py          # 主窗口
-│       ├── home_interface.py       # 主页面
-│       ├── records_interface.py    # 钓鱼记录
-│       ├── profit_interface.py     # 收益统计
-│       ├── pokedex_interface.py    # 鱼类图鉴
-│       ├── settings_interface.py   # 设置页面
-│       ├── overlay_window.py       # 迷你悬浮窗
-│       ├── welcome_dialog.py       # 提示窗口
-│       └── hotkey_dialog.py        # 热键设置窗口
-└── data/                           # 数据存储（自动生成）
-    ├── records.csv                 # 钓鱼记录
-    └── sales.csv                   # 销售记录
+│   ├── fish.json                    # 鱼类数据库
+│   ├── protected_fish.json          # 放生配置
+│   ├── audio/                       # 音频资源
+│   ├── maps/                        # 地图资源
+│   ├── fish/                        # 鱼类图片资源
+│   ├── fonts/                       # 字体文件
+│   ├── location/                    # 位置图片
+│   └── *.png                        # 游戏界面模板图片
+├── src/                             # 源代码目录
+│   ├── config.py                    # 配置管理
+│   ├── vision.py                    # 图像识别模块
+│   ├── inputs.py                    # 输入控制
+│   ├── workers.py                   # 后台工作线程
+│   ├── pokedex.py                   # 鱼类图鉴数据处理
+│   ├── uno.py                       # uno 游戏摸牌
+│   ├── debug_overlay.py             # 调试覆盖层
+│   ├── _version.py                  # 版本管理
+│   ├── record_manager.py            # 导入导出钓鱼记录
+│   ├── configs/                     # 配置模块
+│   │   ├── display_config.py        # 显示配置
+│   │   ├── game_config.py           # 游戏配置
+│   │   └── region_config.py         # 区域配置
+│   ├── managers/                    # 管理器模块
+│   │   ├── audio_manager.py         # 音频管理
+│   │   ├── cycle_reset_manager.py   # 循环重置管理
+│   │   ├── sales_limit_manager.py   # 销售限制管理
+│   │   └── signal_manager.py        # 信号管理
+│   ├── services/                    # 服务模块
+│   │   ├── account_service.py       # 账号服务
+│   │   ├── chart_builder_service.py # 图表构建服务
+│   │   ├── config_manager.py        # 配置管理服务
+│   │   ├── coordinate_service.py    # 坐标服务
+│   │   ├── data_loader_service.py   # 数据加载服务
+│   │   ├── digit_recognition_service.py # 数字识别服务
+│   │   ├── fishing_service.py       # 钓鱼服务
+│   │   ├── ocr_service.py           # OCR 服务
+│   │   ├── profit_analysis_service.py # 收益分析服务
+│   │   ├── record_chart_service.py  # 记录图表服务
+│   │   ├── record_data_service.py   # 记录数据服务
+│   │   ├── record_service.py        # 记录服务
+│   │   ├── record_stats_service.py  # 记录统计服务
+│   │   ├── release_service.py       # 发布服务
+│   │   ├── screenshot_service.py    # 截图服务
+│   │   ├── state_machine.py         # 状态机
+│   │   ├── template_service.py      # 模板服务
+│   │   ├── vision_utils_service.py  # 视觉工具服务
+│   │   └── window_service.py        # 窗口服务
+│   └── gui/                         # GUI 界面模块
+│       ├── components/              # 可复用组件
+│       │   ├── draggable_scroll_area.py # 可拖拽滚动区域
+│       │   ├── filter_drawer.py     # 过滤抽屉
+│       │   ├── filter_panel.py      # 过滤面板
+│       │   ├── fish_preview.py      # 鱼类预览
+│       │   └── home_fish_card.py    # 主页鱼类卡片
+│       ├── main_window.py           # 主窗口
+│       ├── home_interface.py        # 主页面
+│       ├── records_interface.py     # 钓鱼记录
+│       ├── profit_interface.py      # 收益统计
+│       ├── pokedex_interface.py     # 鱼类图鉴
+│       ├── settings_interface.py    # 设置页面
+│       ├── overlay_window.py        # 迷你悬浮窗
+│       ├── fish_detail_dialog.py    # 鱼类详情对话框
+│       └── welcome_dialog.py        # 欢迎对话框
+└── data/                            # 数据存储（自动生成）
+    ├── records.csv                  # 钓鱼记录
+    └── sales.csv                    # 销售记录
 ```
 
 ---

@@ -227,6 +227,20 @@ class SettingsInterface(ScrollArea):
         )
         self.globalGroup.addSettingCard(self.fishRecognitionCard)
 
+        self.legendaryScreenshotCard = SwitchSettingCard(
+            FluentIcon.CAMERA,
+            self.tr("传奇截图"),
+            self.tr("钓到传奇品质鱼类时自动截图保存"),
+        )
+        self.globalGroup.addSettingCard(self.legendaryScreenshotCard)
+
+        self.firstCatchScreenshotCard = SwitchSettingCard(
+            FluentIcon.CAMERA,
+            self.tr("首次捕获截图"),
+            self.tr("首次捕获新鱼类时自动截图保存"),
+        )
+        self.globalGroup.addSettingCard(self.firstCatchScreenshotCard)
+
         self.jitterCard = SettingCard(
             FluentIcon.SYNC, "时间抖动范围", "设置操作时间的随机波动百分比 (0% - 30%)"
         )
@@ -514,6 +528,8 @@ class SettingsInterface(ScrollArea):
         self.antiAfkCard.checkedChanged.connect(self._save_global_settings)
         self.soundAlertCard.checkedChanged.connect(self._save_global_settings)
         self.fishRecognitionCard.checkedChanged.connect(self._save_global_settings)
+        self.legendaryScreenshotCard.checkedChanged.connect(self._save_global_settings)
+        self.firstCatchScreenshotCard.checkedChanged.connect(self._save_global_settings)
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
@@ -599,6 +615,12 @@ class SettingsInterface(ScrollArea):
         )
         self.fishRecognitionCard.setChecked(
             cfg.global_settings.get("enable_fish_recognition", True)
+        )
+        self.legendaryScreenshotCard.setChecked(
+            cfg.global_settings.get("enable_legendary_screenshot", True)
+        )
+        self.firstCatchScreenshotCard.setChecked(
+            cfg.global_settings.get("enable_first_catch_screenshot", True)
         )
         self.autoReleaseEnabledCard.setChecked(
             cfg.global_settings.get("auto_release_enabled", False)
@@ -695,6 +717,12 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["enable_sound_alert"] = self.soundAlertCard.isChecked()
         cfg.global_settings["enable_fish_recognition"] = (
             self.fishRecognitionCard.isChecked()
+        )
+        cfg.global_settings["enable_legendary_screenshot"] = (
+            self.legendaryScreenshotCard.isChecked()
+        )
+        cfg.global_settings["enable_first_catch_screenshot"] = (
+            self.firstCatchScreenshotCard.isChecked()
         )
         cfg.global_settings["auto_release_enabled"] = (
             self.autoReleaseEnabledCard.isChecked()

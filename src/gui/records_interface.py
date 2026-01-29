@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
 )
 from PySide6.QtGui import QColor, QBrush, Qt, QPainter, QCursor
-from PySide6.QtCore import Qt as QtCoreQt, QMargins
+from PySide6.QtCore import Qt as QtCoreQt, QMargins, QDate
 from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
 from qfluentwidgets import (
     TableWidget,
@@ -31,11 +31,11 @@ from qfluentwidgets import (
     SearchLineEdit,
 )
 from datetime import datetime
-import csv
-import os
-from collections import Counter
 from src.gui.components import QUALITY_COLORS
 from src.config import cfg
+from src.services.record_data_service import RecordDataService, FishRecord
+from src.services.record_stats_service import RecordStatsService
+from src.services.record_chart_service import RecordChartService
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -55,6 +55,11 @@ class RecordsInterface(QWidget):
         super().__init__(parent=parent)
         self.setObjectName("recordsInterface")
 
+        # 初始化服务
+        self.data_service = RecordDataService()
+        self.stats_service = RecordStatsService()
+        self.chart_service = RecordChartService()
+
         # --- Main Layout ---
         self.vBoxLayout = QVBoxLayout(self)
 
@@ -71,19 +76,16 @@ class RecordsInterface(QWidget):
         # Date selector (initially hidden)
         self.date_selector_layout = QHBoxLayout()
         self.date_selector_label = QLabel("选择日期:")
-        # Use PrimaryPushButton to make it more prominent
         self.date_selector_button = PrimaryPushButton("选择日期")
         self.date_selector_button.setFixedWidth(120)
         self.date_selector_button.clicked.connect(self._show_date_dialog)
 
-        # Add label to display current selected date
         self.current_date_label = QLabel("")
         self.current_date_label.setFixedWidth(120)
         self.current_date_label.setStyleSheet(
             "font-weight: bold; color: #3BA5D8; font-size: 14px;"
         )
 
-        # Add some spacing between components
         self.date_selector_layout.addWidget(self.date_selector_label)
         self.date_selector_layout.addSpacing(8)
         self.date_selector_layout.addWidget(self.date_selector_button)
@@ -120,8 +122,6 @@ class RecordsInterface(QWidget):
         self._toggle_date_selector(False)
 
         # Initialize selected date
-        from datetime import datetime
-
         self.selected_date = datetime.now().strftime("%Y-%m-%d")
         self.current_date_label.setText(self.selected_date)
 
@@ -157,17 +157,16 @@ class RecordsInterface(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
         )
-        bottom_layout.addWidget(self.table, 3)  # Table takes 3/5 of space
+        bottom_layout.addWidget(self.table, 3)
 
         # Pie Chart
         self._init_pie_chart()
-        bottom_layout.addWidget(self.chart_view, 2)  # Chart takes 2/5 of space
+        bottom_layout.addWidget(self.chart_view, 2)
 
         self.vBoxLayout.addLayout(bottom_layout)
 
         # --- Data Storage ---
         self.all_records = []
-        self.current_qualities_in_view = []  # To refresh chart theme
         self._load_data()
 
     def _init_pie_chart(self):
@@ -181,11 +180,7 @@ class RecordsInterface(QWidget):
         chart.setAnimationOptions(QChart.AnimationOption.SeriesAnimations)
 
         is_dark_theme = qconfig.theme.value == "Dark"
-        chart.setTheme(
-            QChart.ChartTheme.ChartThemeDark
-            if is_dark_theme
-            else QChart.ChartTheme.ChartThemeLight
-        )
+        self.chart_service.apply_theme(chart, is_dark_theme)
 
         self.chart_view = QChartView(chart)
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -211,93 +206,66 @@ class RecordsInterface(QWidget):
     def _show_date_dialog(self):
         """Show a popup dialog for date selection"""
         from PySide6.QtGui import QTextCharFormat
-        from PySide6.QtCore import QDate
-        from PySide6.QtWidgets import QDialog, QVBoxLayout
 
-        # Create dialog
         dialog = QDialog(self)
         dialog.setWindowTitle("选择日期")
         dialog.setModal(True)
 
-        # Create calendar widget
         calendar = QCalendarWidget(dialog)
         calendar.setGridVisible(True)
 
-        # Extract unique dates from all records
-        available_dates = set()
-        for record in self.all_records:
-            date_str = record["timestamp"].split(" ")[0]  # Get YYYY-MM-DD part
-            available_dates.add(date_str)
-
-        # Convert available_dates to QDate objects for easier handling
+        # 获取可用日期
+        available_dates = self.data_service.get_available_dates(self.all_records)
         available_qdates = set()
         for date_str in available_dates:
             year, month, day = map(int, date_str.split("-"))
             available_qdates.add(QDate(year, month, day))
 
-        # Create text formats
-        # Format for available dates (with records) - extra black and bold
+        # 创建文本格式
         available_format = QTextCharFormat()
-        available_format.setForeground(QColor("#000000"))  # Pure black
-        available_format.setFontWeight(100)  # Maximum bold
-        available_format.setFontPointSize(12)  # Larger font size
-        available_format.setFontItalic(False)
-        available_format.setFontUnderline(False)
+        available_format.setForeground(QColor("#000000"))
+        available_format.setFontWeight(100)
+        available_format.setFontPointSize(12)
 
-        # Format for unavailable dates (without records) - gray font
         unavailable_format = QTextCharFormat()
         unavailable_format.setForeground(QColor("gray"))
-        unavailable_format.setFontWeight(50)  # Normal weight
-        unavailable_format.setFontPointSize(10)  # Normal font size
-        # Ensure font is gray for unavailable dates
-        unavailable_format.setFontItalic(False)
-        unavailable_format.setFontUnderline(False)
+        unavailable_format.setFontWeight(50)
+        unavailable_format.setFontPointSize(10)
 
-        # Set date range to limit calendar view
+        # 设置日期范围
         if available_qdates:
             min_date = min(available_qdates)
             max_date = max(available_qdates)
             calendar.setMinimumDate(min_date)
             calendar.setMaximumDate(max_date)
 
-            # First, apply unavailable format to all dates in the visible range
-            # This ensures any default styles are overwritten
-            start_date = min_date.addMonths(-1)  # Include previous month
-            end_date = max_date.addMonths(1)  # Include next month
+            start_date = min_date.addMonths(-1)
+            end_date = max_date.addMonths(1)
             current_date = start_date
 
             while current_date <= end_date:
                 if current_date >= min_date and current_date <= max_date:
                     if current_date in available_qdates:
-                        # Available date - black bold
                         calendar.setDateTextFormat(current_date, available_format)
                     else:
-                        # Unavailable date within range - gray
                         calendar.setDateTextFormat(current_date, unavailable_format)
                 else:
-                    # Date outside range - gray
                     calendar.setDateTextFormat(current_date, unavailable_format)
                 current_date = current_date.addDays(1)
         else:
-            # If no records, set a very narrow range to make all dates unavailable
             today = QDate.currentDate()
             calendar.setMinimumDate(today)
             calendar.setMaximumDate(today)
             calendar.setDateTextFormat(today, unavailable_format)
 
-        # Create a function to validate date selection
         def validate_selection():
             selected_date = calendar.selectedDate()
             if selected_date not in available_qdates:
-                # Find the nearest available date
                 if available_qdates:
-                    # Set to first available date if current selection is invalid
                     calendar.setSelectedDate(next(iter(available_qdates)))
 
-        # Connect selectionChanged signal to validate function
         calendar.selectionChanged.connect(validate_selection)
 
-        # Set current selected date as default if it's available, otherwise use first available date
         year, month, day = map(int, self.selected_date.split("-"))
         default_qdate = QDate(year, month, day)
         if default_qdate in available_qdates:
@@ -305,27 +273,20 @@ class RecordsInterface(QWidget):
         elif available_qdates:
             calendar.setSelectedDate(next(iter(available_qdates)))
 
-        # Add OK/Cancel buttons
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(dialog.accept)
         button_box.rejected.connect(dialog.reject)
 
-        # Layout
         layout = QVBoxLayout()
         layout.addWidget(calendar)
         layout.addWidget(button_box)
         dialog.setLayout(layout)
 
-        # Show dialog and get result
         if dialog.exec() == QDialog.Accepted:
             selected_qdate = calendar.selectedDate()
             self.selected_date = selected_qdate.toString("yyyy-MM-dd")
             self.current_date_label.setText(self.selected_date)
             self._update_stats_and_table()
-
-    def _on_date_changed(self):
-        """Handle date selection change"""
-        self._update_stats_and_table()
 
     def _create_stat_card(self, title, value, icon):
         """Helper to create a more appealing stat card"""
@@ -356,38 +317,7 @@ class RecordsInterface(QWidget):
 
     def _load_data(self):
         """Load data from CSV and populate table"""
-        self.all_records = []
-
-        data_path = cfg.records_file
-        if not data_path.exists():
-            self._update_stats_and_table()
-            return
-
-        try:
-            with open(data_path, "r", encoding="utf-8-sig") as f:
-                reader = csv.reader(f)
-                header = next(reader, None)  # Skip header
-
-                for row in reader:
-                    if len(row) >= 4:
-                        record = {
-                            "timestamp": row[0],
-                            "name": row[1],
-                            "quality": row[2],
-                            "weight": row[3],
-                            "is_new_record": False,  # Default value
-                        }
-
-                        # Handle the new 'is_new_record' column if present
-                        if len(row) >= 5:
-                            record["is_new_record"] = row[4] == "Yes"
-
-                        self.all_records.append(record)
-        except Exception as e:
-            print(f"Error loading records: {e}")
-
-        # Reverse records to show newest first by default
-        self.all_records.reverse()
+        self.all_records = self.data_service.load_records()
         self._update_stats_and_table()
 
     def _populate_table(self, records_to_display):
@@ -397,11 +327,11 @@ class RecordsInterface(QWidget):
 
         for record in records_to_display:
             self._add_row_to_table(
-                record["timestamp"],
-                record["name"],
-                record["quality"],
-                record["weight"],
-                record.get("is_new_record", False),
+                record.timestamp,
+                record.name,
+                record.quality,
+                record.weight,
+                record.is_new_record,
             )
         self.table.setSortingEnabled(True)
 
@@ -412,7 +342,7 @@ class RecordsInterface(QWidget):
         items = [
             QTableWidgetItem(str(timestamp)),
             QTableWidgetItem(str(name)),
-            NumericTableWidgetItem(str(weight)),  # Use Numeric for weight
+            NumericTableWidgetItem(str(weight)),
             QTableWidgetItem(str(quality)),
         ]
 
@@ -448,158 +378,49 @@ class RecordsInterface(QWidget):
             return
         current_view = current_view_item.text()
 
-        today_str = datetime.now().strftime("%Y-%m-%d")
-
-        # Filter records based on current view
+        # 根据视图筛选记录
         if current_view == "今日统计":
-            display_records = [
-                r for r in self.all_records if r["timestamp"].startswith(today_str)
-            ]
+            display_records = self.data_service.filter_by_today(self.all_records)
         elif current_view == "日期统计":
-            # Use the selected date from the dialog
-            display_records = [
-                r
-                for r in self.all_records
-                if r["timestamp"].startswith(self.selected_date)
-            ]
-        else:  # All records (全部统计)
+            display_records = self.data_service.filter_by_date(
+                self.all_records, self.selected_date
+            )
+        else:
             display_records = self.all_records
 
-        # --- Update Stats ---
-        total_records = len(self.all_records)
-        today_records = [
-            r for r in self.all_records if r["timestamp"].startswith(today_str)
-        ]
+        # 计算统计数据
+        stats = self.stats_service.calculate_stats(display_records, self.all_records)
 
-        total_count = len(display_records)
-        today_count = len(today_records)
-
-        # Calculate unhook stats based on the current view
-        total_attempts = len(display_records)
-        unhook_count = [r["name"] for r in display_records].count("鱼跑了")
-
-        # Calculate quality stats based on the current view
-        self.current_qualities_in_view = [r["quality"] for r in display_records]
-        # 统计传奇品质时兼容传说品质和繁体品质的数据
-        legendary_count = self.current_qualities_in_view.count(
-            "传奇"
-        ) + self.current_qualities_in_view.count("传说")
-
-        # Update labels - total_card shows dynamic count based on current view
+        # 更新统计卡片
         if current_view == "全部统计":
-            # 全部统计 - show all records count
-            self.total_card.value_label.setText(str(total_records))
+            self.total_card.value_label.setText(str(len(self.all_records)))
         elif current_view == "今日统计":
-            # 今日统计 - show today's records count
-            self.total_card.value_label.setText(str(today_count))
+            self.total_card.value_label.setText(str(stats.today_count))
         elif current_view == "日期统计":
-            # 日期统计 - show selected date's records count
-            self.total_card.value_label.setText(str(total_count))
+            self.total_card.value_label.setText(str(stats.total_count))
         else:
-            # Default to all records
-            self.total_card.value_label.setText(str(total_records))
+            self.total_card.value_label.setText(str(len(self.all_records)))
 
-        self.today_card.value_label.setText(str(today_count))
-        self.legendary_card.value_label.setText(str(legendary_count))
-        self.unhook_rate_card.value_label.setText(str(unhook_count))
+        self.today_card.value_label.setText(str(stats.today_count))
+        self.legendary_card.value_label.setText(str(stats.legendary_count))
+        self.unhook_rate_card.value_label.setText(str(stats.unhook_count))
 
-        # --- Update Table and Chart ---
+        # 更新表格和图表
         self._populate_table(display_records)
-        self._update_pie_chart(self.current_qualities_in_view)
-        self._filter_table()  # Re-apply current filter
+        self.chart_service.update_pie_chart(
+            self.pie_series, stats.quality_counts, qconfig.theme.value == "Dark"
+        )
+        self._update_legend_markers()
+        self._filter_table()
 
-    def _update_pie_chart(self, qualities):
-        """Updates the pie chart with the given quality data."""
-        self.pie_series.clear()
-
-        # 将传说品质的数据转换为传奇品质进行统计
-        processed_qualities = ["传奇" if q == "传说" else q for q in qualities]
-        quality_counts = Counter(processed_qualities)
-        total_fish_caught = sum(quality_counts.values())
-
-        if total_fish_caught == 0:
-            return
-
-        is_dark_theme = qconfig.theme.value == "Dark"
-
-        # Ensure consistent order by iterating through QUALITY_COLORS
-        for quality in QUALITY_COLORS:
-            if quality in quality_counts:
-                count = quality_counts[quality]
-                slice_color = (
-                    QUALITY_COLORS[quality][1]
-                    if is_dark_theme
-                    else QUALITY_COLORS[quality][0]
-                )
-
-                pie_slice = QPieSlice(quality, count)
-                pie_slice.setColor(slice_color)
-
-                # Calculate ratio and set label (Percentage only)
-                ratio = count / total_fish_caught
-                pie_slice.setLabel(f"{ratio:.1%}")
-                pie_slice.setLabelVisible(True)
-
-                # Handle label position based on slice size
-                if ratio < 0.1:
-                    pie_slice.setLabelPosition(QPieSlice.LabelPosition.LabelOutside)
-                else:
-                    pie_slice.setLabelPosition(
-                        QPieSlice.LabelPosition.LabelInsideHorizontal
-                    )
-
-                # Store data needed for tooltip and legend
-                pie_slice.setProperty("count", count)
-                pie_slice.setProperty("total_count", total_fish_caught)
-                pie_slice.setProperty("quality_name", quality)
-
-                # Connect hover effect
-                pie_slice.hovered.connect(self._handle_slice_hover)
-
-                self.pie_series.append(pie_slice)
-
-        # Customizing Legend Markers to show only Quality Name
-        # Note: Markers are generated after adding series to chart,
-        # but here we are just updating the series content.
-        # We need to refresh the markers *after* the series has been processed by the chart.
-        # However, since the series is already in the chart (in __init__), updating it should trigger updates.
-        # We might need to process events or access markers directly.
-
-        # Accessing markers requires the series to be added to the chart.
-        # We iterate through the markers and set their label to the quality name.
+    def _update_legend_markers(self):
+        """更新图例标记"""
         markers = self.chart_view.chart().legend().markers(self.pie_series)
         for marker in markers:
-            # The marker's slice corresponds to one of the slices we just added
-            # BUT, the order might be preserved.
-            # Safest way is to check the slice property.
             slice_obj = marker.slice()
             quality_name = slice_obj.property("quality_name")
             if quality_name:
                 marker.setLabel(quality_name)
-
-    def _handle_slice_hover(self, state):
-        """Explode slice and show tooltip on hover."""
-        pie_slice = self.sender()
-        if not isinstance(pie_slice, QPieSlice):
-            return
-
-        # Explode/un-explode the slice
-        pie_slice.setExploded(state)
-
-        if state:
-            # Calculate tooltip text
-            count = pie_slice.property("count")
-            total_count = pie_slice.property("total_count")
-            quality = pie_slice.property("quality_name")
-            percentage = (count / total_count) * 100 if total_count > 0 else 0
-
-            tooltip_text = f"{quality}\n数量: {count}\n占比: {percentage:.2f}%"
-
-            # Show tooltip at cursor position
-            QToolTip.showText(QCursor.pos(), tooltip_text)
-        else:
-            # Hide tooltip
-            QToolTip.hideText()
 
     def _filter_table(self):
         """Filter rows based on fish name and quality"""
@@ -607,8 +428,8 @@ class RecordsInterface(QWidget):
         search_text = self.search_input.text().strip().lower()
 
         for row in range(self.table.rowCount()):
-            quality_item = self.table.item(row, 3)  # Quality column
-            name_item = self.table.item(row, 1)  # Name column
+            quality_item = self.table.item(row, 3)
+            name_item = self.table.item(row, 1)
 
             if not quality_item or not name_item:
                 continue
@@ -644,12 +465,20 @@ class RecordsInterface(QWidget):
         添加一条记录到表格 (Called by worker signal)
         """
         now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        record["timestamp"] = now_ts
 
-        # Add to the beginning of the list to show newest first
-        self.all_records.insert(0, record)
+        # 转换为 FishRecord 对象
+        fish_record = FishRecord(
+            timestamp=now_ts,
+            name=record["name"],
+            quality=record["quality"],
+            weight=record["weight"],
+            is_new_record=record.get("is_new_record", False),
+        )
 
-        # Refresh everything
+        # 添加到列表开头
+        self.all_records.insert(0, fish_record)
+
+        # 刷新界面
         self._update_stats_and_table()
         self.table.scrollToTop()
 
@@ -660,17 +489,33 @@ class RecordsInterface(QWidget):
         """
         is_dark_theme = qconfig.theme.value == "Dark"
 
-        # Refresh chart
-        self.chart_view.chart().setTheme(
-            QChart.ChartTheme.ChartThemeDark
-            if is_dark_theme
-            else QChart.ChartTheme.ChartThemeLight
-        )
-        self._update_pie_chart(self.current_qualities_in_view)
+        # 刷新图表主题
+        self.chart_service.apply_theme(self.chart_view.chart(), is_dark_theme)
 
-        # Refresh table
+        # 重新计算统计并更新图表
+        current_view_item = self.view_switcher.currentItem()
+        if current_view_item:
+            current_view = current_view_item.text()
+            if current_view == "今日统计":
+                display_records = self.data_service.filter_by_today(self.all_records)
+            elif current_view == "日期统计":
+                display_records = self.data_service.filter_by_date(
+                    self.all_records, self.selected_date
+                )
+            else:
+                display_records = self.all_records
+
+            stats = self.stats_service.calculate_stats(
+                display_records, self.all_records
+            )
+            self.chart_service.update_pie_chart(
+                self.pie_series, stats.quality_counts, is_dark_theme
+            )
+            self._update_legend_markers()
+
+        # 刷新表格颜色
         for row in range(self.table.rowCount()):
-            quality_item = self.table.item(row, 3)  # Quality is in column 3
+            quality_item = self.table.item(row, 3)
             if not quality_item:
                 continue
 

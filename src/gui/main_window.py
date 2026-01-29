@@ -1,8 +1,7 @@
 import sys
-from PySide6.QtCore import Qt, QSize, Signal, QUrl, QTimer, QDate
+from PySide6.QtCore import Qt, QSize, Signal, QUrl
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from qfluentwidgets import (
     FluentIcon,
     FluentWindow,
@@ -24,6 +23,10 @@ from src.gui.pokedex_interface import PokedexInterface
 from src.gui.overlay_window import OverlayWindow
 from src.workers import FishingWorker, PopupWorker
 from src.inputs import InputController
+from src.managers.signal_manager import SignalManager
+from src.managers.cycle_reset_manager import CycleResetManager
+from src.managers.audio_manager import AudioManager
+from src.managers.sales_limit_manager import SalesLimitManager
 
 
 class MainWindow(FluentWindow):
@@ -78,10 +81,11 @@ class MainWindow(FluentWindow):
         self.popup_worker = PopupWorker()
         self.input_controller = InputController()
 
-        # Initialize Audio Player
-        self.player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.player.setAudioOutput(self.audio_output)
+        # Initialize managers
+        self.audio_manager = AudioManager(self)
+        self.signal_manager = SignalManager(self)
+        self.cycle_reset_manager = CycleResetManager(self)
+        self.sales_limit_manager = SalesLimitManager(self)
 
         print("Setting up navigation...")
         # Reduce navigation panel width since labels are short (2 chars)
@@ -100,95 +104,11 @@ class MainWindow(FluentWindow):
         )
 
         print("Connecting signals...")
-        self.worker.log_updated.connect(self.append_log)
-        self.worker.status_updated.connect(self.update_status)
-        self.worker.record_added.connect(self.records_interface.add_record)
-        self.worker.record_added.connect(self.home_interface.update_catch_info)
-        self.worker.record_added.connect(
-            self.home_interface.add_record_to_session_table
-        )
-        # Refresh profit interface when a new record (cost) is added
-        self.worker.record_added.connect(lambda x: self.profit_interface.reload_data())
-        self.worker.sale_recorded.connect(self.profit_interface.add_sale_record)
-
-        # Connect profit updates to overlay
-        self.worker.sale_recorded.connect(self._update_overlay_limit)
-        self.profit_interface.data_changed_signal.connect(self._update_overlay_limit)
-        # 当服务器切换时，重新计算下次重置时间
-        self.profit_interface.server_changed_signal.connect(
-            self._on_server_region_changed
-        )
-
-        self.popup_worker.log_updated.connect(self.append_log)
-        self.input_controller.toggle_script_signal.connect(self.toggle_script)
-        self.input_controller.debug_screenshot_signal.connect(
-            self.take_debug_screenshot
-        )
-        self.settings_interface.hotkey_changed_signal.connect(
-            self.home_interface.update_hotkey_display
-        )
-        self.settings_interface.debug_hotkey_changed_signal.connect(
-            self.home_interface.update_debug_hotkey_display
-        )
-        self.settings_interface.hotkey_changed_signal.connect(
-            self.input_controller._update_hotkey_handler
-        )
-        self.settings_interface.debug_hotkey_changed_signal.connect(
-            self.input_controller._update_debug_hotkey_handler
-        )
-        self.settings_interface.sell_hotkey_changed_signal.connect(
-            self.input_controller._update_sell_hotkey_handler
-        )
-        self.settings_interface.sell_hotkey_changed_signal.connect(
-            self.home_interface.update_sell_hotkey_display
-        )
-        self.settings_interface.uno_hotkey_changed_signal.connect(
-            self.input_controller._update_uno_hotkey_handler
-        )
-        self.home_interface.preset_changed_signal.connect(self.on_preset_changed)
-        self.settings_interface.theme_changed_signal.connect(self._on_theme_changed)
-        self.preset_should_change.connect(self.worker.update_preset)
-        self.home_interface.toggle_overlay_signal.connect(self.toggle_overlay)
-        self.home_interface.fishFilterChanged.connect(self.overlay.update_fish_preview)
-
-        # Overlay signals
-        self.worker.status_updated.connect(self.overlay.update_status)
-        self.worker.record_added.connect(
-            lambda: self.overlay.update_fish_count(self.home_interface.total_catch)
-        )
-        # Connect profit updates to overlay
-        self.worker.sale_recorded.connect(self._update_overlay_limit)
-        self.worker.sound_alert_requested.connect(self.play_sound_alert)
-
-        # 账号切换信号：刷新各界面数据
-        self.home_interface.account_changed_signal.connect(self._on_account_changed)
-        # 设置页账号列表变化信号：刷新首页账号下拉框
-        self.settings_interface.account_list_changed_signal.connect(
-            self.home_interface.refresh_account_list
-        )
-        self.settings_interface.account_list_changed_signal.connect(
-            self.settings_interface.refresh_account_ui
-        )
-        # 设置页记录更新信号：刷新相关界面数据
-        self.settings_interface.records_updated_signal.connect(
-            self.records_interface._load_data
-        )
-        self.settings_interface.records_updated_signal.connect(
-            self.profit_interface.reload_data
-        )
-        self.settings_interface.records_updated_signal.connect(
-            self.pokedex_interface.reload_data
-        )
+        self.signal_manager.connect_all()
 
         # Start the worker thread, but it will be initially paused
         self.worker.start()
         self.popup_worker.start()
-
-        # Connect sell hotkey
-        self.input_controller.sell_hotkey_signal.connect(self.worker.trigger_sell)
-
-        # Connect uno hotkey
-        self.input_controller.uno_hotkey_signal.connect(self.toggle_uno)
 
         # Start listening for hotkeys
         self.input_controller.start_listening()
@@ -199,134 +119,12 @@ class MainWindow(FluentWindow):
         # 恢复悬浮窗状态和位置
         self._restore_overlay_state()
 
-        # 精确定时重置：使用持久 QTimer，在重置时刻触发
-        self._reset_timer = QTimer(self)
-        self._reset_timer.setSingleShot(True)
-        self._reset_timer.timeout.connect(self._on_cycle_reset)
-        self._schedule_next_reset()
-
-    def _schedule_next_reset(self):
-        """计算并安排下一次重置触发"""
-        from datetime import datetime, timedelta
-        from src.config import cfg
-
-        # 计算下一次重置时间
-        region = cfg.global_settings.get("server_region", "CN")
-        now = datetime.now()
-
-        if region == "CN":
-            next_reset = (now + timedelta(days=1)).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-        else:
-            noon_today = now.replace(hour=12, minute=0, second=0, microsecond=0)
-            next_reset = (
-                noon_today if now < noon_today else noon_today + timedelta(days=1)
-            )
-
-        ms_until_reset = max(1000, int((next_reset - now).total_seconds() * 1000))
-
-        # 停止旧定时器，设置新间隔并启动
-        self._reset_timer.stop()
-        self._reset_timer.setInterval(ms_until_reset)
-        self._reset_timer.start()
-
-        print(
-            f"下次重置: {next_reset.strftime('%H:%M')} ({ms_until_reset // 3600000}h {(ms_until_reset % 3600000) // 60000}m 后)"
-        )
-
-    def _on_cycle_reset(self):
-        """周期重置时触发"""
-        self.profit_interface.reload_data()
-        self._update_overlay_limit()
-        self.append_log("新的一天开始了，今日统计数据已重置。")
-        self._schedule_next_reset()
-
-    def _on_server_region_changed(self, new_region: str):
-        """服务器区域切换时，重新安排重置时间"""
-        self._schedule_next_reset()
+        # 启动周期重置管理器
+        self.cycle_reset_manager.start()
 
     def _update_overlay_limit(self, _=None):
-        # Calculate remaining limit
-        # This is a bit redundant with ProfitInterface logic, but safe.
-        # Ideally, ProfitInterface should emit a signal.
-        total_sales = 0
-        from datetime import datetime
-
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        import csv
-        from src.config import cfg
-
-        try:
-            path = cfg.sales_file
-            if path.exists():
-                # 获取准确的时间窗口
-                start_time = getattr(
-                    self.profit_interface,
-                    "_get_current_cycle_start_time",
-                    lambda: datetime.now().replace(
-                        hour=0, minute=0, second=0, microsecond=0
-                    ),
-                )()
-
-                with open(path, "r", encoding="utf-8") as f:
-                    reader = csv.reader(f)
-                    next(reader, None)
-                    for row in reader:
-                        if row:
-                            try:
-                                row_dt = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
-                                if row_dt >= start_time:
-                                    total_sales += int(row[1])
-                            except ValueError:
-                                pass
-        except:
-            pass
-
-        remaining = 899 - total_sales
-        # 传递剩余额度和当前销售金额
-        self.overlay.update_limit(remaining, total_sales)
-
-        # 同时更新首页的销售进度
-        if hasattr(self, "home_interface"):
-            self.home_interface.update_sales_progress(total_sales, 899)
-            # 顺便更新一下图鉴进度（因为可能会有新捕获）
-            self.home_interface.update_pokedex_progress()
-
-    def play_sound_alert(self, alert_type):
-        """播放提示音"""
-        try:
-            from src.config import cfg
-
-            base_path = cfg._get_base_path()
-            if alert_type == "no_bait":
-                sound_file = base_path / "resources" / "audio" / "no_bait.mp3"
-            elif alert_type == "inventory_full":
-                sound_file = base_path / "resources" / "audio" / "inventory_full.mp3"
-            else:
-                return
-
-            # 使用 QUrl.fromLocalFile 处理路径
-            self.player.setSource(QUrl.fromLocalFile(str(sound_file)))
-            self.player.play()
-            self.append_log(f"播放提示音: {sound_file.name}")
-        except Exception as e:
-            self.append_log(f"播放提示音失败: {e}")
-
-    def _play_control_sound(self, sound_type):
-        """播放控制音效（启动/暂停）"""
-        try:
-            from src.config import cfg
-
-            if not cfg.global_settings.get("control_sound_enabled", False):
-                return
-            base_path = cfg._get_base_path()
-            sound_file = base_path / "resources" / "audio" / f"{sound_type}.mp3"
-            self.player.setSource(QUrl.fromLocalFile(str(sound_file)))
-            self.player.play()
-        except Exception as e:
-            self.append_log(f"播放控制音效失败: {e}")
-            pass
+        """更新悬浮窗和首页的销售额度显示"""
+        self.sales_limit_manager.update_overlay_limit(_)
 
     def toggle_overlay(self):
         from src.config import cfg
@@ -410,10 +208,10 @@ class MainWindow(FluentWindow):
         """切换脚本的运行/暂停状态"""
         if self.worker.paused:
             self.worker.resume()
-            self._play_control_sound("start")
+            self.audio_manager.play_control_sound("start")
         else:
             self.worker.pause()
-            self._play_control_sound("pause")
+            self.audio_manager.play_control_sound("pause")
 
     def toggle_uno(self):
         """切换UNO功能的启动/停止状态"""
