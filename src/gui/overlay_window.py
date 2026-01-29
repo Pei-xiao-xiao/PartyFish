@@ -107,12 +107,49 @@ class OverlayWindow(QWidget):
         limit_h_layout.addWidget(self.limit_label)
         limit_h_layout.addStretch()
 
+        # UNO状态显示（第三行）
+        self.uno_container = QWidget()
+        uno_h_layout = QHBoxLayout(self.uno_container)
+        uno_h_layout.setContentsMargins(0, 0, 0, 0)
+        uno_h_layout.setSpacing(4)
+
+        # UNO图标/标签
+        self.uno_icon = QLabel("🎴")
+        self.uno_icon.setObjectName("unoIcon")
+        self.uno_icon.setFixedSize(18, 18)
+
+        # UNO牌数标签
+        self.uno_label = QLabel("UNO: 7/35")
+        self.uno_label.setObjectName("unoLabel")
+        uno_font = QFont(self._cute_font_family)
+        uno_font.setPointSize(11)
+        uno_font.setBold(True)
+        self.uno_label.setFont(uno_font)
+
+        # UNO倒计时标签
+        self.uno_countdown_label = QLabel("")
+        self.uno_countdown_label.setObjectName("unoCountdownLabel")
+        countdown_font = QFont("Comic Sans MS")
+        countdown_font.setPointSize(12)
+        countdown_font.setBold(True)
+        self.uno_countdown_label.setFont(countdown_font)
+        self.uno_countdown_label.setVisible(False)
+
+        uno_h_layout.addWidget(self.uno_icon)
+        uno_h_layout.addWidget(self.uno_label)
+        uno_h_layout.addWidget(self.uno_countdown_label)
+        uno_h_layout.addStretch()
+
+        # 默认隐藏UNO显示
+        self.uno_container.setVisible(False)
+
         # 文字布局 (垂直)
         text_layout = QVBoxLayout()
         text_layout.setSpacing(2)
         text_layout.setContentsMargins(0, 5, 0, 5)
         text_layout.addWidget(self.status_label)
         text_layout.addWidget(self.limit_container)
+        text_layout.addWidget(self.uno_container)
         text_layout.setAlignment(Qt.AlignVCenter)
 
         # 1. 创建主容器和布局
@@ -247,6 +284,19 @@ class OverlayWindow(QWidget):
             #limitIcon {
                 background-color: transparent;
             }
+            #unoIcon {
+                background-color: transparent;
+                font-size: 14px;
+            }
+            #unoLabel {
+                color: #FF6B35;
+                letter-spacing: 0.5px;
+            }
+            #unoCountdownLabel {
+                color: #f57f17;
+                letter-spacing: 0.5px;
+                margin-left: 4px;
+            }
             #avatarLabel {
                 background-color: transparent;
             }
@@ -287,6 +337,62 @@ class OverlayWindow(QWidget):
     def update_fish_count(self, count: int):
         """更新钓鱼计数 (保留接口兼容性,不再显示)"""
         pass  # 已移除钓鱼计数显示
+
+    def update_uno_cards(self, current: int, maximum: int, is_running: bool = True):
+        """更新UNO牌数显示
+
+        Args:
+            current: 当前牌数
+            maximum: 最大牌数
+            is_running: 是否正在运行
+        """
+        if is_running:
+            self.uno_container.setVisible(True)
+            self.uno_label.setText(f"UNO: {current}/{maximum}")
+
+            # 根据进度改变颜色
+            progress = current / maximum if maximum > 0 else 0
+            if progress >= 0.9:
+                self.uno_label.setStyleSheet(
+                    "color: #4CAF50; letter-spacing: 0.5px;"  # 绿色 - 即将完成
+                )
+            elif progress >= 0.5:
+                self.uno_label.setStyleSheet(
+                    "color: #FF9800; letter-spacing: 0.5px;"  # 橙色 - 过半
+                )
+            else:
+                self.uno_label.setStyleSheet(
+                    "color: #FF6B35; letter-spacing: 0.5px;"  # 默认橙红色
+                )
+        else:
+            self.uno_container.setVisible(False)
+
+        # 调整窗口大小
+        self.adjustSize()
+
+    def update_uno_countdown(self, seconds: int):
+        """更新UNO倒计时显示
+
+        Args:
+            seconds: 剩余秒数，0或负数表示隐藏
+        """
+        if seconds > 0:
+            self.uno_countdown_label.setVisible(True)
+            self.uno_countdown_label.setText(f"⏱️ {seconds}s")
+            # 倒计时颜色：最后3秒变红
+            if seconds <= 3:
+                self.uno_countdown_label.setStyleSheet(
+                    "color: #f44336; letter-spacing: 0.5px; margin-left: 4px;"  # 红色
+                )
+            else:
+                self.uno_countdown_label.setStyleSheet(
+                    "color: #f57f17; letter-spacing: 0.5px; margin-left: 4px;"  # 橙色
+                )
+        else:
+            self.uno_countdown_label.setVisible(False)
+            self.uno_countdown_label.setText("")
+
+        self.adjustSize()
 
     def update_limit(self, remaining: int, current_sales: int = 0):
         """更新剩余额度标签

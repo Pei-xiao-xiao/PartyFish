@@ -233,8 +233,9 @@ class HomeInterface(QWidget):
         self.hotkey_layout.setSpacing(16)
 
         self._add_hotkey_badge("启动", cfg.hotkey)
-        self._add_hotkey_badge("调试", cfg.global_settings.get("debug_hotkey", "F10"))
+        self._add_hotkey_badge("UNO", cfg.global_settings.get("uno_hotkey", "F3"))
         self._add_hotkey_badge("卖鱼", cfg.global_settings.get("sell_hotkey", "F4"))
+        self._add_hotkey_badge("调试", cfg.global_settings.get("debug_hotkey", "F10"))
         self.hotkey_layout.addStretch(1)
 
         self.banner_text_layout.addWidget(self.title_label)

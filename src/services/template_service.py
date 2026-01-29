@@ -291,8 +291,7 @@ class TemplateService:
             return False
 
         if region is None:
-            base_x, base_y, base_w, base_h = 2242, 1314, 284, 100
-            region = cfg.get_bottom_right_rect((base_x, base_y, base_w, base_h))
+            region = cfg.get_rect("UNO卡牌")
 
         screenshot = self.screenshot_service.screenshot(region)
         gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)

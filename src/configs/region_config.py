@@ -25,7 +25,7 @@ class RegionConfig:
                 "coords": (2030, 1045, 200, 50),
                 "anchor": "bottom_right",
             },
-            "uno_card": {"coords": (2242, 1314, 80, 40), "anchor": "bottom_right"},
+            "UNO卡牌": {"coords": (2242, 1314, 284, 100), "anchor": "bottom_right"},
             "fish_name_tooltip": {
                 "coords": (1819, 436, 235, 96),
                 "anchor": "bottom_right",

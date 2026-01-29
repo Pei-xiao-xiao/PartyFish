@@ -208,6 +208,14 @@ def generate_debug_screenshot(show_image=True):
     except:
         pass
 
+    # Draw UNO卡牌 detection region
+    try:
+        uno_region = cfg.get_rect("UNO卡牌")
+        x, y, w, h = uno_region
+        cv2.rectangle(screenshot, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    except:
+        pass
+
     # Save the debug image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     # Use the centralized config to get the correct base path

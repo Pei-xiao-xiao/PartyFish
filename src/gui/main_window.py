@@ -119,6 +119,9 @@ class MainWindow(FluentWindow):
         # 恢复悬浮窗状态和位置
         self._restore_overlay_state()
 
+        # 连接UNO管理器信号
+        self._connect_uno_signals()
+
         # 启动周期重置管理器
         self.cycle_reset_manager.start()
 
@@ -213,16 +216,40 @@ class MainWindow(FluentWindow):
             self.worker.pause()
             self.audio_manager.play_control_sound("pause")
 
+    def _connect_uno_signals(self):
+        """连接UNO管理器的信号到UI更新"""
+        from src.uno import uno_manager
+
+        # 连接牌数更新信号到悬浮窗
+        uno_manager.cards_updated.connect(
+            lambda current, maximum: self.overlay.update_uno_cards(current, maximum, True)
+        )
+
+        # 连接日志信号到主界面日志
+        uno_manager.log_message.connect(self.append_log)
+
+        # 连接状态变化信号
+        uno_manager.status_changed.connect(self._on_uno_status_changed)
+
+        # 连接倒计时信号到悬浮窗
+        uno_manager.countdown_updated.connect(self.overlay.update_uno_countdown)
+
+    def _on_uno_status_changed(self, status: str):
+        """处理UNO状态变化"""
+        from src.uno import uno_manager
+
+        if status == "已停止" or status == "已完成":
+            # 隐藏UNO显示
+            self.overlay.update_uno_cards(0, 35, False)
+
     def toggle_uno(self):
         """切换UNO功能的启动/停止状态"""
         from src.uno import uno_manager
 
         if uno_manager.running:
             uno_manager.stop()
-            self.append_log("UNO识别已停止")
         else:
             uno_manager.start()
-            self.append_log("UNO识别已启动")
 
     def take_debug_screenshot(self):
         """Taking debug screenshot and opening it"""
