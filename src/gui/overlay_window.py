@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, Signal, QPoint, QRect, QTimer
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QApplication
 from PySide6.QtGui import (
     QMouseEvent,
     QPixmap,
@@ -9,6 +9,7 @@ from PySide6.QtGui import (
     QPen,
     QFont,
     QFontDatabase,
+    QScreen,
 )
 import os
 from datetime import datetime
@@ -201,6 +202,9 @@ class OverlayWindow(QWidget):
 
         # 用于窗口拖动
         self._drag_start_position = None
+
+        # 设置默认位置：当前屏幕左上角
+        self._set_default_position()
 
     def _process_avatar(self, pixmap, size):
         """
@@ -540,3 +544,20 @@ class OverlayWindow(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent):
         self._drag_start_position = None
         event.accept()
+
+    def _set_default_position(self):
+        """设置悬浮窗默认位置为当前屏幕中心"""
+        # 获取鼠标所在的屏幕（即当前活动屏幕）
+        cursor_pos = QApplication.primaryScreen().geometry().center()
+        screen = QApplication.screenAt(QPoint(cursor_pos.x(), cursor_pos.y()))
+        if not screen:
+            screen = QApplication.primaryScreen()
+
+        # 获取屏幕几何信息
+        screen_geometry = screen.availableGeometry()
+
+        # 设置窗口位置为屏幕中心
+        x = screen_geometry.center().x() - self.width() // 2
+        y = screen_geometry.center().y() - self.height() // 2
+
+        self.move(x, y)

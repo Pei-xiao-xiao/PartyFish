@@ -109,6 +109,9 @@ class SignalManager:
         self.window.settings_interface.records_updated_signal.connect(
             self.window.pokedex_interface.reload_data
         )
+        self.window.settings_interface.reset_overlay_position_signal.connect(
+            self.window.overlay._set_default_position
+        )
 
     def _connect_home_signals(self):
         """连接首页相关信号"""

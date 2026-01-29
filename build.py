@@ -2,8 +2,12 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.2"
-RELEASE_NOTES = """添加首次捕获截图"""
+VERSION = "3.2.2"
+RELEASE_NOTES = """添加UNO一系列功能
+1.添加UNO倒计时和当前牌数悬浮窗
+2.添加UNO状态显示
+3.添加UNO继续摸牌
+4.添加窗口重置在中心"""
 
 
 def generate_readme(version, notes):
@@ -69,7 +73,7 @@ def run_pyinstaller():
 
     print("开始打包...")
     result = subprocess.run(
-        [sys.executable, "-m", "PyInstaller", "partyfish_release.spec"]
+        [sys.executable, "-m", "PyInstaller", "--uac-admin", "partyfish_release.spec"]
     )
     if result.returncode != 0:
         print(f"打包失败，退出码: {result.returncode}")

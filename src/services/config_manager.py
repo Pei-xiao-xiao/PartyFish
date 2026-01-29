@@ -22,32 +22,32 @@ class ConfigManager:
         """返回默认预设字典"""
         return {
             "路亚轻杆": {
-                "cast_time": 1.8,
-                "reel_in_time": 2.0,
-                "release_time": 1.0,
-                "max_pulls": 30,
-                "cycle_interval": 0.2,
+                "cast_time": 2.7,
+                "reel_in_time": 0.17,
+                "release_time": 0.07,
+                "max_pulls": 99,
+                "cycle_interval": 0.3,
             },
             "路亚重杆": {
                 "cast_time": 2.5,
-                "reel_in_time": 2.0,
-                "release_time": 1.0,
-                "max_pulls": 30,
-                "cycle_interval": 0.2,
+                "reel_in_time": 1.2,
+                "release_time": 0.2,
+                "max_pulls": 99,
+                "cycle_interval": 0.5,
             },
             "冰钓轻杆": {
                 "cast_time": 0.1,
-                "reel_in_time": 0.2,
-                "release_time": 0.1,
+                "reel_in_time": 0.555,
+                "release_time": 0.444,
                 "max_pulls": 100,
-                "cycle_interval": 0.1,
+                "cycle_interval": 0.5,
             },
             "冰钓重杆": {
-                "cast_time": 0.1,
+                "cast_time": 0.2,
                 "reel_in_time": 0.4,
                 "release_time": 0.2,
                 "max_pulls": 100,
-                "cycle_interval": 0.1,
+                "cycle_interval": 0.5,
             },
         }
 

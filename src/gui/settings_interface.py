@@ -55,6 +55,7 @@ class SettingsInterface(ScrollArea):
     theme_changed_signal = Signal(str)
     account_list_changed_signal = Signal()  # 账号列表变化信号
     records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
+    reset_overlay_position_signal = Signal()  # 重置悬浮窗位置信号
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -265,6 +266,24 @@ class SettingsInterface(ScrollArea):
             margins.left(), margins.top(), 16, margins.bottom()
         )
         self.globalGroup.addSettingCard(self.themeCard)
+
+        # 重置悬浮窗位置卡片
+        self.resetOverlayCard = SettingCard(
+            FluentIcon.ALIGNMENT,
+            self.tr("重置悬浮窗位置"),
+            self.tr("将悬浮窗重置到屏幕中心"),
+            parent=self.globalGroup,
+        )
+        self.resetOverlayButton = PushButton(self.tr("重置"), self.resetOverlayCard)
+        self.resetOverlayButton.setFixedWidth(80)
+        self.resetOverlayCard.hBoxLayout.addWidget(
+            self.resetOverlayButton, 0, Qt.AlignRight
+        )
+        margins = self.resetOverlayCard.hBoxLayout.contentsMargins()
+        self.resetOverlayCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
+        )
+        self.globalGroup.addSettingCard(self.resetOverlayCard)
 
         self.vBoxLayout.addWidget(self.globalGroup)
 
@@ -499,7 +518,7 @@ class SettingsInterface(ScrollArea):
     def _create_double_spinbox_card(self, icon, title, content, config_key):
         card = SettingCard(icon, title, content, parent=self.fishingGroup)
         spinbox = DoubleSpinBox(card)
-        spinbox.setRange(0.1, 10.0)
+        spinbox.setRange(0.001, 10.0)
         spinbox.setSingleStep(0.1)
         card.hBoxLayout.addWidget(spinbox, 0, Qt.AlignRight)
         margins = card.hBoxLayout.contentsMargins()
@@ -569,6 +588,9 @@ class SettingsInterface(ScrollArea):
         # 记录管理信号
         self.exportRecordButton.clicked.connect(self._on_export_record)
         self.importRecordButton.clicked.connect(self._on_import_record)
+
+        # 重置悬浮窗位置信号
+        self.resetOverlayButton.clicked.connect(self._on_reset_overlay_position)
 
     def _on_theme_changed(self, theme):
         self.theme_changed_signal.emit(theme)
@@ -942,3 +964,14 @@ class SettingsInterface(ScrollArea):
         worker.progress.connect(on_progress)
         worker.finished.connect(on_finished)
         worker.start()
+
+    def _on_reset_overlay_position(self):
+        """重置悬浮窗位置"""
+        self.reset_overlay_position_signal.emit()
+        InfoBar.success(
+            title=self.tr("重置成功"),
+            content=self.tr("悬浮窗位置已重置到屏幕中心"),
+            duration=2000,
+            position=InfoBarPosition.TOP,
+            parent=self.window(),
+        )
