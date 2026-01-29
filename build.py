@@ -73,7 +73,7 @@ def run_pyinstaller():
 
     print("开始打包...")
     result = subprocess.run(
-        [sys.executable, "-m", "PyInstaller", "--uac-admin", "partyfish_release.spec"]
+        [sys.executable, "-m", "PyInstaller", "partyfish_release.spec"]
     )
     if result.returncode != 0:
         print(f"打包失败，退出码: {result.returncode}")
