@@ -100,17 +100,30 @@ def post_build(version):
 
     # 重命名输出目录
     if target.exists():
-        for i in range(3):
+        for i in range(5):
             try:
                 shutil.rmtree(target)
                 break
             except PermissionError:
-                if i < 2:
-                    time.sleep(1)
+                if i < 4:
+                    print(f"等待删除旧目录，尝试 {i+1}/5...")
+                    time.sleep(2)
                 else:
                     print(f"警告: 无法删除旧目录 {target}，跳过")
                     return
-    dist.rename(target)
+    
+    # 使用 shutil.move 替代 Path.rename，更健壮
+    for i in range(5):
+        try:
+            shutil.move(str(dist), str(target))
+            break
+        except PermissionError:
+            if i < 4:
+                print(f"等待重命名目录，尝试 {i+1}/5...")
+                time.sleep(2)
+            else:
+                print(f"错误: 无法重命名目录 {dist} -> {target}")
+                raise
     print(f"输出目录: {target}")
 
 
