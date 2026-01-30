@@ -77,7 +77,17 @@ class RecordDataService:
         Returns:
             List[FishRecord]: 筛选后的记录
         """
-        return [r for r in records if r.timestamp.startswith(date_str)]
+        filtered = []
+        for r in records:
+            record_date = r.timestamp.split(" ")[0]
+            # 标准化日期格式：支持 YYYY/MM/DD, YYYY/M/D, YYYY-MM-DD
+            if "/" in record_date:
+                parts = record_date.split("/")
+                if len(parts) == 3:
+                    record_date = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+            if record_date == date_str:
+                filtered.append(r)
+        return filtered
 
     def filter_by_today(self, records: List[FishRecord]) -> List[FishRecord]:
         """
@@ -105,5 +115,10 @@ class RecordDataService:
         dates = set()
         for record in records:
             date_str = record.timestamp.split(" ")[0]
+            # 标准化日期格式：支持 YYYY/MM/DD, YYYY/M/D, YYYY-MM-DD
+            if "/" in date_str:
+                parts = date_str.split("/")
+                if len(parts) == 3:
+                    date_str = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
             dates.add(date_str)
         return dates
