@@ -29,9 +29,9 @@ class AudioManager:
 
             base_path = cfg._get_base_path()
             if alert_type == "no_bait":
-                sound_file = base_path / "resources" / "audio" / "no_bait.mp3"
+                sound_file = base_path / "data" / "audio" / "no_bait.mp3"
             elif alert_type == "inventory_full":
-                sound_file = base_path / "resources" / "audio" / "inventory_full.mp3"
+                sound_file = base_path / "data" / "audio" / "inventory_full.mp3"
             else:
                 return
 
@@ -49,7 +49,7 @@ class AudioManager:
             if not cfg.global_settings.get("control_sound_enabled", False):
                 return
             base_path = cfg._get_base_path()
-            sound_file = base_path / "resources" / "audio" / f"{sound_type}.mp3"
+            sound_file = base_path / "data" / "audio" / f"{sound_type}.mp3"
             self.player.setSource(QUrl.fromLocalFile(str(sound_file)))
             self.player.play()
         except Exception as e:
