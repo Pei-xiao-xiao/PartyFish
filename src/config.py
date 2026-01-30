@@ -167,30 +167,6 @@ class Config(metaclass=SingletonMeta):
                     except Exception as e:
                         self.startup_errors.append(f"迁移 {filename} 失败: {e}")
 
-        # 3. Audio Migration - 迁移音频文件到 user_data_dir
-        audio_dir = self.user_data_dir / "audio"
-        if not audio_dir.exists():
-            source_audio = self._get_base_path() / "resources" / "audio"
-            if source_audio.exists():
-                try:
-                    shutil.copytree(source_audio, audio_dir)
-                    print(f"[Config] 已迁移音频文件到: {audio_dir}")
-                except Exception as e:
-                    self.startup_errors.append(f"迁移音频文件失败: {e}")
-
-        # 4. Protected Fish Migration - 迁移保护鱼配置
-        protected_fish_file = self.user_data_dir / "protected_fish.json"
-        if not protected_fish_file.exists():
-            source_protected = (
-                self._get_base_path() / "resources" / "protected_fish.json"
-            )
-            if source_protected.exists():
-                try:
-                    shutil.copy2(source_protected, protected_fish_file)
-                    print(f"[Config] 已迁移保护鱼配置到: {protected_fish_file}")
-                except Exception as e:
-                    self.startup_errors.append(f"迁移保护鱼配置失败: {e}")
-
     @property
     def records_file(self):
         return self.account_service.get_records_file()
