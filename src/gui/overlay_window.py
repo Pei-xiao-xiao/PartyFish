@@ -120,7 +120,7 @@ class OverlayWindow(QWidget):
         self.uno_icon.setFixedSize(18, 18)
 
         # UNO牌数标签
-        self.uno_label = QLabel("UNO: 7/35")
+        self.uno_label = QLabel(f"UNO: 7/{cfg.global_settings.get('uno_max_cards', 35)}")
         self.uno_label.setObjectName("unoLabel")
         uno_font = QFont(self._cute_font_family)
         uno_font.setPointSize(11)

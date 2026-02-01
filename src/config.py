@@ -224,6 +224,9 @@ class Config(metaclass=SingletonMeta):
     def get_center_anchored_pos(self, coords):
         return self.coordinate_service.get_center_anchored_pos(coords)
 
+    def get_bottom_right_pos(self, coords):
+        return self.coordinate_service.get_bottom_right_pos(coords)
+
     def __getattr__(self, name):
         """
         Dynamically get attributes from the current preset or global settings.

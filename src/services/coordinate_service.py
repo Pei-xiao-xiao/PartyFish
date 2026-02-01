@@ -85,6 +85,25 @@ class CoordinateService:
 
         return (new_x, new_y, new_w, new_h)
 
+    def get_bottom_right_pos(self, coords):
+        """
+        Calculates coordinates for a bottom-right anchored point (x, y).
+        Uses separate scale_x and scale_y for proper scaling.
+        """
+        base_x, base_y = coords
+
+        offset_from_right = self.config.BASE_SCREEN_WIDTH - base_x
+        offset_from_bottom = self.config.BASE_SCREEN_HEIGHT - base_y
+
+        new_x = int(
+            self.config.screen_width - (offset_from_right * self.config.scale_x)
+        )
+        new_y = int(
+            self.config.screen_height - (offset_from_bottom * self.config.scale_y)
+        )
+
+        return (new_x, new_y)
+
     def get_center_anchored_rect(self, coords):
         """
         Calculates coordinates for a center-center anchored region.

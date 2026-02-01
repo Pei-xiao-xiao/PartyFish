@@ -3,8 +3,8 @@
 展示鱼类卡片网格，支持筛选、搜索和收集管理
 优化版：品质圆点可点击，居中对齐
 """
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                                QFrame, QScrollArea, QSizePolicy)
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                                QFrame, QScrollArea, QSizePolicy, QDialog)
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QPixmap, QFont, QColor
 from qfluentwidgets import (CardWidget, BodyLabel, StrongBodyLabel,
@@ -625,7 +625,13 @@ class PokedexInterface(QWidget):
         self.sync_btn.setToolTip("同步钓鱼记录")
         self.sync_btn.clicked.connect(self._on_sync_clicked)
         toolbar.addWidget(self.sync_btn)
-        
+
+        # 生成进度图按钮 (图标化)
+        self.generate_image_btn = TransparentToolButton(FluentIcon.CAMERA, self)
+        self.generate_image_btn.setToolTip("生成进度图")
+        self.generate_image_btn.clicked.connect(self._on_generate_image_clicked)
+        toolbar.addWidget(self.generate_image_btn)
+
         # 搜索框
         self.search_box = SearchLineEdit()
         self.search_box.setPlaceholderText("搜索鱼类...")
@@ -898,8 +904,195 @@ class PokedexInterface(QWidget):
                 duration=2000,
                 parent=self
             )
-    
-    
+
+    def _on_generate_image_clicked(self):
+        """生成进度图"""
+        from src.pokedex_image_generator import pokedex_image_generator
+        from pathlib import Path
+        from qfluentwidgets import FluentIcon
+        from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout,
+                                        QLabel, QFrame, QPushButton, QGraphicsDropShadowEffect)
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QColor, QFont
+
+        # 创建自定义对话框
+        dialog = QDialog(self)
+        dialog.setWindowTitle("选择图鉴类型")
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
+        dialog.setFixedSize(400, 250)
+
+        # 主容器
+        container = QFrame(dialog)
+        container.setFixedSize(400, 250)
+        container.setObjectName("dialogContainer")
+        container.setStyleSheet("""
+            QFrame#dialogContainer {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FAFBFC, stop:1 #F5F7FA);
+                border-radius: 16px;
+                border: 1px solid #E8ECF0;
+            }
+        """)
+
+        # 添加阴影效果
+        shadow = QGraphicsDropShadowEffect(container)
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 8)
+        container.setGraphicsEffect(shadow)
+
+        main_layout = QVBoxLayout(container)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # 顶部栏（标题 + 关闭按钮）
+        header = QFrame()
+        header.setFixedHeight(50)
+        header.setStyleSheet("background-color: transparent;")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(20, 10, 20, 10)
+
+        title = QLabel("选择图鉴类型")
+        title.setFont(QFont("Microsoft YaHei", 16, QFont.Bold))
+        title.setStyleSheet("color: #8B7355; background: transparent;")
+        header_layout.addWidget(title)
+
+        header_layout.addStretch()
+
+        # 关闭按钮
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(36, 36)
+        close_btn.setFont(QFont("Arial", 24))
+        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                color: #A0826D;
+                background: transparent;
+                border: none;
+                border-radius: 18px;
+            }
+            QPushButton:hover {
+                background-color: #F5E6D3;
+                color: #8B7355;
+            }
+            QPushButton:pressed {
+                background-color: #D4C5B0;
+            }
+        """)
+        close_btn.clicked.connect(dialog.reject)
+        header_layout.addWidget(close_btn)
+
+        main_layout.addWidget(header)
+
+        # 内容区
+        content = QFrame()
+        content.setStyleSheet("background: transparent;")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(30, 20, 30, 30)
+        content_layout.setSpacing(20)
+
+        # 提示文字
+        hint = QLabel("请选择要生成的图鉴类型：")
+        hint.setFont(QFont("Microsoft YaHei", 13))
+        hint.setStyleSheet("color: #666666; background: transparent;")
+        hint.setAlignment(Qt.AlignCenter)
+        content_layout.addWidget(hint)
+
+        # 按钮区域
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(15)
+
+        # 全部图鉴按钮
+        all_btn = QPushButton("全部图鉴")
+        all_btn.setFixedSize(150, 45)
+        all_btn.setFont(QFont("Microsoft YaHei", 13))
+        all_btn.setCursor(Qt.PointingHandCursor)
+        all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E8DCC8;
+                color: #8B7355;
+                border: none;
+                border-radius: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #D4C5B0;
+            }
+            QPushButton:pressed {
+                background-color: #C4B5A0;
+            }
+        """)
+        all_btn.clicked.connect(lambda: self._generate_and_close(dialog, 'all'))
+        button_layout.addWidget(all_btn)
+
+        # 未收集图鉴按钮
+        uncollected_btn = QPushButton("未收集图鉴")
+        uncollected_btn.setFixedSize(150, 45)
+        uncollected_btn.setFont(QFont("Microsoft YaHei", 13))
+        uncollected_btn.setCursor(Qt.PointingHandCursor)
+        uncollected_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E8DCC8;
+                color: #8B7355;
+                border: none;
+                border-radius: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #D4C5B0;
+            }
+            QPushButton:pressed {
+                background-color: #C4B5A0;
+            }
+        """)
+        uncollected_btn.clicked.connect(lambda: self._generate_and_close(dialog, 'uncollected'))
+        button_layout.addWidget(uncollected_btn)
+
+        content_layout.addLayout(button_layout)
+        main_layout.addWidget(content)
+
+        # 居中显示
+        dialog_layout = QVBoxLayout(dialog)
+        dialog_layout.setContentsMargins(0, 0, 0, 0)
+        dialog_layout.addWidget(container)
+
+        dialog.exec()
+
+    def _generate_and_close(self, dialog: QDialog, image_type: str):
+        """生成图鉴并关闭对话框"""
+        from src.pokedex_image_generator import pokedex_image_generator
+
+        dialog.accept()
+
+        try:
+            if image_type == 'all':
+                path = pokedex_image_generator.generate_pokedex_image('all')
+                content = f"全部图鉴已生成: {path.name}"
+            else:
+                path = pokedex_image_generator.generate_pokedex_image('uncollected')
+                content = f"未收集图鉴已生成: {path.name}"
+
+            InfoBar.success(
+                title="生成成功",
+                content=content,
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=5000,
+                parent=self
+            )
+        except Exception as e:
+            InfoBar.error(
+                title="生成失败",
+                content=f"生成进度图时出错: {str(e)}",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self
+            )
+
     def _on_sort_changed(self, key, reverse):
         """排序变化"""
         self.current_sort_key = key

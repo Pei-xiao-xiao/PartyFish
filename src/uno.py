@@ -18,11 +18,11 @@ class UnoManager(QObject):
     def __init__(self):
         super().__init__()
         self.current_cards = 7
-        self.max_cards = 35
+        self.max_cards = cfg.global_settings.get("uno_max_cards", 35)
         self.running = False
         self.thread = None
         self.mouse_controller = mouse.Controller()
-        self.last_click_pos = None  # 上次点击位置
+        self.last_click_pos = None
         self.waited_after_max = False  # 是否已在最大牌数后等待过
 
     def start(self):
@@ -91,7 +91,7 @@ class UnoManager(QObject):
     def _click_uno_position(self):
         """点击 UNO 位置（右下角，基于 2560x1440），返回点击位置"""
         base_x, base_y = 2381, 1353
-        click_pos = cfg.get_center_anchored_pos((base_x, base_y))
+        click_pos = cfg.get_bottom_right_pos((base_x, base_y))
         final_x = click_pos[0] + cfg.window_offset_x
         final_y = click_pos[1] + cfg.window_offset_y
         self.mouse_controller.position = (final_x, final_y)
