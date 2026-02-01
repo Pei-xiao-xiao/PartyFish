@@ -19,12 +19,12 @@ fish/
 ├── requirements.txt                 # Python 依赖
 ├── resources/                       # 资源文件
 │   ├── fish.json                    # 鱼类数据库
-│   ├── protected_fish.json          # 放生配置
-│   ├── audio/                       # 音频资源
-│   ├── maps/                        # 地图资源
 │   ├── fish/                        # 鱼类图片资源
 │   ├── fonts/                       # 字体文件
+│   ├── maps/                        # 地图资源
 │   ├── location/                    # 位置图片
+│   ├── rod/                         # 鱼竿图片
+│   ├── weather/                     # 天气图片
 │   └── *.png                        # 游戏界面模板图片
 ├── src/                             # 源代码目录
 │   ├── config.py                    # 配置管理
@@ -32,6 +32,7 @@ fish/
 │   ├── inputs.py                    # 输入控制
 │   ├── workers.py                   # 后台工作线程
 │   ├── pokedex.py                   # 鱼类图鉴数据处理
+│   ├── pokedex_image_generator.py   # 鱼类图鉴图片生成
 │   ├── uno.py                       # uno 游戏摸牌
 │   ├── debug_overlay.py             # 调试覆盖层
 │   ├── _version.py                  # 版本管理
@@ -81,9 +82,17 @@ fish/
 │       ├── overlay_window.py        # 迷你悬浮窗
 │       ├── fish_detail_dialog.py    # 鱼类详情对话框
 │       └── welcome_dialog.py        # 欢迎对话框
-└── data/                            # 数据存储（自动生成）
-    ├── records.csv                  # 钓鱼记录
-    └── sales.csv                    # 销售记录
+├── data/                            # 数据存储（自动生成）
+│   ├── audio/                       # 音频资源
+│   │   ├── inventory_full.mp3       # 鱼桶满提示音
+│   │   ├── no_bait.mp3              # 没鱼饵提示音
+│   │   ├── pause.mp3                # 暂停提示音
+│   │   └── start.mp3                # 开始提示音
+│   ├── protected_fish.json          # 放生配置
+│   ├── records.csv                  # 钓鱼记录
+│   └── sales.csv                    # 销售记录
+└── docs/                            # 文档
+    └── images/                      # 图片资源
 ```
 
 ---
