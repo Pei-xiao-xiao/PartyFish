@@ -12,16 +12,18 @@ from src.config import cfg
 if getattr(sys, "frozen", False):
     # If the application is run as a bundle, the PyInstaller bootloader
     # creates a temp folder and stores path in _MEIPASS
-    # BUT, we want the path to the executable itself
+    # Resources are extracted to _MEIPASS, user data is in executable directory
+    resources_path = Path(sys._MEIPASS)
     application_path = Path(sys.executable).parent
 else:
+    resources_path = Path(__file__).parent
     application_path = Path(__file__).parent
 # --- End Path Fix ---
 
 if __name__ == "__main__":
     try:
         # Set this path in the config object EARLY, before any other part of the app uses it
-        cfg.set_base_path(application_path)
+        cfg.set_base_path(resources_path, application_path)
 
         app = QApplication(sys.argv)
 

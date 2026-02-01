@@ -32,7 +32,7 @@ class FishingWorker(QThread):
         self.inputs = InputController()
         self.vision = vision
         # 确保截图目录存在
-        screenshots_dir = cfg._get_base_path() / "screenshots"
+        screenshots_dir = cfg._get_application_path() / "screenshots"
         if not screenshots_dir.exists():
             screenshots_dir.mkdir(parents=True)
 

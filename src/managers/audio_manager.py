@@ -27,7 +27,7 @@ class AudioManager:
         try:
             from src.config import cfg
 
-            base_path = cfg._get_base_path()
+            base_path = cfg._get_application_path()
             if alert_type == "no_bait":
                 sound_file = base_path / "data" / "audio" / "no_bait.mp3"
             elif alert_type == "inventory_full":
@@ -48,7 +48,7 @@ class AudioManager:
 
             if not cfg.global_settings.get("control_sound_enabled", False):
                 return
-            base_path = cfg._get_base_path()
+            base_path = cfg._get_application_path()
             sound_file = base_path / "data" / "audio" / f"{sound_type}.mp3"
             self.player.setSource(QUrl.fromLocalFile(str(sound_file)))
             self.player.play()

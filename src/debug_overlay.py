@@ -219,7 +219,7 @@ def generate_debug_screenshot(show_image=True):
     # Save the debug image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     # Use the centralized config to get the correct base path
-    save_dir = cfg._get_base_path() / "debug_screenshots"
+    save_dir = cfg._get_application_path() / "debug_screenshots"
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)

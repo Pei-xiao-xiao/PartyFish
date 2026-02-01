@@ -29,11 +29,11 @@ def generate_readme(version, notes):
 [文件结构与数据存储]
 --------------------------------------------------
 软件资源（不可删除）：
-resources/   : 存放核心资源文件 (图片)
-resources/fish.json : 鱼类图鉴数据文件 (可自行更新数据，但请勿修改文件名)
-data/   : 存放音频和配置文件
+resources/   : 存放核心资源文件 (图片) - 已打包进 exe
+resources/fish.json : 鱼类图鉴数据文件 (可自行更新数据，但请勿修改文件名) - 已打包进 exe
+data/   : 存放音频和配置文件 (需手动复制到 exe 同级目录)
 data/protected_fish.json : 放生保护数据文件 (可自行更新数据，但请勿修改文件名)
-data/audio/ : 提示音文件夹
+data/audio/ : 提示音文件夹 (需手动复制到 exe 同级目录)
 
 用户数据与配置（重要）：
 数据现已存储在 Windows 标准应用数据目录下：
@@ -133,11 +133,6 @@ def post_build(version):
             else:
                 print(f"错误: 无法移动文件 {dist_exe}")
                 raise
-
-    # 复制 resources 文件夹到目标目录
-    if Path("resources").exists():
-        shutil.copytree("resources", target_dir / "resources", dirs_exist_ok=True)
-        print("已复制 resources 文件夹")
 
     # 复制 data 文件夹到目标目录
     if Path("data").exists():

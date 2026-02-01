@@ -44,7 +44,7 @@ class DataLoaderService:
 
     def load_protected_fish(self):
         """加载保护鱼配置文件"""
-        base_path = self.config._get_base_path()
+        base_path = self.config._get_application_path()
         protected_fish_path = base_path / "data" / "protected_fish.json"
 
         if not protected_fish_path.exists():

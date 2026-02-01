@@ -97,6 +97,7 @@ class Config(metaclass=SingletonMeta):
 
         # This will be set by main.py at startup, but init it here to avoid AttributeError
         self._base_path = None
+        self._application_path = None
 
         # User Data Directory (APPDATA/Partyfish)
         self.user_data_dir = Path(os.environ.get("APPDATA")) / "Partyfish"
@@ -104,9 +105,10 @@ class Config(metaclass=SingletonMeta):
 
         self.config_manager.load_config_from_json()
 
-    def set_base_path(self, path):
-        """Sets the base path for the application. Should be called once at startup."""
-        self._base_path = path
+    def set_base_path(self, resources_path, application_path):
+        """Sets the base paths for the application. Should be called once at startup."""
+        self._base_path = resources_path
+        self._application_path = application_path
         # 路径设置后重新加载配置 (Config might be in user dir, but fish.json relies on base path)
         self.config_manager.load_config_from_json()
         self._load_fish_data()
@@ -128,7 +130,7 @@ class Config(metaclass=SingletonMeta):
         target_config = self.user_data_dir / "config.json"
         if not target_config.exists():
             # Try to find local config to migrate
-            local_config = self._get_base_path() / "config" / "config.json"
+            local_config = self._get_application_path() / "config" / "config.json"
             if local_config.exists():
                 try:
                     shutil.copy2(local_config, target_config)
@@ -152,7 +154,7 @@ class Config(metaclass=SingletonMeta):
             if not target_file.exists():
                 # 优先从旧的 APPDATA/Autofish/data/ 迁移（如果之前迁移过）
                 old_appdata_file = self.user_data_dir / "data" / filename
-                local_file = self._get_base_path() / "data" / filename
+                local_file = self._get_application_path() / "data" / filename
 
                 source_file = None
                 if old_appdata_file.exists():
@@ -195,10 +197,20 @@ class Config(metaclass=SingletonMeta):
         if self._base_path is None:
             # Fallback for cases where set_base_path was not called (e.g., testing)
             if getattr(sys, "frozen", False):
-                return Path(sys.executable).parent
+                return Path(sys._MEIPASS)
             else:
                 return Path(__file__).parent.parent
         return self._base_path
+
+    def _get_application_path(self):
+        """Gets the application path (executable directory) for user data."""
+        if self._application_path is None:
+            # Fallback for cases where set_base_path was not called (e.g., testing)
+            if getattr(sys, "frozen", False):
+                return Path(sys.executable).parent
+            else:
+                return Path(__file__).parent.parent
+        return self._application_path
 
     def _recalculate_scale(self):
         self.coordinate_service.recalculate_scale()

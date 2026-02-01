@@ -62,7 +62,7 @@ class OCRService:
                     if log_callback:
                         log_callback("OCR未能识别到有效的渔获信息。")
                     try:
-                        debug_dir = cfg._get_base_path() / "debug_screenshots"
+                        debug_dir = cfg._get_application_path() / "debug_screenshots"
                         if not debug_dir.exists():
                             debug_dir.mkdir(parents=True)
                         timestamp = time.strftime("%Y%m%d_%H%M%S")

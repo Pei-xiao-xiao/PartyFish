@@ -101,7 +101,7 @@ class ScreenshotService:
                 }
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 filename = (
-                    cfg._get_base_path()
+                    cfg._get_application_path()
                     / "screenshots"
                     / f"first_catch_{fish_name.replace(':', '_')}_{timestamp}.png"
                 )
@@ -132,7 +132,7 @@ class ScreenshotService:
                 }
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 filename = (
-                    cfg._get_base_path()
+                    cfg._get_application_path()
                     / "screenshots"
                     / f"legendary_{fish_name.replace(':', '_')}_{timestamp}.png"
                 )
