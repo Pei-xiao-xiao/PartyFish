@@ -106,18 +106,24 @@ class FishingService:
             tuple: (success, cast_icon_ever_gone) - success 表示是否成功，cast_icon_ever_gone 表示抛竿图标是否消失过
         """
         verification_start_time = time.time()
-        verification_timeout = 3
+        verification_timeout = 5  # 增加超时时间从3秒到5秒
         wait_bite_region = cfg.get_rect("wait_bite")
 
         last_cast_icon_gone = False
         last_wait_icon_appeared = False
         verification_check_count = 0
         cast_icon_ever_gone = False
+        max_match_score = 0.0  # 记录最大匹配分数
+
+        self.worker.log_updated.emit(f"[诊断] 开始抛竿验证，超时时间: {verification_timeout}秒")
 
         while time.time() - verification_start_time < verification_timeout:
+            # 检测抛竿图标是否消失
             cast_icon_gone = not self.worker.vision.find_template(
                 key, region=found_region, threshold=0.8
             )
+            
+            # 检测等待图标是否出现
             wait_icon_appeared = self.worker.vision.find_template(
                 key, region=wait_bite_region, threshold=0.8
             )
@@ -136,11 +142,16 @@ class FishingService:
 
             self.worker.msleep(200)
 
+        # 记录更详细的诊断信息
+        elapsed_time = time.time() - verification_start_time
         self.worker.log_updated.emit(
-            f"[诊断] 抛竿验证超时。检测次数: {verification_check_count}"
+            f"[诊断] 抛竿验证超时。检测次数: {verification_check_count}, 耗时: {elapsed_time:.2f}秒"
         )
         self.worker.log_updated.emit(
             f"[诊断] 最后状态 - 抛竿图标已消失: {last_cast_icon_gone}, 等待图标已出现: {last_wait_icon_appeared}"
+        )
+        self.worker.log_updated.emit(
+            f"[诊断] 抛竿图标区域: {found_region}, 等待图标区域: {wait_bite_region}"
         )
 
         return False, cast_icon_ever_gone

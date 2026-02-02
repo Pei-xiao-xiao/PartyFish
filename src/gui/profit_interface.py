@@ -510,12 +510,13 @@ class ProfitInterface(QWidget):
         # 连接悬停事件
         for series in self.line_chart.series():
             if hasattr(series, "hovered"):
-                series.hovered.disconnect()
+                series.blockSignals(True)
                 series.hovered.connect(
                     lambda point, state, s=series: self._on_line_hover(
                         point, state, s.name(), history_stats
                     )
                 )
+                series.blockSignals(False)
 
     def _update_bar_chart(self, history_stats):
         """更新柱状图"""
@@ -531,12 +532,13 @@ class ProfitInterface(QWidget):
         for series in self.bar_chart.series():
             if hasattr(series, "hovered"):
                 for bar_set in series.barSets():
-                    bar_set.hovered.disconnect()
+                    bar_set.blockSignals(True)
                     bar_set.hovered.connect(
                         lambda status, index, hs=history_stats: self._on_bar_hover(
                             status, index, hs
                         )
                     )
+                    bar_set.blockSignals(False)
 
     def _on_history_view_changed(self, route_key):
         """历史视图切换"""
