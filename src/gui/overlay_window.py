@@ -39,7 +39,7 @@ class OverlayWindow(QWidget):
         self._cute_font_family = "YouYuan"  # 幼圆 - Windows自带的圆润字体
 
         # 尝试加载自定义字体作为备选
-        font_path = os.path.join("resources", "fonts", "ZCOOLKuaiLe.ttf")
+        font_path = os.path.join(cfg._get_base_path(), "resources", "fonts", "ZCOOLKuaiLe.ttf")
         if os.path.exists(font_path):
             font_id = QFontDatabase.addApplicationFont(font_path)
             if font_id >= 0:
@@ -54,10 +54,10 @@ class OverlayWindow(QWidget):
         self.avatar_label.setScaledContents(True)  # 允许内容缩放以支持高清图
 
         # 加载头像
-        avatar_path = os.path.join("resources", "avatar.png")
+        avatar_path = os.path.join(cfg._get_base_path(), "resources", "avatar.png")
         if not os.path.exists(avatar_path):
             # 如果没有avatar.png,尝试使用favicon.ico
-            avatar_path = os.path.join("resources", "favicon.ico")
+            avatar_path = os.path.join(cfg._get_base_path(), "resources", "favicon.ico")
 
         if os.path.exists(avatar_path):
             pixmap = QPixmap(avatar_path)
@@ -83,7 +83,7 @@ class OverlayWindow(QWidget):
         # 鱼干图标 (HiDPI 超采样渲染)
         self.limit_icon = QLabel()
         self.limit_icon.setObjectName("limitIcon")
-        icon_path = os.path.join("resources", "fish_icon_nobg.png")
+        icon_path = os.path.join(cfg._get_base_path(), "resources", "fish_icon_nobg.png")
         icon_size = 18  # 显示尺寸
         if os.path.exists(icon_path):
             # 使用 2 倍分辨率渲染,确保高清显示

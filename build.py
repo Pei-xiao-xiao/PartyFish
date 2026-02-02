@@ -2,10 +2,8 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.2.4"
-RELEASE_NOTES = """添加图鉴生成图片
-修复uno配置没生效
-修复uno位置2560x1600位置"""
+VERSION = "3.2.5"
+RELEASE_NOTES = """"""
 
 
 def generate_readme(version, notes):
