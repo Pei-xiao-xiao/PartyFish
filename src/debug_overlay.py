@@ -135,35 +135,34 @@ def generate_debug_screenshot(show_image=True):
         scaled_cell_w = int(cell_w * cfg.scale_x)
         scaled_cell_h = int(cell_h * cfg.scale_y)
 
-        for row in range(rows):
-            for col in range(cols):
-                # Star region (cyan)
-                star_x = sx + col * scaled_cell_w + int(star_ox * cfg.scale_x)
-                star_y = sy + row * scaled_cell_h + int(star_oy * cfg.scale_y)
-                star_sw = int(star_w * cfg.scale_x)
-                star_sh = int(star_h * cfg.scale_y)
-                cv2.rectangle(
-                    screenshot,
-                    (star_x, star_y),
-                    (star_x + star_sw, star_y + star_sh),
-                    (255, 255, 0),
-                    1,
-                )
+        # 只绘制第一格 (row=0, col=0)
+        # Star region (cyan)
+        star_x = sx + int(star_ox * cfg.scale_x)
+        star_y = sy + int(star_oy * cfg.scale_y)
+        star_sw = int(star_w * cfg.scale_x)
+        star_sh = int(star_h * cfg.scale_y)
+        cv2.rectangle(
+            screenshot,
+            (star_x, star_y),
+            (star_x + star_sw, star_y + star_sh),
+            (255, 255, 0),
+            1,
+        )
 
-                # Lock region (red)
-                lock_size = int(60 * cfg.scale_x)
-                lock_x = sx + col * scaled_cell_w + (scaled_cell_w - lock_size) // 2
-                lock_y = sy + row * scaled_cell_h + (scaled_cell_h - lock_size) // 2
-                if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
-                    lock_x += int(25 * cfg.scale_x)
-                    lock_y += int(10 * cfg.scale_y)
-                cv2.rectangle(
-                    screenshot,
-                    (lock_x, lock_y),
-                    (lock_x + lock_size, lock_y + lock_size),
-                    (0, 0, 255),
-                    1,
-                )
+        # Lock region (red)
+        lock_size = int(60 * cfg.scale_x)
+        lock_x = sx + (scaled_cell_w - lock_size) // 2
+        lock_y = sy + (scaled_cell_h - lock_size) // 2
+        if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
+            lock_x += int(25 * cfg.scale_x)
+            lock_y += int(10 * cfg.scale_y)
+        cv2.rectangle(
+            screenshot,
+            (lock_x, lock_y),
+            (lock_x + lock_size, lock_y + lock_size),
+            (0, 0, 255),
+            1,
+        )
 
     # Draw circles for Jiashi buttons
     jiashi_yes_pos = cfg.get_center_anchored_pos(cfg.BTN_JIASHI_YES)

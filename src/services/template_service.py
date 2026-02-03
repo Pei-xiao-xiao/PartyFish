@@ -321,7 +321,7 @@ class TemplateService:
         """检测指定区域是否有锁定图标"""
         self._ensure_loaded()
 
-        raw_template = self.raw_templates.get("lock_grayscale")
+        raw_template = self.raw_templates.get("lock")
         if raw_template is None:
             print("[警告] lock_grayscale 模板未加载")
             return False
