@@ -237,7 +237,7 @@ class FishingWorker(QThread):
     @Slot()
     def trigger_sell(self):
         """
-        触发卖鱼逻辑: 截图识别 -> 记录 -> 点击
+        触发卖鱼逻辑: 截图识别 -> 检查进度 -> 记录 -> 点击
         """
         if self.running and not self.paused:
             self.log_updated.emit("脚本运行中，请先暂停再执行卖鱼操作。")
@@ -277,6 +277,33 @@ class FishingWorker(QThread):
                 return
 
             self.log_updated.emit(f"识别到卖鱼金额: {amount}")
+
+            # 获取当前今日进度
+            from src.services.profit_analysis_service import ProfitAnalysisService
+            profit_service = ProfitAnalysisService()
+            start_time = profit_service.get_current_cycle_start_time()
+            today_stats = profit_service.load_today_stats(start_time)
+            current_progress = today_stats.total_sales
+
+            self.log_updated.emit(f"当前今日进度: {current_progress}")
+
+            # 检查是否需要弹出确认对话框
+            if amount + current_progress > 899:
+                self.log_updated.emit(f"警告: 卖鱼金额({amount}) + 今日进度({current_progress}) = {amount + current_progress} > 899")
+
+                # 导入确认对话框
+                from src.gui.sell_confirmation_dialog import SellConfirmationDialog
+                from PySide6.QtWidgets import QApplication
+
+                # 在主线程中显示对话框
+                dialog = SellConfirmationDialog(amount, current_progress)
+                dialog.exec()
+
+                if not dialog.get_user_choice():
+                    self.log_updated.emit("用户取消卖鱼操作")
+                    return
+                else:
+                    self.log_updated.emit("用户确认继续卖鱼")
 
             # Attempt to write record BEFORE clicking
             if self._write_sale_record(amount):
