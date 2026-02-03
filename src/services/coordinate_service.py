@@ -166,6 +166,15 @@ class CoordinateService:
         coords = region_info["coords"]
         anchor_type = region_info.get("anchor", "default")
 
+        # 针对 1280x800 分辨率的 bait_count 区域加宽
+        if (
+            name == "bait_count"
+            and self.config.screen_width == 1280
+            and self.config.screen_height == 800
+        ):
+            x, y, w, h = coords
+            coords = (x, y, w + 23, h)  # 向右扩展 23 像素
+
         dispatcher = {
             "top_center": self.get_top_center_rect,
             "bottom_center": self.get_bottom_center_rect,

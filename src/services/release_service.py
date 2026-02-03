@@ -273,132 +273,86 @@ class ReleaseService:
             int: 放生的鱼数量
         """
         released_count = 0
-        locked_detected = False
+        row, col = 0, 0  # 只检测第一格
 
-        for row in range(4):
-            if not self.worker.running or self.worker.paused or locked_detected:
+        while True:
+            if not self.worker.running or self.worker.paused:
                 break
 
-            while True:
-                if not self.worker.running or self.worker.paused:
-                    break
+            if self.worker._check_popup_and_abort_release(released_count):
+                return released_count
 
-                if self.worker._check_popup_and_abort_release(released_count):
-                    return released_count
+            # 检测锁定图标
+            lock_size = int(60 * cfg.scale)
+            lock_x = scaled_zone_x + (scaled_cell_width - lock_size) // 2
+            lock_y = scaled_zone_y + (scaled_cell_height - lock_size) // 2
+            lock_region = (lock_x, lock_y, lock_size, lock_size)
 
-                action_in_row = False
-                valid_fish_count = 0
-                for col in range(4):
-                    if not self.worker.running or self.worker.paused:
-                        break
+            lock_detected = self.worker.vision.detect_lock_icon(lock_region)
+            if lock_detected:
+                self.worker.log_updated.emit(
+                    f"位置({row},{col})检测到锁定图标，停止检测"
+                )
+                break
 
-                    lock_size = int(60 * cfg.scale)
-                    lock_x = (
-                        scaled_zone_x
-                        + col * scaled_cell_width
-                        + (scaled_cell_width - lock_size) // 2
-                    )
-                    lock_y = (
-                        scaled_zone_y
-                        + row * scaled_cell_height
-                        + (scaled_cell_height - lock_size) // 2
-                    )
-                    lock_region = (lock_x, lock_y, lock_size, lock_size)
+            # 检测品质
+            star_x = scaled_zone_x + scaled_star_offset_x
+            star_y = scaled_zone_y + scaled_star_offset_y
+            star_region = (star_x, star_y, scaled_star_width, scaled_star_height)
 
-                    lock_detected = self.worker.vision.detect_lock_icon(lock_region)
-                    if lock_detected:
-                        self.worker.log_updated.emit(
-                            f"位置({row},{col})检测到锁定图标，停止检测"
-                        )
-                        locked_detected = True
-                        break
+            quality = self._detect_fish_quality(star_region, row, col)
+            if quality is None:
+                break  # 没有鱼，停止检测
 
-                    star_x = (
-                        scaled_zone_x + col * scaled_cell_width + scaled_star_offset_x
-                    )
-                    star_y = (
-                        scaled_zone_y + row * scaled_cell_height + scaled_star_offset_y
-                    )
-                    star_region = (
-                        star_x,
-                        star_y,
-                        scaled_star_width,
-                        scaled_star_height,
-                    )
+            release_map = {
+                "标准": "release_standard",
+                "非凡": "release_uncommon",
+                "稀有": "release_rare",
+                "史诗": "release_epic",
+                "传奇": "release_legendary",
+            }
+            should_release = cfg.global_settings.get(release_map.get(quality), False)
 
-                    quality = self._detect_fish_quality(star_region, row, col)
-                    if quality is None:
-                        continue
+            if not self.worker.running or self.worker.paused:
+                break
 
-                    valid_fish_count += 1
+            if self.worker._check_popup_and_abort_release(released_count):
+                return released_count
 
-                    release_map = {
-                        "标准": "release_standard",
-                        "非凡": "release_uncommon",
-                        "稀有": "release_rare",
-                        "史诗": "release_epic",
-                        "传奇": "release_legendary",
-                    }
-                    should_release = cfg.global_settings.get(
-                        release_map.get(quality), False
-                    )
+            fish_x = scaled_zone_x + scaled_cell_width // 2
+            fish_y = scaled_zone_y + scaled_cell_height // 2
 
-                    if not self.worker.running or self.worker.paused:
-                        break
+            is_protected = self._check_fish_protection(
+                fish_x, fish_y, quality, row, col, released_count
+            )
+            if is_protected is None:
+                return released_count
+            if is_protected:
+                should_release = False
 
-                    if self.worker._check_popup_and_abort_release(released_count):
-                        return released_count
+            success, should_increment = self._execute_fish_action(
+                fish_x,
+                fish_y,
+                should_release,
+                quality,
+                row,
+                col,
+                scaled_zone_x,
+                scaled_zone_y,
+                scaled_cell_width,
+                scaled_cell_height,
+                released_count,
+            )
 
-                    fish_x = (
-                        scaled_zone_x + col * scaled_cell_width + scaled_cell_width // 2
-                    )
-                    fish_y = (
-                        scaled_zone_y
-                        + row * scaled_cell_height
-                        + scaled_cell_height // 2
-                    )
+            if success is None:
+                return released_count
+            if not success:
+                break
 
-                    is_protected = self._check_fish_protection(
-                        fish_x, fish_y, quality, row, col, released_count
-                    )
-                    if is_protected is None:
-                        return released_count
-                    if is_protected:
-                        should_release = False
+            if should_increment:
+                released_count += 1
 
-                    success, should_increment = self._execute_fish_action(
-                        fish_x,
-                        fish_y,
-                        should_release,
-                        quality,
-                        row,
-                        col,
-                        scaled_zone_x,
-                        scaled_zone_y,
-                        scaled_cell_width,
-                        scaled_cell_height,
-                        released_count,
-                    )
-
-                    if success is None:
-                        return released_count
-                    if not success:
-                        continue
-
-                    if should_increment:
-                        released_count += 1
-                        action_in_row = True
-                    elif row == 0:
-                        action_in_row = True
-
-                    self.worker.smart_sleep(0.3)
-                    break
-
-                if valid_fish_count == 0 or not action_in_row or locked_detected:
-                    break
-
-        if locked_detected:
-            self.worker.log_updated.emit("检测到锁定，停止所有检测")
+            self.worker.smart_sleep(0.3)
 
         return released_count
 
