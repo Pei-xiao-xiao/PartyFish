@@ -503,7 +503,7 @@ class FishingService:
             "enable_first_catch_screenshot", True
         ):
             self.worker.log_updated.emit("首次捕获! 正在截图保存...")
-            success, result = ScreenshotService.capture_first_catch(fish_name)
+            success, result = ScreenshotService.capture_first_catch(fish_name, quality)
             if success:
                 self.worker.log_updated.emit(f"截图已保存至 {result}")
             else:
@@ -513,7 +513,7 @@ class FishingService:
             "enable_legendary_screenshot", True
         ):
             self.worker.log_updated.emit("哇! 钓到了传奇品质的鱼, 正在截图保存...")
-            success, result = ScreenshotService.capture_legendary(fish_name)
+            success, result = ScreenshotService.capture_legendary(fish_name, quality, is_new_record)
             if success:
                 self.worker.log_updated.emit(f"截图已保存至 {result}")
             else:

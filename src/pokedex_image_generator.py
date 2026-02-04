@@ -40,7 +40,7 @@ class PokedexImageGenerator:
 
     def __init__(self):
         """初始化图片生成器"""
-        self.screenshots_dir = cfg._get_application_path() / "screenshots" / "pokedex"
+        self.screenshots_dir = cfg._get_application_path() / "截图" / "图鉴"
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_pokedex_image(self, image_type: str = 'all') -> Path:

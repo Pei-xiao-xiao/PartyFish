@@ -145,8 +145,12 @@ class FishingWorker(QThread):
                         if should_release and popup_closed:
                             self.release_service.execute_single_release()
 
-                    # 无论成功与否，都重置到初始状态
-                    self.state_machine.reset()
+                        # 确保弹窗完全关闭后再重置状态
+                        if popup_closed:
+                            # 等待游戏界面完全准备好
+                            self.smart_sleep(0.5)
+                            # 重置到初始状态
+                            self.state_machine.reset()
 
             except Exception as e:
                 self.log_updated.emit(f"发生错误: {e}")

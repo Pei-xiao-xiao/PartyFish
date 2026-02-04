@@ -81,12 +81,13 @@ class ScreenshotService:
                     raise e
 
     @staticmethod
-    def capture_first_catch(fish_name: str) -> tuple[bool, str]:
+    def capture_first_catch(fish_name: str, quality: str = "标准") -> tuple[bool, str]:
         """
         首次捕获截图
 
         Args:
             fish_name: 鱼名
+            quality: 品质
 
         Returns:
             (成功标志, 消息或文件路径)
@@ -102,9 +103,11 @@ class ScreenshotService:
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 filename = (
                     cfg._get_application_path()
-                    / "screenshots"
-                    / f"first_catch_{fish_name.replace(':', '_')}_{timestamp}.png"
+                    / "截图"
+                    / "首次"
+                    / f"{timestamp}_{fish_name.replace(':', '_')}_{quality}.png"
                 )
+                filename.parent.mkdir(parents=True, exist_ok=True)
                 sct_img = sct.grab(monitor)
                 mss.tools.to_png(sct_img.rgb, sct_img.size, output=str(filename))
                 return True, str(filename)
@@ -112,12 +115,14 @@ class ScreenshotService:
             return False, str(e)
 
     @staticmethod
-    def capture_legendary(fish_name: str) -> tuple[bool, str]:
+    def capture_legendary(fish_name: str, quality: str = "传奇", is_new_record: bool = False) -> tuple[bool, str]:
         """
         传奇品质截图
 
         Args:
             fish_name: 鱼名
+            quality: 品质
+            is_new_record: 是否首次捕获
 
         Returns:
             (成功标志, 消息或文件路径)
@@ -131,11 +136,14 @@ class ScreenshotService:
                     "height": cfg.screen_height,
                 }
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
+                prefix = "首次捕获_" if is_new_record else ""
                 filename = (
                     cfg._get_application_path()
-                    / "screenshots"
-                    / f"legendary_{fish_name.replace(':', '_')}_{timestamp}.png"
+                    / "截图"
+                    / "传奇"
+                    / f"{prefix}{timestamp}_{fish_name.replace(':', '_')}_{quality}.png"
                 )
+                filename.parent.mkdir(parents=True, exist_ok=True)
                 sct_img = sct.grab(monitor)
                 mss.tools.to_png(sct_img.rgb, sct_img.size, output=str(filename))
                 return True, str(filename)

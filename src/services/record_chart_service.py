@@ -4,6 +4,7 @@
 """
 
 from typing import Dict
+from functools import partial
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor
 from PySide6.QtWidgets import QToolTip
@@ -63,20 +64,18 @@ class RecordChartService:
             pie_slice.setProperty("quality_name", quality)
 
             # 连接悬停事件
-            pie_slice.hovered.connect(self._handle_slice_hover)
+            pie_slice.hovered.connect(partial(self._handle_slice_hover, pie_slice))
 
             pie_series.append(pie_slice)
 
-    def _handle_slice_hover(self, state):
+    def _handle_slice_hover(self, pie_slice: QPieSlice, state: bool):
         """
         处理切片悬停事件
 
         Args:
+            pie_slice: 饼图切片对象
             state: 悬停状态
         """
-        pie_slice = self.sender()
-        if not isinstance(pie_slice, QPieSlice):
-            return
 
         # 切片爆炸效果
         pie_slice.setExploded(state)
