@@ -1,4 +1,3 @@
-)
 """
 卖鱼确认对话框
 当一键卖鱼的价格+当前今日进度大于899时，弹出确认对话框
@@ -71,15 +70,14 @@ class SellConfirmationDialog(QDialog):
                 font-size: 20px;
                 font-weight: bold;
                 color: #e74c3c;
+                letter-spacing: -1px;
             }
         """)
         content_layout.addWidget(title_label)
 
         # 信息标签
         total = self.price + self.current_progress
-        info_text = f"当前卖鱼价格: {self.price}
-今日已卖进度: {self.current_progress}
-合计: {total} (超过899)"
+        info_text = f"当前卖鱼价格: {self.price}\n今日已卖进度: {self.current_progress}\n合计: {total} (超过899)"
         info_label = QLabel(info_text, content_frame)
         info_label.setAlignment(Qt.AlignCenter)
         info_label.setStyleSheet("""
@@ -137,6 +135,7 @@ class SellConfirmationDialog(QDialog):
         """)
         continue_button.clicked.connect(self._on_continue)
 
+        button_layout.addStretch()
         button_layout.addWidget(cancel_button)
         button_layout.addWidget(continue_button)
         button_layout.addStretch()

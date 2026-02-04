@@ -5,6 +5,7 @@ from PySide6.QtGui import QFont
 from qfluentwidgets import setTheme, Theme
 from src.gui.main_window import MainWindow
 from src.gui.welcome_dialog import show_welcome_dialog
+from src.gui.single_instance import SingleInstance
 from src.config import cfg
 
 # --- Path Fix ---
@@ -25,7 +26,22 @@ if __name__ == "__main__":
         # Set this path in the config object EARLY, before any other part of the app uses it
         cfg.set_base_path(resources_path, application_path)
 
+        # 创建单例管理器
+        single_instance = SingleInstance("PartyFish")
+
+        # 检查是否已有实例在运行
+        if single_instance.is_running():
+            # 输出日志
+            print("[单例检测] 检测到 PartyFish 已在运行，阻止双开")
+            # 直接调用show_running_message，它会处理QApplication的创建
+            single_instance.show_running_message()
+            sys.exit(0)
+
         app = QApplication(sys.argv)
+
+        # 启动单例服务器
+        if not single_instance.start_server():
+            print("警告: 无法启动单例服务器")
 
         # 设置应用程序字体
         ui_font = cfg.get_ui_font()
@@ -33,19 +49,9 @@ if __name__ == "__main__":
         print(f"系统语言字体: {ui_font}")
 
         # 获取当前硬件信息
-        from src.gui.welcome_dialog import (
-            get_account_name,
-            get_cpu_info,
-            get_memory_info,
-            get_gpu_info,
-        )
+        from src.utils.hardware_info import get_all_hardware_info
 
-        current_hardware = {
-            "account_name": get_account_name(),
-            "cpu": get_cpu_info(),
-            "memory": get_memory_info(),
-            "gpu": get_gpu_info(),
-        }
+        current_hardware = get_all_hardware_info()
 
         # 获取保存的硬件信息
         saved_hardware = cfg.global_settings.get("hardware_info", {})

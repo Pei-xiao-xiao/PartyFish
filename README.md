@@ -54,6 +54,7 @@ fish/
 │   │   ├── data_loader_service.py   # 数据加载服务
 │   │   ├── digit_recognition_service.py # 数字识别服务
 │   │   ├── fishing_service.py       # 钓鱼服务
+│   │   ├── hardware_info.py         # 硬件信息工具
 │   │   ├── ocr_service.py           # OCR 服务
 │   │   ├── profit_analysis_service.py # 收益分析服务
 │   │   ├── record_chart_service.py  # 记录图表服务
@@ -66,28 +67,32 @@ fish/
 │   │   ├── template_service.py      # 模板服务
 │   │   ├── vision_utils_service.py  # 视觉工具服务
 │   │   └── window_service.py        # 窗口服务
-│   └── gui/                         # GUI 界面模块
-│       ├── components/              # 可复用组件
-│       │   ├── draggable_scroll_area.py # 可拖拽滚动区域
-│       │   ├── filter_drawer.py     # 过滤抽屉
-│       │   ├── filter_panel.py      # 过滤面板
-│       │   ├── fish_preview.py      # 鱼类预览
-│       │   └── home_fish_card.py    # 主页鱼类卡片
-│       ├── main_window.py           # 主窗口
-│       ├── home_interface.py        # 主页面
-│       ├── records_interface.py     # 钓鱼记录
-│       ├── profit_interface.py      # 收益统计
-│       ├── pokedex_interface.py     # 鱼类图鉴
-│       ├── settings_interface.py    # 设置页面
-│       ├── overlay_window.py        # 迷你悬浮窗
-│       ├── fish_detail_dialog.py    # 鱼类详情对话框
-│       └── welcome_dialog.py        # 欢迎对话框
+│   ├── gui/                         # GUI 界面模块
+│   │   ├── components/              # 可复用组件
+│   │   │   ├── draggable_scroll_area.py # 可拖拽滚动区域
+│   │   │   ├── filter_drawer.py     # 过滤抽屉
+│   │   │   ├── filter_panel.py      # 过滤面板
+│   │   │   ├── fish_preview.py      # 鱼类预览
+│   │   │   └── home_fish_card.py    # 主页鱼类卡片
+│   │   ├── main_window.py           # 主窗口
+│   │   ├── home_interface.py        # 主页面
+│   │   ├── records_interface.py     # 钓鱼记录
+│   │   ├── profit_interface.py      # 收益统计
+│   │   ├── pokedex_interface.py     # 鱼类图鉴
+│   │   ├── settings_interface.py    # 设置页面
+│   │   ├── overlay_window.py        # 迷你悬浮窗
+│   │   ├── fish_detail_dialog.py    # 鱼类详情对话框
+│   │   ├── sell_confirmation_dialog.py # 售卖确认对话框
+│   │   ├── single_instance.py       # 单实例管理
+│   │   └── welcome_dialog.py        # 欢迎对话框
 ├── data/                            # 数据存储（自动生成）
 │   ├── audio/                       # 音频资源
 │   │   ├── inventory_full.mp3       # 鱼桶满提示音
 │   │   ├── no_bait.mp3              # 没鱼饵提示音
 │   │   ├── pause.mp3                # 暂停提示音
-│   │   └── start.mp3                # 开始提示音
+│   │   ├── start.mp3                # 开始提示音
+│   │   ├── 没鱼饵啦！该买鱼饵了.mp3  # 没鱼饵中文提示音
+│   │   └── 鱼桶满啦！该卖鱼了.mp3    # 鱼桶满中文提示音
 │   ├── protected_fish.json          # 放生配置
 │   ├── records.csv                  # 钓鱼记录
 │   └── sales.csv                    # 销售记录
