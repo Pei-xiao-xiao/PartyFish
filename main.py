@@ -49,7 +49,7 @@ if __name__ == "__main__":
         print(f"系统语言字体: {ui_font}")
 
         # 获取当前硬件信息
-        from src.utils.hardware_info import get_all_hardware_info
+        from src.services.hardware_info import get_all_hardware_info
 
         current_hardware = get_all_hardware_info()
 
