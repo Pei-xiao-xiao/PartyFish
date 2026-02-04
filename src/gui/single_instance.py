@@ -117,7 +117,7 @@ class SingleInstance:
         dialog = QDialog()
         dialog.setWindowTitle("提示")
         dialog.setFixedSize(320, 160)
-        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_TranslucentBackground)
 
         # 主布局

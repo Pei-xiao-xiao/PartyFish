@@ -39,7 +39,7 @@ class SellConfirmationDialog(QDialog):
         """初始化UI"""
         self.setWindowTitle("卖鱼确认")
         self.setFixedSize(400, 200)
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         # 主布局

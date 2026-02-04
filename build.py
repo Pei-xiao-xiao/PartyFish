@@ -2,12 +2,13 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.2.7"
+VERSION = "3.2.8"
 RELEASE_NOTES = """图片位置更新
 1.图片路径变成中文
 2.修复了网卡会导致2次抛竿
 3.修复最后一下导致失败
-4.添加禁止双开"""
+4.添加禁止双开
+5.修复弹窗在下面"""
 
 
 def generate_readme(version, notes):
