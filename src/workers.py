@@ -105,7 +105,10 @@ class FishingWorker(QThread):
 
                 elif self.state_machine.is_reeling_in():
                     reel_in_finished = self.fishing_service.reel_in()
-                    if reel_in_finished:
+                    if not reel_in_finished:
+                        # 收线失败（鱼跑了），重置状态机重新开始
+                        self.state_machine.reset()
+                    else:
                         should_release = self.fishing_service.record_catch()
                         self.log_updated.emit("收起渔获, 准备下一轮。")
 
