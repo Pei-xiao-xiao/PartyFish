@@ -201,22 +201,24 @@ class InputController(QObject):
         Simulates pressing and releasing a key using virtual key codes.
         """
         key_name = key_name.upper()
-        # Common virtual key codes
+        # Common virtual key codes and scan codes
         vk_map = {
-            "F1": 0x70,
-            "F2": 0x71,
-            "F3": 0x72,
-            "F4": 0x73,
-            "E": 0x45,
-            "R": 0x52,
-            "SPACE": 0x20,
-            "ESC": 0x1B,
+            "F1": (0x70, 0x3B),
+            "F2": (0x71, 0x3C),
+            "F3": (0x72, 0x3D),
+            "F4": (0x73, 0x3E),
+            "F12": (0x7B, 0x58),
+            "E": (0x45, 0x12),
+            "R": (0x52, 0x13),
+            "SPACE": (0x20, 0x39),
+            "ESC": (0x1B, 0x01),
         }
-        vk = vk_map.get(key_name)
-        if vk:
-            ctypes.windll.user32.keybd_event(vk, 0, 0, 0)  # Key Down
+        key_info = vk_map.get(key_name)
+        if key_info:
+            vk, scan = key_info
+            ctypes.windll.user32.keybd_event(vk, scan, 0, 0)  # Key Down
             time.sleep(random.uniform(0.05, 0.1))
-            ctypes.windll.user32.keybd_event(vk, 0, 2, 0)  # Key Up
+            ctypes.windll.user32.keybd_event(vk, scan, 2, 0)  # Key Up
         else:
             print(f"Unknown key for simulation: {key_name}")
 

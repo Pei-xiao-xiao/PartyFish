@@ -153,8 +153,26 @@ class FishingWorker(QThread):
                         if popup_closed:
                             # 等待游戏界面完全准备好
                             self.smart_sleep(0.5)
-                            # 重置到初始状态
-                            self.state_machine.reset()
+
+                            # 检查是否已经误触发抛竿（等待咬钩图标已出现）
+                            wait_bite_region = cfg.get_rect("wait_bite")
+                            already_cast = False
+                            for key in ["F1_grayscale", "F2_grayscale"]:
+                                if self.vision.find_template(
+                                    key, region=wait_bite_region, threshold=0.8
+                                ):
+                                    already_cast = True
+                                    break
+
+                            if already_cast:
+                                # 已经在等待咬钩状态，直接进入等待咬钩
+                                self.log_updated.emit(
+                                    "检测到已抛竿，直接进入等待咬钩状态"
+                                )
+                                self.state_machine.transition_to_waiting()
+                            else:
+                                # 重置到初始状态
+                                self.state_machine.reset()
 
             except Exception as e:
                 self.log_updated.emit(f"发生错误: {e}")
@@ -288,6 +306,7 @@ class FishingWorker(QThread):
 
             # 获取当前今日进度
             from src.services.profit_analysis_service import ProfitAnalysisService
+
             profit_service = ProfitAnalysisService()
             start_time = profit_service.get_current_cycle_start_time()
             today_stats = profit_service.load_today_stats(start_time)
@@ -297,7 +316,9 @@ class FishingWorker(QThread):
 
             # 检查是否需要弹出确认对话框
             if amount + current_progress > 899:
-                self.log_updated.emit(f"警告: 卖鱼金额({amount}) + 今日进度({current_progress}) = {amount + current_progress} > 899")
+                self.log_updated.emit(
+                    f"警告: 卖鱼金额({amount}) + 今日进度({current_progress}) = {amount + current_progress} > 899"
+                )
 
                 # 导入确认对话框
                 from src.gui.sell_confirmation_dialog import SellConfirmationDialog

@@ -326,11 +326,30 @@ class HomeInterface(QWidget):
         # 根据配置设置当前选项
         release_mode = cfg.global_settings.get("release_mode", "off")
         self.release_mode_segment.setCurrentItem(release_mode)
-        self.release_mode_segment.currentItemChanged.connect(self._on_release_mode_changed)
+        self.release_mode_segment.currentItemChanged.connect(
+            self._on_release_mode_changed
+        )
         self.control_grid.addWidget(
             self.release_mode_label, 2, 0, Qt.AlignRight | Qt.AlignVCenter
         )
         self.control_grid.addWidget(self.release_mode_segment, 2, 1, Qt.AlignLeft)
+
+        # 5. Screenshot Mode Switcher (右侧) - 截图模式选择
+        self.screenshot_mode_label = CaptionLabel("截图模式", self.banner)
+        self.screenshot_mode_label.setStyleSheet(label_style)
+        self.screenshot_mode_segment = SegmentedWidget(self.banner)
+        self.screenshot_mode_segment.addItem("wegame", "WeGame")
+        self.screenshot_mode_segment.addItem("steam", "Steam")
+        # 根据配置设置当前选项
+        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        self.screenshot_mode_segment.setCurrentItem(screenshot_mode)
+        self.screenshot_mode_segment.currentItemChanged.connect(
+            self._on_screenshot_mode_changed
+        )
+        self.control_grid.addWidget(
+            self.screenshot_mode_label, 2, 2, Qt.AlignRight | Qt.AlignVCenter
+        )
+        self.control_grid.addWidget(self.screenshot_mode_segment, 2, 3, Qt.AlignLeft)
 
         self.controls_layout.addLayout(self.control_grid)
 
@@ -537,12 +556,19 @@ class HomeInterface(QWidget):
         mode_text_map = {"off": "关", "single": "单条", "auto": "自动"}
         self.update_log(f"[系统] 放生模式已切换为: {mode_text_map.get(mode, mode)}")
 
+    def _on_screenshot_mode_changed(self, mode):
+        """处理截图模式变化"""
+        cfg.global_settings["screenshot_mode"] = mode
+        cfg.save()
+        mode_text_map = {"wegame": "WeGame", "steam": "Steam"}
+        self.update_log(f"[系统] 截图模式已切换为: {mode_text_map.get(mode, mode)}")
+
     def _notify_settings_interface_update(self, mode):
         """通知设置页面更新放生模式"""
         # 通过父窗口查找设置页面
         parent = self.parent()
         while parent:
-            if hasattr(parent, 'settings_interface'):
+            if hasattr(parent, "settings_interface"):
                 parent.settings_interface.update_release_mode_from_main(mode)
                 break
             parent = parent.parent()

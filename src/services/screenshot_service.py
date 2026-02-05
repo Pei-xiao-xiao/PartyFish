@@ -92,6 +92,13 @@ class ScreenshotService:
         Returns:
             (成功标志, 消息或文件路径)
         """
+        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+
+        if screenshot_mode == "steam":
+            # Steam模式：按F12截图
+            return ScreenshotService._press_f12_screenshot()
+
+        # WeGame模式：保存截图文件
         try:
             with mss.mss() as sct:
                 monitor = {
@@ -115,7 +122,9 @@ class ScreenshotService:
             return False, str(e)
 
     @staticmethod
-    def capture_legendary(fish_name: str, quality: str = "传奇", is_new_record: bool = False) -> tuple[bool, str]:
+    def capture_legendary(
+        fish_name: str, quality: str = "传奇", is_new_record: bool = False
+    ) -> tuple[bool, str]:
         """
         传奇品质截图
 
@@ -127,6 +136,13 @@ class ScreenshotService:
         Returns:
             (成功标志, 消息或文件路径)
         """
+        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+
+        if screenshot_mode == "steam":
+            # Steam模式：按F12截图
+            return ScreenshotService._press_f12_screenshot()
+
+        # WeGame模式：保存截图文件
         try:
             with mss.mss() as sct:
                 monitor = {
@@ -147,5 +163,21 @@ class ScreenshotService:
                 sct_img = sct.grab(monitor)
                 mss.tools.to_png(sct_img.rgb, sct_img.size, output=str(filename))
                 return True, str(filename)
+        except Exception as e:
+            return False, str(e)
+
+    @staticmethod
+    def _press_f12_screenshot() -> tuple[bool, str]:
+        """
+        Steam模式：按F12触发Steam截图
+
+        Returns:
+            (成功标志, 消息)
+        """
+        try:
+            from src.inputs import InputController
+
+            InputController.press_key("F12")
+            return True, "Steam截图已触发"
         except Exception as e:
             return False, str(e)

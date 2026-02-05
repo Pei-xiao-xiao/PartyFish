@@ -115,14 +115,16 @@ class FishingService:
         cast_icon_ever_gone = False
         max_match_score = 0.0  # 记录最大匹配分数
 
-        self.worker.log_updated.emit(f"[诊断] 开始抛竿验证，超时时间: {verification_timeout}秒")
+        self.worker.log_updated.emit(
+            f"[诊断] 开始抛竿验证，超时时间: {verification_timeout}秒"
+        )
 
         while time.time() - verification_start_time < verification_timeout:
             # 检测抛竿图标是否消失
             cast_icon_gone = not self.worker.vision.find_template(
                 key, region=found_region, threshold=0.8
             )
-            
+
             # 检测等待图标是否出现
             wait_icon_appeared = self.worker.vision.find_template(
                 key, region=wait_bite_region, threshold=0.8
@@ -514,7 +516,9 @@ class FishingService:
             "enable_legendary_screenshot", True
         ):
             self.worker.log_updated.emit("哇! 钓到了传奇品质的鱼, 正在截图保存...")
-            success, result = ScreenshotService.capture_legendary(fish_name, quality, is_new_record)
+            success, result = ScreenshotService.capture_legendary(
+                fish_name, quality, is_new_record
+            )
             if success:
                 self.worker.log_updated.emit(f"截图已保存至 {result}")
             else:
