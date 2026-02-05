@@ -113,6 +113,7 @@ class ConfigManager:
             "uno_hotkey": "F3",
             "uno_current_cards": 7,
             "uno_max_cards": 35,
+            "release_mode": "off",  # 放生模式: off(关)/single(单条放生)/auto(自动放生)
             "auto_release_enabled": False,
             "enable_fish_name_protection": False,
             "release_standard": True,
@@ -120,11 +121,6 @@ class ConfigManager:
             "release_rare": False,
             "release_epic": False,
             "release_legendary": False,
-            "single_release_standard": False,
-            "single_release_uncommon": False,
-            "single_release_rare": False,
-            "single_release_epic": False,
-            "single_release_legendary": False,
             "enable_legendary_screenshot": True,
             "enable_first_catch_screenshot": True,
         }

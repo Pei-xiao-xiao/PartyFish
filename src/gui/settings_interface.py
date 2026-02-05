@@ -56,6 +56,7 @@ class SettingsInterface(ScrollArea):
     account_list_changed_signal = Signal()  # 账号列表变化信号
     records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
     reset_overlay_position_signal = Signal()  # 重置悬浮窗位置信号
+    release_mode_changed_signal = Signal(str)  # 放生模式变化信号
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -327,91 +328,56 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.unoGroup)
 
-        # 6. Auto Release Group
-        self.autoReleaseGroup = SettingCardGroup(self.tr("自动放生"), self.scrollWidget)
+        # 6. Release Group (合并自动放生和单条放生)
+        self.releaseGroup = SettingCardGroup(self.tr("放生设置"), self.scrollWidget)
 
         self.autoReleaseEnabledCard = SwitchSettingCard(
             FluentIcon.DELETE,
             self.tr("启用自动放生"),
             self.tr("鱼桶满时自动放生指定品质的鱼"),
         )
-        self.autoReleaseGroup.addSettingCard(self.autoReleaseEnabledCard)
+        self.releaseGroup.addSettingCard(self.autoReleaseEnabledCard)
+
+        self.singleReleaseEnabledCard = SwitchSettingCard(
+            FluentIcon.DELETE,
+            self.tr("启用单条放生"),
+            self.tr("钓到鱼后自动放生指定品质的鱼"),
+        )
+        self.releaseGroup.addSettingCard(self.singleReleaseEnabledCard)
 
         self.enableFishNameProtectionCard = SwitchSettingCard(
             FluentIcon.CARE_UP_SOLID,
             self.tr("启用放生保护"),
             self.tr("保护配置文件中的鱼不被放生"),
         )
-        self.autoReleaseGroup.addSettingCard(self.enableFishNameProtectionCard)
+        self.releaseGroup.addSettingCard(self.enableFishNameProtectionCard)
 
         self.releaseStandardCard = SwitchSettingCard(
             FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色")
         )
-        self.autoReleaseGroup.addSettingCard(self.releaseStandardCard)
+        self.releaseGroup.addSettingCard(self.releaseStandardCard)
 
         self.releaseUncommonCard = SwitchSettingCard(
             FluentIcon.CANCEL, self.tr("放生非凡品质"), self.tr("绿色")
         )
-        self.autoReleaseGroup.addSettingCard(self.releaseUncommonCard)
+        self.releaseGroup.addSettingCard(self.releaseUncommonCard)
 
         self.releaseRareCard = SwitchSettingCard(
             FluentIcon.CANCEL, self.tr("放生稀有品质"), self.tr("蓝色")
         )
-        self.autoReleaseGroup.addSettingCard(self.releaseRareCard)
+        self.releaseGroup.addSettingCard(self.releaseRareCard)
 
         self.releaseEpicCard = SwitchSettingCard(
             FluentIcon.CANCEL, self.tr("放生史诗品质"), self.tr("紫色")
         )
-        self.autoReleaseGroup.addSettingCard(self.releaseEpicCard)
+        self.releaseGroup.addSettingCard(self.releaseEpicCard)
 
         self.releaseLegendaryCard = SwitchSettingCard(
             FluentIcon.CANCEL, self.tr("放生传奇品质"), self.tr("黄色")
         )
-        self.autoReleaseGroup.addSettingCard(self.releaseLegendaryCard)
+        self.releaseGroup.addSettingCard(self.releaseLegendaryCard)
 
-        self.vBoxLayout.addWidget(self.autoReleaseGroup)
-
-        # 7. Single Release Group
-        self.singleReleaseGroup = SettingCardGroup(
-            self.tr("单条放生"), self.scrollWidget
-        )
-
-        self.singleReleaseStandardCard = SwitchSettingCard(
-            FluentIcon.CANCEL,
-            self.tr("放生标准品质"),
-            self.tr("打开直接生效 不能和自动放生一起用"),
-        )
-        self.singleReleaseGroup.addSettingCard(self.singleReleaseStandardCard)
-
-        self.singleReleaseUncommonCard = SwitchSettingCard(
-            FluentIcon.CANCEL,
-            self.tr("放生非凡品质"),
-            self.tr("打开直接生效 不能和自动放生一起用"),
-        )
-        self.singleReleaseGroup.addSettingCard(self.singleReleaseUncommonCard)
-
-        self.singleReleaseRareCard = SwitchSettingCard(
-            FluentIcon.CANCEL,
-            self.tr("放生稀有品质"),
-            self.tr("打开直接生效 不能和自动放生一起用"),
-        )
-        self.singleReleaseGroup.addSettingCard(self.singleReleaseRareCard)
-
-        self.singleReleaseEpicCard = SwitchSettingCard(
-            FluentIcon.CANCEL,
-            self.tr("放生史诗品质"),
-            self.tr("打开直接生效 不能和自动放生一起用"),
-        )
-        self.singleReleaseGroup.addSettingCard(self.singleReleaseEpicCard)
-
-        self.singleReleaseLegendaryCard = SwitchSettingCard(
-            FluentIcon.CANCEL,
-            self.tr("放生传奇品质"),
-            self.tr("打开直接生效 不能和自动放生一起用"),
-        )
-        self.singleReleaseGroup.addSettingCard(self.singleReleaseLegendaryCard)
-
-        self.vBoxLayout.addWidget(self.singleReleaseGroup)
+        self.vBoxLayout.addWidget(self.releaseGroup)
 
         # 8. Record Management Group
         self.recordGroup = SettingCardGroup(self.tr("记录管理"), self.scrollWidget)
@@ -552,7 +518,7 @@ class SettingsInterface(ScrollArea):
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
-        self.autoReleaseEnabledCard.checkedChanged.connect(self._save_global_settings)
+        self.autoReleaseEnabledCard.checkedChanged.connect(self._on_auto_release_changed)
         self.enableFishNameProtectionCard.checkedChanged.connect(
             self._save_global_settings
         )
@@ -562,16 +528,8 @@ class SettingsInterface(ScrollArea):
         self.releaseEpicCard.checkedChanged.connect(self._save_global_settings)
         self.releaseLegendaryCard.checkedChanged.connect(self._save_global_settings)
 
-        self.singleReleaseStandardCard.checkedChanged.connect(
-            self._save_global_settings
-        )
-        self.singleReleaseUncommonCard.checkedChanged.connect(
-            self._save_global_settings
-        )
-        self.singleReleaseRareCard.checkedChanged.connect(self._save_global_settings)
-        self.singleReleaseEpicCard.checkedChanged.connect(self._save_global_settings)
-        self.singleReleaseLegendaryCard.checkedChanged.connect(
-            self._save_global_settings
+        self.singleReleaseEnabledCard.checkedChanged.connect(
+            self._on_single_release_changed
         )
 
         self.jitterSlider.valueChanged.connect(
@@ -661,25 +619,16 @@ class SettingsInterface(ScrollArea):
         self.releaseLegendaryCard.setChecked(
             cfg.global_settings.get("release_legendary", False)
         )
-        self.singleReleaseStandardCard.setChecked(
-            cfg.global_settings.get("single_release_standard", True)
-        )
-        self.singleReleaseUncommonCard.setChecked(
-            cfg.global_settings.get("single_release_uncommon", True)
-        )
-        self.singleReleaseRareCard.setChecked(
-            cfg.global_settings.get("single_release_rare", False)
-        )
-        self.singleReleaseEpicCard.setChecked(
-            cfg.global_settings.get("single_release_epic", False)
-        )
-        self.singleReleaseLegendaryCard.setChecked(
-            cfg.global_settings.get("single_release_legendary", False)
-        )
+        # 单条放生总开关
+        release_mode = cfg.global_settings.get("release_mode", "off")
+        self.singleReleaseEnabledCard.setChecked(release_mode == "single")
         jitter_value = cfg.global_settings.get("jitter_range", 0)
         self.jitterSlider.setValue(jitter_value)
         self.jitterLabel.setText(f"{jitter_value}%")
         self.themeComboBox.setCurrentText(cfg.global_settings.get("theme", "Dark"))
+
+        # 更新放生相关开关的启用状态
+        self._update_release_cards_state()
 
         # Unblock signals
         self.presetComboBox.blockSignals(False)
@@ -749,6 +698,12 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["auto_release_enabled"] = (
             self.autoReleaseEnabledCard.isChecked()
         )
+        # 同步 release_mode 配置
+        if self.autoReleaseEnabledCard.isChecked():
+            cfg.global_settings["release_mode"] = "auto"
+        elif cfg.global_settings.get("release_mode") == "auto":
+            # 如果当前是 auto 模式但被关闭了，切换到 off
+            cfg.global_settings["release_mode"] = "off"
         cfg.global_settings["enable_fish_name_protection"] = (
             self.enableFishNameProtectionCard.isChecked()
         )
@@ -757,25 +712,102 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["release_rare"] = self.releaseRareCard.isChecked()
         cfg.global_settings["release_epic"] = self.releaseEpicCard.isChecked()
         cfg.global_settings["release_legendary"] = self.releaseLegendaryCard.isChecked()
-        cfg.global_settings["single_release_standard"] = (
-            self.singleReleaseStandardCard.isChecked()
-        )
-        cfg.global_settings["single_release_uncommon"] = (
-            self.singleReleaseUncommonCard.isChecked()
-        )
-        cfg.global_settings["single_release_rare"] = (
-            self.singleReleaseRareCard.isChecked()
-        )
-        cfg.global_settings["single_release_epic"] = (
-            self.singleReleaseEpicCard.isChecked()
-        )
-        cfg.global_settings["single_release_legendary"] = (
-            self.singleReleaseLegendaryCard.isChecked()
-        )
         cfg.global_settings["jitter_range"] = self.jitterSlider.value()
         cfg.global_settings["theme"] = self.themeComboBox.currentText()
 
         cfg.save()
+
+    def _on_auto_release_changed(self, checked):
+        """处理自动放生开关变化，同步放生模式"""
+        # 保存配置
+        cfg.global_settings["auto_release_enabled"] = checked
+
+        # 同步 release_mode
+        if checked:
+            cfg.global_settings["release_mode"] = "auto"
+            # 关闭单条放生（不触发信号避免循环）
+            self.singleReleaseEnabledCard.blockSignals(True)
+            self.singleReleaseEnabledCard.setChecked(False)
+            self.singleReleaseEnabledCard.blockSignals(False)
+        else:
+            # 如果关闭自动放生，且当前是自动放生模式，才切换到关闭模式
+            # 避免覆盖单条放生模式的设置
+            if cfg.global_settings.get("release_mode") == "auto":
+                cfg.global_settings["release_mode"] = "off"
+
+        cfg.save()
+
+        # 根据放生模式启用/禁用相关开关
+        self._update_release_cards_state()
+
+        # 发射信号通知主页更新
+        self.release_mode_changed_signal.emit(cfg.global_settings.get("release_mode", "off"))
+
+    def _update_release_cards_state(self):
+        """根据放生模式更新放生相关卡片的启用状态"""
+        release_mode = cfg.global_settings.get("release_mode", "off")
+
+        # 自动放生和单条放生开关始终可点击，用于切换模式
+        self.autoReleaseEnabledCard.setEnabled(True)
+        self.singleReleaseEnabledCard.setEnabled(True)
+
+        # 品质开关和放生保护在任意放生模式开启时都启用
+        if release_mode == "off":
+            self.releaseStandardCard.setEnabled(False)
+            self.releaseUncommonCard.setEnabled(False)
+            self.releaseRareCard.setEnabled(False)
+            self.releaseEpicCard.setEnabled(False)
+            self.releaseLegendaryCard.setEnabled(False)
+            self.enableFishNameProtectionCard.setEnabled(False)
+        else:
+            # 单条或自动放生模式都启用品质开关和放生保护
+            self.releaseStandardCard.setEnabled(True)
+            self.releaseUncommonCard.setEnabled(True)
+            self.releaseRareCard.setEnabled(True)
+            self.releaseEpicCard.setEnabled(True)
+            self.releaseLegendaryCard.setEnabled(True)
+            self.enableFishNameProtectionCard.setEnabled(True)
+
+    def _on_single_release_changed(self, checked):
+        """处理单条放生开关变化，同步放生模式"""
+        # 保存配置
+        if checked:
+            cfg.global_settings["release_mode"] = "single"
+            # 关闭自动放生
+            cfg.global_settings["auto_release_enabled"] = False
+            # 取消自动放生开关的选中状态（不触发信号避免循环）
+            self.autoReleaseEnabledCard.blockSignals(True)
+            self.autoReleaseEnabledCard.setChecked(False)
+            self.autoReleaseEnabledCard.blockSignals(False)
+        else:
+            # 如果关闭单条放生，且当前是单条放生模式，才切换到关闭模式
+            # 避免覆盖自动放生模式的设置
+            if cfg.global_settings.get("release_mode") == "single":
+                cfg.global_settings["release_mode"] = "off"
+
+        cfg.save()
+
+        # 根据放生模式启用/禁用相关开关
+        self._update_release_cards_state()
+
+        # 发射信号通知主页更新
+        self.release_mode_changed_signal.emit(cfg.global_settings.get("release_mode", "off"))
+
+    def update_release_mode_from_main(self, mode):
+        """从主页更新放生模式"""
+        # 更新自动放生开关状态
+        if mode == "auto":
+            self.autoReleaseEnabledCard.setChecked(True)
+            self.singleReleaseEnabledCard.setChecked(False)
+        elif mode == "single":
+            self.autoReleaseEnabledCard.setChecked(False)
+            self.singleReleaseEnabledCard.setChecked(True)
+        else:
+            self.autoReleaseEnabledCard.setChecked(False)
+            self.singleReleaseEnabledCard.setChecked(False)
+
+        # 更新卡片启用状态
+        self._update_release_cards_state()
 
     def _refresh_delete_account_list(self):
         """刷新删除账号下拉框的列表"""

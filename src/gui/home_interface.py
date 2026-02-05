@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QTimer, Slot, QTime, Signal
+from PySide6.QtCore import Qt, QTimer, Slot, QTime, Signal, QDateTime
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -39,6 +39,7 @@ from qfluentwidgets import (
     PrimaryPushButton,
     ProgressRing,
     SegmentedWidget,
+    ToolButton,
 )
 from qfluentwidgets import FluentIcon as FIF
 from src.config import cfg
@@ -315,6 +316,22 @@ class HomeInterface(QWidget):
         )
         self.control_grid.addWidget(self.presetComboBox, 1, 3)
 
+        # 4. Release Mode Switcher (左侧) - 放生模式三档开关
+        self.release_mode_label = CaptionLabel("放生模式", self.banner)
+        self.release_mode_label.setStyleSheet(label_style)
+        self.release_mode_segment = SegmentedWidget(self.banner)
+        self.release_mode_segment.addItem("off", "关")
+        self.release_mode_segment.addItem("single", "单条")
+        self.release_mode_segment.addItem("auto", "自动")
+        # 根据配置设置当前选项
+        release_mode = cfg.global_settings.get("release_mode", "off")
+        self.release_mode_segment.setCurrentItem(release_mode)
+        self.release_mode_segment.currentItemChanged.connect(self._on_release_mode_changed)
+        self.control_grid.addWidget(
+            self.release_mode_label, 2, 0, Qt.AlignRight | Qt.AlignVCenter
+        )
+        self.control_grid.addWidget(self.release_mode_segment, 2, 1, Qt.AlignLeft)
+
         self.controls_layout.addLayout(self.control_grid)
 
         # 状态指示器 - 简洁竖向卡片
@@ -499,6 +516,50 @@ class HomeInterface(QWidget):
     def _on_sound_switch_changed(self, checked):
         """处理音效开关变化"""
         cfg.global_settings["control_sound_enabled"] = checked
+        cfg.save()
+
+    def _on_release_mode_changed(self, mode):
+        """处理放生模式变化"""
+        cfg.global_settings["release_mode"] = mode
+
+        # 同步 auto_release_enabled 配置
+        if mode == "auto":
+            cfg.global_settings["auto_release_enabled"] = True
+        else:
+            cfg.global_settings["auto_release_enabled"] = False
+
+        cfg.save()
+
+        # 通知设置页面更新开关状态
+        self._notify_settings_interface_update(mode)
+
+        # 更新设置页面的开关状态
+        mode_text_map = {"off": "关", "single": "单条", "auto": "自动"}
+        self.update_log(f"[系统] 放生模式已切换为: {mode_text_map.get(mode, mode)}")
+
+    def _notify_settings_interface_update(self, mode):
+        """通知设置页面更新放生模式"""
+        # 通过父窗口查找设置页面
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'settings_interface'):
+                parent.settings_interface.update_release_mode_from_main(mode)
+                break
+            parent = parent.parent()
+
+    def update_release_mode_segment(self, mode):
+        """从设置页面更新放生模式选择器"""
+        # 阻止信号避免循环触发
+        self.release_mode_segment.blockSignals(True)
+        self.release_mode_segment.setCurrentItem(mode)
+        self.release_mode_segment.blockSignals(False)
+
+        # 同步配置
+        cfg.global_settings["release_mode"] = mode
+        if mode == "auto":
+            cfg.global_settings["auto_release_enabled"] = True
+        else:
+            cfg.global_settings["auto_release_enabled"] = False
         cfg.save()
 
     def refresh_account_list(self):
@@ -990,9 +1051,17 @@ class HomeInterface(QWidget):
         log_icon.setFixedSize(16, 16)
         self.log_header_label = StrongBodyLabel("运行日志", self.log_container)
 
+        # 下载日志按钮
+        self.download_log_button = ToolButton(self.log_container)
+        self.download_log_button.setIcon(FIF.DOWNLOAD)
+        self.download_log_button.setToolTip("下载日志到 debug_screenshots 文件夹")
+        self.download_log_button.setFixedSize(24, 24)
+        self.download_log_button.clicked.connect(self._download_log)
+
         log_header_layout.addWidget(log_icon)
         log_header_layout.addWidget(self.log_header_label)
         log_header_layout.addStretch(1)
+        log_header_layout.addWidget(self.download_log_button)
         self.log_layout.addLayout(log_header_layout)
 
         # 日志输出框 - 优化样式
@@ -1022,6 +1091,31 @@ class HomeInterface(QWidget):
 
         # self.v_box_layout.addWidget(self.log_container) NO LONGER ADDED HERE
         # self.v_box_layout.setStretchFactor(self.log_container, 1)
+
+    def _download_log(self):
+        """下载日志到 debug_screenshots 文件夹"""
+        try:
+            # 获取日志内容
+            log_content = self.log_output.toPlainText()
+            if not log_content.strip():
+                self.update_log("[系统] 日志为空，无需保存")
+                return
+
+            # 创建 debug_screenshots 目录
+            debug_dir = cfg._get_application_path() / "debug_screenshots"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+
+            # 生成文件名：app_YYYYMMDD_HHMMSS.log
+            timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_hhmmss")
+            log_file = debug_dir / f"app_{timestamp}.log"
+
+            # 保存日志
+            with open(log_file, "w", encoding="utf-8") as f:
+                f.write(log_content)
+
+            self.update_log(f"[系统] 日志已保存到: {log_file}")
+        except Exception as e:
+            self.update_log(f"[系统] 保存日志失败: {e}")
 
     @Slot(str)
     def update_log(self, text):

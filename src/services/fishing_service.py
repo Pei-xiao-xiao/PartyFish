@@ -489,12 +489,13 @@ class FishingService:
         ):
             self.worker.log_updated.emit("写入记录文件失败")
 
+        # 使用统一的放生品质配置
         release_map = {
-            "标准": "single_release_standard",
-            "非凡": "single_release_uncommon",
-            "稀有": "single_release_rare",
-            "史诗": "single_release_epic",
-            "传奇": "single_release_legendary",
+            "标准": "release_standard",
+            "非凡": "release_uncommon",
+            "稀有": "release_rare",
+            "史诗": "release_epic",
+            "传奇": "release_legendary",
         }
 
         should_release = cfg.global_settings.get(release_map.get(quality), False)

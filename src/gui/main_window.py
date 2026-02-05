@@ -106,6 +106,11 @@ class MainWindow(FluentWindow):
         print("Connecting signals...")
         self.signal_manager.connect_all()
 
+        # 连接设置页面的放生模式变化信号到主页
+        self.settings_interface.release_mode_changed_signal.connect(
+            self.home_interface.update_release_mode_segment
+        )
+
         # Start the worker thread, but it will be initially paused
         self.worker.start()
         self.popup_worker.start()

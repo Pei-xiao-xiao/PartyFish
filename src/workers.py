@@ -145,7 +145,8 @@ class FishingWorker(QThread):
                             )
 
                         # 在关闭弹窗后、重新抛竿前执行单条放生
-                        if should_release and popup_closed:
+                        release_mode = cfg.global_settings.get("release_mode", "off")
+                        if release_mode == "single" and should_release and popup_closed:
                             self.release_service.execute_single_release()
 
                         # 确保弹窗完全关闭后再重置状态
