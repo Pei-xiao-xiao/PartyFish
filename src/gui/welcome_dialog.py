@@ -41,6 +41,9 @@ class WelcomeDialog(QDialog):
         """初始化UI布局"""
         from src.config import cfg
 
+        # 获取UI字体
+        ui_font = cfg.get_ui_font()
+
         # 主布局
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(20)
