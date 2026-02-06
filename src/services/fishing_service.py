@@ -435,11 +435,14 @@ class FishingService:
                 if not self.worker.running:
                     return False
 
-                if self.worker.vision.find_template(
-                    "shangyu_grayscale", region=shangyu_region, threshold=0.8
-                ):
-                    self.worker.log_updated.emit("检测到'收起'按钮，准备关闭弹窗")
-                    shangyu_found = True
+                for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
+                    if self.worker.vision.find_template(
+                        key, region=shangyu_region, threshold=0.8
+                    ):
+                        self.worker.log_updated.emit("检测到'收起'按钮，准备关闭弹窗")
+                        shangyu_found = True
+                        break
+                if shangyu_found:
                     break
 
                 self.worker.msleep(500)
@@ -457,10 +460,12 @@ class FishingService:
         self.worker.smart_sleep(0.5)
 
         shangyu_region = cfg.get_rect("shangyu")
-        if self.worker.vision.find_template(
-            "shangyu_grayscale", region=shangyu_region, threshold=0.8
-        ):
-            self.worker.log_updated.emit("检测到'收起'按钮，确认上鱼成功。")
+        for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
+            if self.worker.vision.find_template(
+                key, region=shangyu_region, threshold=0.8
+            ):
+                self.worker.log_updated.emit("检测到'收起'按钮，确认上鱼成功。")
+                break
 
         success, catch_data = self.worker.ocr_service.recognize_catch_info(
             self.worker.vision, self.worker.log_updated.emit

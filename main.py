@@ -88,4 +88,6 @@ if __name__ == "__main__":
         import traceback
 
         traceback.print_exc()
-        input("Press Enter to exit...")
+        # 仅在非打包环境下等待用户输入
+        if not getattr(sys, "frozen", False):
+            input("Press Enter to exit...")

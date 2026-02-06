@@ -2,14 +2,9 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.2.9"
+VERSION = "3.3.2"
 RELEASE_NOTES = """
-1.修复了不拉杆导致的失败
-2.添加了放生保护单条也能启用
-3.设置品质合并
-4.主页面添加选择放生方式
-5.日志添加下载
-6.修复了一些bug
+1.手柄也能识别自动钓鱼（但是启动建没有改）
 """
 
 

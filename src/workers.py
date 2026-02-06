@@ -122,11 +122,16 @@ class FishingWorker(QThread):
                                 break
 
                             # 检查"收起"按钮是否还在（弹窗是否还存在）
-                            if not self.vision.find_template(
-                                "shangyu_grayscale",
-                                region=shangyu_region,
-                                threshold=0.8,
-                            ):
+                            shangyu_still_exists = False
+                            for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
+                                if self.vision.find_template(
+                                    key,
+                                    region=shangyu_region,
+                                    threshold=0.8,
+                                ):
+                                    shangyu_still_exists = True
+                                    break
+                            if not shangyu_still_exists:
                                 # 弹窗已消失，成功关闭
                                 if close_attempt > 0:  # 只有尝试过点击才输出日志
                                     self.log_updated.emit("渔获弹窗已关闭")
