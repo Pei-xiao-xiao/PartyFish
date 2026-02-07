@@ -392,6 +392,12 @@ class FishingService:
             sleep_duration = self.worker.inputs.add_jitter(cfg.release_time)
             self.worker.smart_sleep(sleep_duration)
 
+            if self.worker.vision.find_template(
+                "star_grayscale", region=star_region, threshold=0.7
+            ):
+                self.worker.log_updated.emit("检测到星星，成功！")
+                return True
+
             cast_rod_region = cfg.get_rect("cast_rod")
             cast_rod_ice_region = cfg.get_rect("cast_rod_ice")
             for key in ["F1_grayscale", "F2_grayscale"]:
@@ -401,17 +407,11 @@ class FishingService:
                     key, region=cast_rod_ice_region, threshold=0.8
                 ):
                     self.worker.log_updated.emit(
-                        "在收线过程中检测到抛竿提示，判定为鱼跑了！"
+                        "未检测到星星，抛竿提示出现，判定为鱼跑了！"
                     )
                     self.worker.status_updated.emit("鱼跑了!")
                     self._record_event("鱼跑了")
                     return False
-
-            if self.worker.vision.find_template(
-                "star_grayscale", region=star_region, threshold=0.7
-            ):
-                self.worker.log_updated.emit("检测到星星，成功！")
-                return True
 
         self.worker.log_updated.emit("达到最大拉杆次数，仍未检测到星星。")
         return False
