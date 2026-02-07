@@ -123,7 +123,10 @@ class FishingWorker(QThread):
 
                             # 检查"收起"按钮是否还在（弹窗是否还存在）
                             shangyu_still_exists = False
-                            for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
+                            for key in [
+                                "shangyu_grayscale",
+                                "shoubing_shangyu_grayscale",
+                            ]:
                                 if self.vision.find_template(
                                     key,
                                     region=shangyu_region,
@@ -157,7 +160,7 @@ class FishingWorker(QThread):
                         # 确保弹窗完全关闭后再重置状态
                         if popup_closed:
                             # 等待游戏界面完全准备好
-                            self.smart_sleep(0.5)
+                            # self.smart_sleep(0.5)
 
                             # 检查是否已经误触发抛竿（等待咬钩图标已出现）
                             wait_bite_region = cfg.get_rect("wait_bite")
@@ -389,11 +392,36 @@ class FishingWorker(QThread):
             self.log_updated.emit("放生过程中检测到加时弹窗，等待处理完成后关闭鱼桶...")
             if not self._wait_for_popup_clear(timeout=10):
                 self.log_updated.emit("等待弹窗清除超时")
-            self.inputs.press_key("ESC")
-            self.smart_sleep(0.5)
-            self.log_updated.emit(
-                f"检测到弹窗，已关闭鱼桶，本次放生了{released_count}条鱼"
+
+            # 检查鱼桶是否还在打开状态（通过检测第一格鱼的品质星星）
+            zone = cfg.REGIONS["fish_inventory"]["zones"][0]
+            grid = zone["grid"]
+            zone_rect = cfg.get_bottom_right_rect(zone["coords"])
+            star_x = zone_rect[0] + int(grid["star_offset"][0] * cfg.scale)
+            star_y = zone_rect[1] + int(grid["star_offset"][1] * cfg.scale)
+            star_region = (
+                star_x,
+                star_y,
+                int(grid["star_size"][0] * cfg.scale),
+                int(grid["star_size"][1] * cfg.scale),
             )
+            star_img = self.vision.screenshot(star_region)
+            bucket_open = (
+                star_img is not None
+                and self.vision.detect_star_color(star_img) is not None
+            )
+
+            if bucket_open:
+                self.inputs.press_key("ESC")
+                self.smart_sleep(0.5)
+                self.log_updated.emit(
+                    f"检测到弹窗，已关闭鱼桶，本次放生了{released_count}条鱼"
+                )
+            else:
+                self.log_updated.emit(
+                    f"检测到弹窗已处理，鱼桶已自动关闭，本次放生了{released_count}条鱼"
+                )
+
             self.status_updated.emit("运行中")
             return True
         return False

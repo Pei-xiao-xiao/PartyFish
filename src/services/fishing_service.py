@@ -77,7 +77,10 @@ class FishingService:
                     released_count = (
                         self.worker.release_service.check_and_auto_release()
                     )
-                    if released_count == 0:
+                    if released_count == -1:
+                        # 弹窗中止，继续执行
+                        pass
+                    elif released_count == 0:
                         self.worker.log_updated.emit(
                             "自动放生未放生任何鱼，鱼桶可能仍然满载或没有符合放生条件的鱼。"
                         )

@@ -280,7 +280,7 @@ class ReleaseService:
                 break
 
             if self.worker._check_popup_and_abort_release(released_count):
-                return released_count
+                return -1  # 返回-1表示弹窗中止，而非无鱼可放
 
             # 检测锁定图标
             lock_size = int(60 * cfg.scale)
@@ -317,7 +317,7 @@ class ReleaseService:
                 break
 
             if self.worker._check_popup_and_abort_release(released_count):
-                return released_count
+                return -1  # 返回-1表示弹窗中止，而非无鱼可放
 
             fish_x = scaled_zone_x + scaled_cell_width // 2
             fish_y = scaled_zone_y + scaled_cell_height // 2
