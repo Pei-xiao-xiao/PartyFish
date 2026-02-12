@@ -293,9 +293,15 @@ class Pokedex(QObject):
                 continue
 
             for loc in fish.get("locations", []):
-                # 收集地点
-                if loc.get("location"):
-                    options["location"].add(loc["location"])
+                # 收集地点（兼容字符串和数组）
+                raw_loc = loc.get("location", "")
+                loc_list = (
+                    raw_loc
+                    if isinstance(raw_loc, list)
+                    else [raw_loc] if raw_loc else []
+                )
+                for l in loc_list:
+                    options["location"].add(l)
 
                 for cond in loc.get("conditions", []):
                     # 收集天气
@@ -375,7 +381,13 @@ class Pokedex(QObject):
             else:
                 for loc in fish.get("locations", []):
                     # 2.1 地点检查
-                    if target_locs and loc.get("location") not in target_locs:
+                    raw_loc = loc.get("location", "")
+                    loc_list = (
+                        raw_loc
+                        if isinstance(raw_loc, list)
+                        else [raw_loc] if raw_loc else []
+                    )
+                    if target_locs and not any(l in target_locs for l in loc_list):
                         continue
 
                     # 检查 conditions

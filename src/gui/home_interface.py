@@ -823,7 +823,7 @@ class HomeInterface(QWidget):
         self.fish_filter_segment = SegmentedWidget(self.session_records_container)
         self.fish_filter_segment.addItem("all", "全部")
         self.fish_filter_segment.addItem("lure", "路亚")
-        self.fish_filter_segment.addItem("ice", "冰钓")
+        self.fish_filter_segment.addItem("ice", "池塘")
 
         # 加载配置
         current_mode = getattr(cfg, "fish_filter_mode", "all")
@@ -900,6 +900,11 @@ class HomeInterface(QWidget):
                 all_fish, {"time": [current_time]}
             )
 
+            # 过滤掉冰钓鱼种
+            catchable_fish = [
+                f for f in catchable_fish if "冰钓" not in f.get("type", "")
+            ]
+
             # 应用类型过滤
             filter_mode = getattr(cfg, "fish_filter_mode", "all")
             if filter_mode == "lure":
@@ -908,7 +913,7 @@ class HomeInterface(QWidget):
                 ]
             elif filter_mode == "ice":
                 catchable_fish = [
-                    f for f in catchable_fish if "冰钓" in f.get("type", "")
+                    f for f in catchable_fish if "池塘" in f.get("type", "")
                 ]
 
             if not catchable_fish:

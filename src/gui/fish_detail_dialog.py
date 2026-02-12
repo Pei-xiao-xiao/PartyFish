@@ -246,19 +246,32 @@ class FishDetailDialog(QDialog):
         tags_row.setAlignment(Qt.AlignCenter)
 
         locations = self.fish_data.get("locations", [])
-        if locations:
-            location_name = locations[0].get("location", "")
-            if location_name:
-                loc_badge = self._create_badge(
-                    cfg._get_base_path()
-                    / "resources"
-                    / "location"
-                    / f"{location_name}.png",
-                    location_name,
-                    "#2D5016",
-                    "#D4E7C5",
-                )
-                tags_row.addWidget(loc_badge)
+        all_loc_names = []
+        for loc in locations:
+            raw_loc = loc.get("location", "")
+            if isinstance(raw_loc, list):
+                all_loc_names.extend([x for x in raw_loc if x])
+            elif raw_loc:
+                all_loc_names.append(raw_loc)
+        max_badges = 1
+        for location_name in all_loc_names[:max_badges]:
+            loc_badge = self._create_badge(
+                cfg._get_base_path()
+                / "resources"
+                / "location"
+                / f"{location_name}.png",
+                location_name,
+                "#2D5016",
+                "#D4E7C5",
+            )
+            tags_row.addWidget(loc_badge)
+        if len(all_loc_names) > max_badges:
+            more_lbl = QLabel(f"+{len(all_loc_names) - max_badges}")
+            more_lbl.setStyleSheet(
+                "color: #2D5016; font-size: 12px; font-weight: 600; background: #D4E7C5; border-radius: 8px; padding: 2px 6px;"
+            )
+            more_lbl.setToolTip(", ".join(all_loc_names[max_badges:]))
+            tags_row.addWidget(more_lbl)
 
         fish_type = self.fish_data.get("type", "")
         if fish_type:
@@ -275,44 +288,49 @@ class FishDetailDialog(QDialog):
         content_layout.addWidget(fish_card)
 
         # 2. 条件卡片
-        if locations:
-            conditions = locations[0].get("conditions", [])
-            if conditions:
-                cond = conditions[0]
+        for loc in locations:
+            conditions = loc.get("conditions", [])
+            if not conditions:
+                continue
+            cond = conditions[0]
 
-                cond_frame = QFrame()
-                cond_frame.setStyleSheet(
-                    """
-                    QFrame {
-                        background-color: white;
-                        border-radius: 16px;
-                        border: 2px solid #F5E6D3;
-                    }
+            cond_frame = QFrame()
+            cond_frame.setStyleSheet(
                 """
+                QFrame {
+                    background-color: white;
+                    border-radius: 16px;
+                    border: 2px solid #F5E6D3;
+                }
+            """
+            )
+            cond_layout = QHBoxLayout(cond_frame)
+            cond_layout.setContentsMargins(0, 16, 0, 16)
+            cond_layout.setSpacing(0)
+
+            raw_loc = loc.get("location", "")
+            loc_name = ", ".join(raw_loc) if isinstance(raw_loc, list) else raw_loc
+            if len(locations) > 1 and loc_name:
+                cond_layout.addWidget(self._create_cell("地点", loc_name), 1)
+                cond_layout.addWidget(self._separator())
+
+            season = cond.get("season", [])
+            if season:
+                cond_layout.addWidget(self._create_cell("季节", ", ".join(season)), 1)
+                cond_layout.addWidget(self._separator())
+
+            time_of_day = cond.get("time_of_day", [])
+            if time_of_day:
+                cond_layout.addWidget(
+                    self._create_cell("时间", ", ".join(time_of_day)), 1
                 )
-                cond_layout = QHBoxLayout(cond_frame)
-                cond_layout.setContentsMargins(0, 16, 0, 16)
-                cond_layout.setSpacing(0)
+                cond_layout.addWidget(self._separator())
 
-                season = cond.get("season", [])
-                if season:
-                    cond_layout.addWidget(
-                        self._create_cell("季节", ", ".join(season)), 1
-                    )
-                    cond_layout.addWidget(self._separator())
+            weather = cond.get("weather", [])
+            if weather:
+                cond_layout.addWidget(self._create_weather_cell(weather, cfg), 1)
 
-                time_of_day = cond.get("time_of_day", [])
-                if time_of_day:
-                    cond_layout.addWidget(
-                        self._create_cell("时间", ", ".join(time_of_day)), 1
-                    )
-                    cond_layout.addWidget(self._separator())
-
-                weather = cond.get("weather", [])
-                if weather:
-                    cond_layout.addWidget(self._create_weather_cell(weather, cfg), 1)
-
-                content_layout.addWidget(cond_frame)
+            content_layout.addWidget(cond_frame)
 
         # 3. 品质区域
         quality_frame = QFrame()
@@ -551,7 +569,9 @@ class FishDetailDialog(QDialog):
                 icon.setPixmap(scaled)
                 icon.setFixedSize(24, 24)
                 icon.setToolTip(w)
-                icon.setStyleSheet("background: transparent; border: none;")
+                icon.setStyleSheet(
+                    "QLabel{background:transparent;border:none;} QToolTip{background-color:#fffbe6;color:#333;border:1px solid #ccc;padding:2px;}"
+                )
                 icons.addWidget(icon)
 
         layout.addLayout(icons)

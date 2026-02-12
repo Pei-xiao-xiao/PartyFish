@@ -1,5 +1,12 @@
 from PySide6.QtCore import Qt, Signal, QPoint, QRect, QTimer
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QApplication
+from PySide6.QtWidgets import (
+    QWidget,
+    QLabel,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFrame,
+    QApplication,
+)
 from PySide6.QtGui import (
     QMouseEvent,
     QPixmap,
@@ -39,7 +46,9 @@ class OverlayWindow(QWidget):
         self._cute_font_family = "YouYuan"  # 幼圆 - Windows自带的圆润字体
 
         # 尝试加载自定义字体作为备选
-        font_path = os.path.join(str(cfg._get_base_path()), "resources", "fonts", "ZCOOLKuaiLe.ttf")
+        font_path = os.path.join(
+            str(cfg._get_base_path()), "resources", "fonts", "ZCOOLKuaiLe.ttf"
+        )
         if os.path.exists(font_path):
             font_id = QFontDatabase.addApplicationFont(font_path)
             if font_id >= 0:
@@ -57,7 +66,9 @@ class OverlayWindow(QWidget):
         avatar_path = os.path.join(str(cfg._get_base_path()), "resources", "avatar.png")
         if not os.path.exists(avatar_path):
             # 如果没有avatar.png,尝试使用favicon.ico
-            avatar_path = os.path.join(str(cfg._get_base_path()), "resources", "favicon.ico")
+            avatar_path = os.path.join(
+                str(cfg._get_base_path()), "resources", "favicon.ico"
+            )
 
         if os.path.exists(avatar_path):
             pixmap = QPixmap(avatar_path)
@@ -83,7 +94,9 @@ class OverlayWindow(QWidget):
         # 鱼干图标 (HiDPI 超采样渲染)
         self.limit_icon = QLabel()
         self.limit_icon.setObjectName("limitIcon")
-        icon_path = os.path.join(str(cfg._get_base_path()), "resources", "fish_icon_nobg.png")
+        icon_path = os.path.join(
+            str(cfg._get_base_path()), "resources", "fish_icon_nobg.png"
+        )
         icon_size = 18  # 显示尺寸
         if os.path.exists(icon_path):
             # 使用 2 倍分辨率渲染,确保高清显示
@@ -120,7 +133,9 @@ class OverlayWindow(QWidget):
         self.uno_icon.setFixedSize(18, 18)
 
         # UNO牌数标签
-        self.uno_label = QLabel(f"UNO: 7/{cfg.global_settings.get('uno_max_cards', 35)}")
+        self.uno_label = QLabel(
+            f"UNO: 7/{cfg.global_settings.get('uno_max_cards', 35)}"
+        )
         self.uno_label.setObjectName("unoLabel")
         uno_font = QFont(self._cute_font_family)
         uno_font.setPointSize(11)
@@ -472,6 +487,11 @@ class OverlayWindow(QWidget):
                     visible_fish.append(fish)
             catchable_fish = visible_fish
 
+            # 过滤掉冰钓鱼种
+            catchable_fish = [
+                f for f in catchable_fish if "冰钓" not in f.get("type", "")
+            ]
+
             # 应用类型过滤 (同步 Home 界面设置)
             filter_mode = getattr(cfg, "fish_filter_mode", "all")
             if filter_mode == "lure":
@@ -480,7 +500,7 @@ class OverlayWindow(QWidget):
                 ]
             elif filter_mode == "ice":
                 catchable_fish = [
-                    f for f in catchable_fish if "冰钓" in f.get("type", "")
+                    f for f in catchable_fish if "池塘" in f.get("type", "")
                 ]
 
             if not catchable_fish:
