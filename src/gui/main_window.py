@@ -227,7 +227,9 @@ class MainWindow(FluentWindow):
 
         # 连接牌数更新信号到悬浮窗
         uno_manager.cards_updated.connect(
-            lambda current, maximum: self.overlay.update_uno_cards(current, maximum, True)
+            lambda current, maximum: self.overlay.update_uno_cards(
+                current, maximum, True
+            )
         )
 
         # 连接日志信号到主界面日志
@@ -241,11 +243,13 @@ class MainWindow(FluentWindow):
 
     def _on_uno_status_changed(self, status: str):
         """处理UNO状态变化"""
-        from src.uno import uno_manager
+        from src.config import cfg
 
         if status == "已停止" or status == "已完成":
             # 隐藏UNO显示
-            self.overlay.update_uno_cards(0, cfg.global_settings.get("uno_max_cards", 35), False)
+            self.overlay.update_uno_cards(
+                0, cfg.global_settings.get("uno_max_cards", 35), False
+            )
 
     def toggle_uno(self):
         """切换UNO功能的启动/停止状态"""

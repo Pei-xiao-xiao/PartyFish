@@ -35,14 +35,14 @@ class ConfigManager:
                 "max_pulls": 99,
                 "cycle_interval": 0.5,
             },
-            "冰钓轻杆": {
+            "池塘轻杆": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.555,
                 "release_time": 0.444,
                 "max_pulls": 100,
                 "cycle_interval": 0.5,
             },
-            "冰钓重杆": {
+            "池塘重杆": {
                 "cast_time": 0.2,
                 "reel_in_time": 0.4,
                 "release_time": 0.2,
@@ -68,6 +68,14 @@ class ConfigManager:
 
         self.config.current_preset_name = config_data.get("current_preset", "路亚轻杆")
         self.config.presets = config_data.get("presets", self.get_default_presets())
+
+        # 迁移旧预设名称
+        rename_map = {"冰钓轻杆": "池塘轻杆", "冰钓重杆": "池塘重杆"}
+        for old_name, new_name in rename_map.items():
+            if old_name in self.config.presets:
+                self.config.presets[new_name] = self.config.presets.pop(old_name)
+                if self.config.current_preset_name == old_name:
+                    self.config.current_preset_name = new_name
 
         default_global_settings = self._get_default_global_settings()
         loaded_global_settings = config_data.get("global_settings", {})
