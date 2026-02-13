@@ -2,11 +2,8 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.3.3"
-RELEASE_NOTES = """
-1.手柄也能识别自动钓鱼（但是启动建没有改）
-2.修改跑鱼判定逻辑
-"""
+VERSION = "3.3.6"
+RELEASE_NOTES = """"""
 
 
 def generate_readme(version, notes):
