@@ -68,6 +68,20 @@ class CoordinateService:
 
         return (new_x, new_y, new_w, new_h)
 
+    def get_top_right_rect(self, coords):
+        """Calculates coordinates for a top-right anchored region."""
+        base_x, base_y, base_w, base_h = coords
+
+        offset_from_right = self.config.BASE_SCREEN_WIDTH - base_x
+
+        new_w = int(base_w * self.config.scale)
+        new_h = int(base_h * self.config.scale)
+
+        new_x = int(self.config.screen_width - (offset_from_right * self.config.scale))
+        new_y = int(base_y * self.config.scale)
+
+        return (new_x, new_y, new_w, new_h)
+
     def get_bottom_right_rect(self, coords):
         """Calculates coordinates for a bottom-right anchored region."""
         base_x, base_y, base_w, base_h = coords
@@ -177,6 +191,7 @@ class CoordinateService:
 
         dispatcher = {
             "top_center": self.get_top_center_rect,
+            "top_right": self.get_top_right_rect,
             "bottom_center": self.get_bottom_center_rect,
             "bottom_right": self.get_bottom_right_rect,
             "center": self.get_center_anchored_rect,

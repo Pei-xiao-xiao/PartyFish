@@ -54,6 +54,34 @@ class TemplateService:
                 template_name = os.path.splitext(filename)[0]
                 self.raw_templates[template_name] = img
 
+        # 加载天气图标模板（resources/weather/ 子目录，UI展示用）
+        weather_path = resources_path / "weather"
+        if weather_path.exists():
+            for filename in os.listdir(weather_path):
+                if filename.endswith(".png"):
+                    file_path = os.path.join(weather_path, filename)
+                    img = cv2.imdecode(
+                        np.fromfile(file_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED
+                    )
+                    if img is None:
+                        continue
+                    template_name = "weather_" + os.path.splitext(filename)[0]
+                    self.raw_templates[template_name] = img
+
+        # 加载游戏天气识别模板（resources/weather_game/ 子目录）
+        weather_game_path = resources_path / "weather_game"
+        if weather_game_path.exists():
+            for filename in os.listdir(weather_game_path):
+                if filename.endswith(".png"):
+                    file_path = os.path.join(weather_game_path, filename)
+                    img = cv2.imdecode(
+                        np.fromfile(file_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED
+                    )
+                    if img is None:
+                        continue
+                    template_name = "wg_" + os.path.splitext(filename)[0]
+                    self.raw_templates[template_name] = img
+
         self._rescale_templates()
 
     def _rescale_templates(self):

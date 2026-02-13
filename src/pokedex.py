@@ -284,6 +284,89 @@ class Pokedex(QObject):
         else:
             return "深夜"
 
+    @staticmethod
+    def detect_current_weather() -> Optional[str]:
+        """
+        通过模板匹配识别当前游戏天气（单次截图）
+        Returns:
+            天气名称（晴天/雾天/小雨/大雨）或 None
+        """
+        try:
+            from src.vision import vision
+            import cv2
+
+            weather_types = ["晴天", "雾天", "小雨", "大雨"]
+            region = cfg.get_rect("weather_icon")
+
+            # 只截一次图，避免多次截图阻塞
+            screenshot = vision.screenshot(region)
+            if screenshot is None:
+                return None
+
+            # 转为 BGR（去掉 alpha 通道）
+            if len(screenshot.shape) == 3 and screenshot.shape[2] == 4:
+                screenshot_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+            else:
+                screenshot_bgr = screenshot
+
+            best_score = float("inf")
+            best_weather = None
+
+            # 天气模板源分辨率为 1080p，将截图放大到 1080p 尺寸匹配
+            TEMPLATE_BASE_HEIGHT = 1080
+            tmpl_scale = cfg.screen_height / TEMPLATE_BASE_HEIGHT
+
+            if abs(tmpl_scale - 1.0) > 0.01:
+                up_w = max(1, int(screenshot_bgr.shape[1] / tmpl_scale))
+                up_h = max(1, int(screenshot_bgr.shape[0] / tmpl_scale))
+                match_img = cv2.resize(
+                    screenshot_bgr, (up_w, up_h), interpolation=cv2.INTER_LINEAR
+                )
+            else:
+                match_img = screenshot_bgr
+
+            vision.template_service._ensure_loaded()
+            for weather in weather_types:
+                template_name = f"wg_{weather}"
+                template = vision.raw_templates.get(template_name)
+                if template is None:
+                    continue
+
+                t_h, t_w = template.shape[:2]
+                s_h, s_w = match_img.shape[:2]
+                if t_h > s_h or t_w > s_w:
+                    continue
+
+                # 利用 alpha 通道做遮罩，TM_SQDIFF_NORMED 分数越低越匹配
+                if len(template.shape) == 3 and template.shape[2] == 4:
+                    tmpl_bgr = template[:, :, :3]
+                    mask = template[:, :, 3]
+                    mask_3ch = cv2.merge([mask, mask, mask])
+                    result = cv2.matchTemplate(
+                        match_img, tmpl_bgr, cv2.TM_SQDIFF_NORMED, mask=mask_3ch
+                    )
+                else:
+                    if len(template.shape) == 2:
+                        tmpl_bgr = cv2.cvtColor(template, cv2.COLOR_GRAY2BGR)
+                    else:
+                        tmpl_bgr = template
+                    result = cv2.matchTemplate(
+                        match_img, tmpl_bgr, cv2.TM_SQDIFF_NORMED
+                    )
+
+                min_val, _, _, _ = cv2.minMaxLoc(result)
+                if min_val < best_score:
+                    best_score = min_val
+                    best_weather = weather
+
+            # TM_SQDIFF_NORMED: 越接近0越匹配，阈值取0.4以下为有效
+            if best_score <= 0.4:
+                return best_weather
+            return None
+        except Exception as e:
+            print(f"[Pokedex] 天气识别失败: {e}")
+            return None
+
     def get_filter_options(self) -> Dict[str, List[str]]:
         """获取所有筛选选项的动态列表"""
         options = {"weather": set(), "location": set(), "season": set()}

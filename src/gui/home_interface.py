@@ -863,12 +863,16 @@ class HomeInterface(QWidget):
         self.fish_scroll_area.setWidget(self.fish_cards_container)
         layout.addWidget(self.fish_scroll_area)
 
-        # 定时刷新（每10分钟游戏时段变化）
+        # 缓存上次检测到的条件，避免每秒重建UI
+        self._last_time = None
+        self._last_weather = None
+
+        # 定时检测条件变化
         self.fish_preview_timer = QTimer(self)
-        self.fish_preview_timer.timeout.connect(self._refresh_fish_preview)
+        self.fish_preview_timer.timeout.connect(self._check_conditions)
 
         # 延迟初始化（等待 pokedex 加载完成）
-        QTimer.singleShot(500, self._refresh_fish_preview)
+        QTimer.singleShot(500, self._check_conditions)
 
     def _on_fish_filter_changed(self, routeKey):
         """处理鱼种过滤改变"""
@@ -877,11 +881,30 @@ class HomeInterface(QWidget):
         self._refresh_fish_preview()
         self.fishFilterChanged.emit()
 
+    def _check_conditions(self):
+        """每秒检测天气和时段，变化时才刷新UI"""
+        from src.pokedex import pokedex
+
+        try:
+            current_time = pokedex.get_current_game_time()
+            current_weather = pokedex.detect_current_weather()
+
+            if current_time != self._last_time or current_weather != self._last_weather:
+                self._last_time = current_time
+                self._last_weather = current_weather
+                self.update_log(
+                    f"[天气] 当前: {current_weather or '未识别'} · {current_time}"
+                )
+                self._refresh_fish_preview()
+        except Exception as e:
+            print(f"[Home] 检测条件失败: {e}")
+        finally:
+            self.fish_preview_timer.start(1000)
+
     def _refresh_fish_preview(self):
-        """刷新当前可钓鱼种预览"""
+        """刷新当前可钓鱼种预览（仅在条件变化时调用）"""
         from src.pokedex import pokedex, QUALITIES
         from src.gui.components.home_fish_card import HomeFishCard
-        from datetime import datetime
 
         try:
             # 清空旧卡片
@@ -890,15 +913,26 @@ class HomeInterface(QWidget):
                 if item.widget():
                     item.widget().deleteLater()
 
-            # 获取当前游戏时段
-            current_time = pokedex.get_current_game_time()
-            self.fish_preview_time_label.setText(f"({current_time})")
+            current_time = self._last_time
+            current_weather = self._last_weather
 
-            # 获取当前时段可钓鱼种
-            all_fish = pokedex.get_all_fish()
-            catchable_fish = pokedex.filter_fish_multi(
-                all_fish, {"time": [current_time]}
+            # 季节固定为春季
+            current_season = "春季"
+
+            # 更新标签显示
+            weather_text = current_weather or "未知"
+            self.fish_preview_time_label.setText(
+                f"({current_time} · {weather_text} · {current_season})"
             )
+
+            # 构建筛选条件：时间 + 天气 + 季节
+            criteria = {"time": [current_time], "season": [current_season]}
+            if current_weather:
+                criteria["weather"] = [current_weather]
+
+            # 获取当前可钓鱼种
+            all_fish = pokedex.get_all_fish()
+            catchable_fish = pokedex.filter_fish_multi(all_fish, criteria)
 
             # 过滤掉冰钓鱼种
             catchable_fish = [
@@ -962,15 +996,6 @@ class HomeInterface(QWidget):
 
         except Exception as e:
             print(f"[Home] 刷新鱼种预览失败: {e}")
-
-        finally:
-            # 计算下一次刷新时间（10分钟整点）
-            now = datetime.now()
-            minutes_left = 10 - (now.minute % 10)
-            seconds_to_wait = minutes_left * 60 - now.second + 2
-            if seconds_to_wait <= 0:
-                seconds_to_wait = 1
-            self.fish_preview_timer.start(seconds_to_wait * 1000)
 
     def update_sales_progress(self, sold: int, limit: int = 899):
         """更新今日销售进度"""

@@ -195,19 +195,23 @@ class OverlayWindow(QWidget):
         # 4. 设置窗口总布局 (包含 main_frame)
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSizeConstraint(QVBoxLayout.SetFixedSize)
         self.main_layout.addWidget(main_frame)
 
         # 初始状态:如果没有预览内容,收起下方区域
         self.preview_container.setVisible(False)
 
-        # 智能定时刷新 (使用 SingleShot 模式,在 update 中计算下次唤醒时间)
+        # 缓存上次检测到的条件，避免每秒重建UI
+        self._last_time = None
+        self._last_weather = None
+
+        # 智能定时检测条件变化
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
-        self.preview_timer.timeout.connect(self.update_fish_preview)
+        self.preview_timer.timeout.connect(self._check_conditions)
 
         # 初始更新
-        # 初始更新
-        self.update_fish_preview()
+        self._check_conditions()
 
         # 监听图鉴数据变化
         pokedex.data_changed.connect(self.update_fish_preview)
@@ -460,8 +464,23 @@ class OverlayWindow(QWidget):
             limit_font.setBold(True)
             self.limit_label.setFont(limit_font)
 
+    def _check_conditions(self):
+        """每秒检测天气和时段，变化时才刷新UI"""
+        try:
+            current_time = pokedex.get_current_game_time()
+            current_weather = pokedex.detect_current_weather()
+
+            if current_time != self._last_time or current_weather != self._last_weather:
+                self._last_time = current_time
+                self._last_weather = current_weather
+                self.update_fish_preview()
+        except Exception as e:
+            print(f"[Overlay] 检测条件失败: {e}")
+        finally:
+            self.preview_timer.start(1000)
+
     def update_fish_preview(self):
-        """更新当前可钓鱼种预览"""
+        """更新当前可钓鱼种预览（仅在条件变化时调用）"""
         try:
             # 1. 清空旧图标
             while self.preview_layout.count():
@@ -469,14 +488,17 @@ class OverlayWindow(QWidget):
                 if item.widget():
                     item.widget().deleteLater()
 
-            # 2. 获取当前时段和可钓鱼
-            current_time = pokedex.get_current_game_time()
-            all_fish = pokedex.get_all_fish()
+            current_time = self._last_time
+            current_weather = self._last_weather
+            current_season = "春季"
 
-            # 使用 filter_fish_multi 筛选当前时段
-            catchable_fish = pokedex.filter_fish_multi(
-                all_fish, {"time": [current_time]}
-            )
+            # 构建筛选条件：时间 + 天气 + 季节
+            criteria = {"time": [current_time], "season": [current_season]}
+            if current_weather:
+                criteria["weather"] = [current_weather]
+
+            all_fish = pokedex.get_all_fish()
+            catchable_fish = pokedex.filter_fish_multi(all_fish, criteria)
 
             # 过滤掉已完全收集的 (所有品质都已有)
             visible_fish = []
@@ -511,43 +533,73 @@ class OverlayWindow(QWidget):
             self.preview_container.setVisible(True)
 
             # 3. 排序:复用 Pokedex 的加权排序 (未收集高品质者优先)
-            # sort_key='progress', reverse=False -> 未收集权重高的排在前面
             sorted_fish = pokedex.sort_fish(
                 catchable_fish, sort_key="progress", reverse=False
             )
 
-            # 4. 取前5个显示
-            for fish in sorted_fish[:5]:
-                fish_name = fish.get("name", "Unknown")
-                image_path = pokedex.get_fish_image_path(fish_name)
+            # 4. 按地点分组显示：[地点图标][鱼1][鱼2]... | [地点图标][鱼3]...
+            displayed_fish = sorted_fish[:5]
+            loc_base = str(cfg._get_base_path() / "resources" / "location")
 
-                preview_item = FishPreviewItem(
-                    fish_name, str(image_path) if image_path else None
-                )
-                preview_item.setToolTip(f"{fish_name} ({current_time})")
-                self.preview_layout.addWidget(preview_item)
+            # 为每条鱼找到匹配当前条件的地点
+            fish_by_location = {}
+            for fish in displayed_fish:
+                fish_locs = set()
+                for loc in fish.get("locations", []):
+                    raw_loc = loc.get("location", "")
+                    loc_list = (
+                        raw_loc
+                        if isinstance(raw_loc, list)
+                        else [raw_loc] if raw_loc else []
+                    )
+                    for cond in loc.get("conditions", []):
+                        time_ok = not current_time or current_time in cond.get(
+                            "time_of_day", []
+                        )
+                        weather_ok = not current_weather or current_weather in cond.get(
+                            "weather", []
+                        )
+                        season_ok = current_season in cond.get("season", [])
+                        if time_ok and weather_ok and season_ok:
+                            fish_locs.update(loc_list)
+                # 取第一个匹配地点作为分组键
+                loc_key = sorted(fish_locs)[0] if fish_locs else ""
+                fish_by_location.setdefault(loc_key, []).append(fish)
+
+            first_group = True
+            for loc_name in sorted(fish_by_location.keys()):
+                if not first_group:
+                    sep = QLabel()
+                    sep.setFixedSize(1, 24)
+                    sep.setStyleSheet("background-color: rgba(255,255,255,80);")
+                    self.preview_layout.addWidget(sep)
+                first_group = False
+
+                # 地点图标
+                icon_path = os.path.join(loc_base, f"{loc_name}.png")
+                if loc_name and os.path.exists(icon_path):
+                    loc_label = QLabel()
+                    loc_label.setFixedSize(24, 24)
+                    loc_label.setScaledContents(True)
+                    loc_label.setPixmap(QPixmap(icon_path))
+                    loc_label.setToolTip(loc_name)
+                    self.preview_layout.addWidget(loc_label)
+
+                # 该地点的鱼
+                for fish in fish_by_location[loc_name]:
+                    fish_name = fish.get("name", "Unknown")
+                    image_path = pokedex.get_fish_image_path(fish_name)
+                    preview_item = FishPreviewItem(
+                        fish_name, str(image_path) if image_path else None
+                    )
+                    preview_item.setToolTip(f"{fish_name} ({loc_name})")
+                    self.preview_layout.addWidget(preview_item)
 
             # 强制窗口根据内容调整大小
             self.adjustSize()
 
         except Exception as e:
             print(f"[Overlay] 更新预览失败: {e}")
-
-        finally:
-            # 计算下一次刷新的时间 (距离下一个整10分钟节点的秒数)
-            # 游戏时间每10分钟变化一次 (0-10, 10-20...)
-            now = datetime.now()
-            # 剩余分钟数 = 10 - 当前分钟个位数
-            minutes_left = 10 - (now.minute % 10)
-            # 目标秒数 = 剩余分钟 * 60 - 当前秒数
-            # 多加 2 秒缓冲,确保肯定跨过了时间边界
-            seconds_to_wait = minutes_left * 60 - now.second + 2
-
-            if seconds_to_wait <= 0:
-                seconds_to_wait = 1
-
-            # print(f"[Overlay] 下次刷新将在 {seconds_to_wait} 秒后")
-            self.preview_timer.start(seconds_to_wait * 1000)
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
