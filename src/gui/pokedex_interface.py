@@ -546,20 +546,21 @@ class FishCard(CardWidget):
 
             icon_path = cfg._get_base_path() / "resources" / "weather" / f"{w}.png"
             if icon_path.exists():
-                lbl = QLabel()
+                icon_lbl = QLabel()
                 pix = QPixmap(str(icon_path))
-                # HiDPI 优化: 以 2x 尺寸缩放并设置 devicePixelRatio 使图标清晰锐利
                 scaled = pix.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 scaled.setDevicePixelRatio(2.0)
-                lbl.setPixmap(scaled)
-                lbl.setFixedSize(16, 16)
-                lbl.setToolTip(w)
-                lbl.setStyleSheet(
-                    "QLabel{background:transparent;border:none;} QToolTip{background-color:#fffbe6;color:#333;border:1px solid #ccc;padding:2px;}"
+                icon_lbl.setPixmap(scaled)
+                icon_lbl.setFixedSize(16, 16)
+                icon_lbl.setStyleSheet("background:transparent;border:none;")
+                weather_row.addWidget(icon_lbl)
+
+                text_lbl = QLabel(w)
+                text_lbl.setStyleSheet(
+                    "color: #666; font-size: 11px; background:transparent;"
                 )
-                weather_row.addWidget(lbl)
+                weather_row.addWidget(text_lbl)
             else:
-                # Fallback to text
                 lbl = QLabel(f"{w}")
                 lbl.setStyleSheet("color: #999; font-size: 11px;")
                 weather_row.addWidget(lbl)

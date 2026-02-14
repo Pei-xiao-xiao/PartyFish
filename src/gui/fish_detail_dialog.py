@@ -559,20 +559,27 @@ class FishDetailDialog(QDialog):
         for w in weather_list:
             path = cfg._get_base_path() / "resources" / "weather" / f"{w}.png"
             if path.exists():
+                item = QHBoxLayout()
+                item.setSpacing(4)
+
                 icon = QLabel()
                 pixmap = QPixmap(str(path))
-                # HiDPI 优化: 以 2x 尺寸缩放并设置 devicePixelRatio 使图标清晰锐利
                 scaled = pixmap.scaled(
                     48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation
                 )
                 scaled.setDevicePixelRatio(2.0)
                 icon.setPixmap(scaled)
                 icon.setFixedSize(24, 24)
-                icon.setToolTip(w)
-                icon.setStyleSheet(
-                    "QLabel{background:transparent;border:none;} QToolTip{background-color:#fffbe6;color:#333;border:1px solid #ccc;padding:2px;}"
+                icon.setStyleSheet("background:transparent;border:none;")
+                item.addWidget(icon)
+
+                text = QLabel(w)
+                text.setStyleSheet(
+                    "color: #5D4E37; font-size: 14px; font-weight: bold; background: transparent; border: none;"
                 )
-                icons.addWidget(icon)
+                item.addWidget(text)
+
+                icons.addLayout(item)
 
         layout.addLayout(icons)
         return cell
