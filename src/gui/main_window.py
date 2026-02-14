@@ -111,6 +111,14 @@ class MainWindow(FluentWindow):
             self.home_interface.update_release_mode_segment
         )
 
+        # 连接季节筛选变化信号
+        self.settings_interface.season_filter_changed_signal.connect(
+            lambda: self.overlay.update_fish_preview()
+        )
+        self.settings_interface.season_filter_changed_signal.connect(
+            lambda: self.home_interface._refresh_fish_preview()
+        )
+
         # Start the worker thread, but it will be initially paused
         self.worker.start()
         self.popup_worker.start()

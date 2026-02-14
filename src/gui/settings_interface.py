@@ -57,6 +57,7 @@ class SettingsInterface(ScrollArea):
     records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
     reset_overlay_position_signal = Signal()  # 重置悬浮窗位置信号
     release_mode_changed_signal = Signal(str)  # 放生模式变化信号
+    season_filter_changed_signal = Signal()  # 季节筛选变化信号
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -228,6 +229,13 @@ class SettingsInterface(ScrollArea):
             self.tr("开启时识别鱼类信息并记录，关闭时仅执行钓鱼动作"),
         )
         self.globalGroup.addSettingCard(self.fishRecognitionCard)
+
+        self.seasonFilterCard = SwitchSettingCard(
+            FluentIcon.CALENDAR,
+            self.tr("季节筛选"),
+            self.tr("关闭后图鉴筛选时不考虑季节条件"),
+        )
+        self.globalGroup.addSettingCard(self.seasonFilterCard)
 
         self.legendaryScreenshotCard = SwitchSettingCard(
             FluentIcon.CAMERA,
@@ -513,12 +521,15 @@ class SettingsInterface(ScrollArea):
         self.antiAfkCard.checkedChanged.connect(self._save_global_settings)
         self.soundAlertCard.checkedChanged.connect(self._save_global_settings)
         self.fishRecognitionCard.checkedChanged.connect(self._save_global_settings)
+        self.seasonFilterCard.checkedChanged.connect(self._on_season_filter_changed)
         self.legendaryScreenshotCard.checkedChanged.connect(self._save_global_settings)
         self.firstCatchScreenshotCard.checkedChanged.connect(self._save_global_settings)
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
-        self.autoReleaseEnabledCard.checkedChanged.connect(self._on_auto_release_changed)
+        self.autoReleaseEnabledCard.checkedChanged.connect(
+            self._on_auto_release_changed
+        )
         self.enableFishNameProtectionCard.checkedChanged.connect(
             self._save_global_settings
         )
@@ -553,6 +564,10 @@ class SettingsInterface(ScrollArea):
     def _on_theme_changed(self, theme):
         self.theme_changed_signal.emit(theme)
         self._save_global_settings()
+
+    def _on_season_filter_changed(self):
+        self._save_global_settings()
+        self.season_filter_changed_signal.emit()
 
     def _load_settings_to_ui(self, preset_name_to_load=None):
         # Block signals to prevent recursive calls while updating the UI
@@ -595,6 +610,9 @@ class SettingsInterface(ScrollArea):
         )
         self.fishRecognitionCard.setChecked(
             cfg.global_settings.get("enable_fish_recognition", True)
+        )
+        self.seasonFilterCard.setChecked(
+            cfg.global_settings.get("enable_season_filter", True)
         )
         self.legendaryScreenshotCard.setChecked(
             cfg.global_settings.get("enable_legendary_screenshot", True)
@@ -689,6 +707,7 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["enable_fish_recognition"] = (
             self.fishRecognitionCard.isChecked()
         )
+        cfg.global_settings["enable_season_filter"] = self.seasonFilterCard.isChecked()
         cfg.global_settings["enable_legendary_screenshot"] = (
             self.legendaryScreenshotCard.isChecked()
         )
@@ -741,7 +760,9 @@ class SettingsInterface(ScrollArea):
         self._update_release_cards_state()
 
         # 发射信号通知主页更新
-        self.release_mode_changed_signal.emit(cfg.global_settings.get("release_mode", "off"))
+        self.release_mode_changed_signal.emit(
+            cfg.global_settings.get("release_mode", "off")
+        )
 
     def _update_release_cards_state(self):
         """根据放生模式更新放生相关卡片的启用状态"""
@@ -791,7 +812,9 @@ class SettingsInterface(ScrollArea):
         self._update_release_cards_state()
 
         # 发射信号通知主页更新
-        self.release_mode_changed_signal.emit(cfg.global_settings.get("release_mode", "off"))
+        self.release_mode_changed_signal.emit(
+            cfg.global_settings.get("release_mode", "off")
+        )
 
     def update_release_mode_from_main(self, mode):
         """从主页更新放生模式"""

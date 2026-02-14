@@ -490,12 +490,15 @@ class OverlayWindow(QWidget):
 
             current_time = self._last_time
             current_weather = self._last_weather
-            current_season = "春季"
 
-            # 构建筛选条件：时间 + 天气 + 季节
-            criteria = {"time": [current_time], "season": [current_season]}
+            # 构建筛选条件：时间 + 天气 + 季节（排除冬季）
+            criteria = {"time": [current_time]}
             if current_weather:
                 criteria["weather"] = [current_weather]
+            if cfg.global_settings.get("enable_season_filter", True):
+                criteria["season"] = ["春季"]
+            else:
+                criteria["season"] = ["春季", "夏季", "秋季"]
 
             all_fish = pokedex.get_all_fish()
             catchable_fish = pokedex.filter_fish_multi(all_fish, criteria)
@@ -559,7 +562,9 @@ class OverlayWindow(QWidget):
                         weather_ok = not current_weather or current_weather in cond.get(
                             "weather", []
                         )
-                        season_ok = current_season in cond.get("season", [])
+                        season_ok = not cfg.global_settings.get(
+                            "enable_season_filter", True
+                        ) or "春季" in cond.get("season", [])
                         if time_ok and weather_ok and season_ok:
                             fish_locs.update(loc_list)
                 # 取第一个匹配地点作为分组键

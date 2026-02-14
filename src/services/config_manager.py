@@ -131,6 +131,7 @@ class ConfigManager:
             "release_legendary": False,
             "enable_legendary_screenshot": True,
             "enable_first_catch_screenshot": True,
+            "enable_season_filter": True,
         }
 
     def save(self):

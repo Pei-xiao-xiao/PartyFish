@@ -916,19 +916,25 @@ class HomeInterface(QWidget):
             current_time = self._last_time
             current_weather = self._last_weather
 
-            # 季节固定为春季
-            current_season = "春季"
-
             # 更新标签显示
             weather_text = current_weather or "未知"
+            season_text = (
+                "春季"
+                if cfg.global_settings.get("enable_season_filter", True)
+                else "春夏秋"
+            )
             self.fish_preview_time_label.setText(
-                f"({current_time} · {weather_text} · {current_season})"
+                f"({current_time} · {weather_text} · {season_text})"
             )
 
-            # 构建筛选条件：时间 + 天气 + 季节
-            criteria = {"time": [current_time], "season": [current_season]}
+            # 构建筛选条件：时间 + 天气 + 季节（排除冬季）
+            criteria = {"time": [current_time]}
             if current_weather:
                 criteria["weather"] = [current_weather]
+            if cfg.global_settings.get("enable_season_filter", True):
+                criteria["season"] = ["春季"]
+            else:
+                criteria["season"] = ["春季", "夏季", "秋季"]
 
             # 获取当前可钓鱼种
             all_fish = pokedex.get_all_fish()
