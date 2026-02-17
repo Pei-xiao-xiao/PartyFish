@@ -152,14 +152,29 @@ class SettingsInterface(ScrollArea):
         # 4. Global Settings Group
         self.globalGroup = SettingCardGroup(self.tr("全局配置"), self.scrollWidget)
 
+        self.enableGamepadCard = SwitchSettingCard(
+            FluentIcon.GAME,
+            self.tr("启用手柄支持"),
+            self.tr("开启后可使用手柄按键触发功能"),
+        )
+        self.globalGroup.addSettingCard(self.enableGamepadCard)
+
         self.hotkeyCard = SettingCard(
             FluentIcon.SETTING,
             self.tr("启动/暂停快捷键"),
             self.tr("设置用于启动和暂停脚本的全局快捷键。"),
         )
         self.hotkeyLineEdit = KeyBindingWidget(self.hotkeyCard)
-        self.hotkeyLineEdit.setFixedWidth(120)
+        self.hotkeyLineEdit.setFixedWidth(100)
         self.hotkeyCard.hBoxLayout.addWidget(self.hotkeyLineEdit, 0, Qt.AlignRight)
+        self.hotkeyCard.hBoxLayout.addSpacing(5)
+        self.hotkeyGamepadLineEdit = KeyBindingWidget(self.hotkeyCard)
+        self.hotkeyGamepadLineEdit.set_gamepad_mode(True)
+        self.hotkeyGamepadLineEdit.setFixedWidth(80)
+        self.hotkeyGamepadLineEdit.setPlaceholderText("手柄")
+        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
+        self.hotkeyGamepadLineEdit.setText(gamepad_mappings.get("toggle", ""))
+        self.hotkeyCard.hBoxLayout.addWidget(self.hotkeyGamepadLineEdit, 0, Qt.AlignRight)
         margins = self.hotkeyCard.hBoxLayout.contentsMargins()
         self.hotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -172,10 +187,17 @@ class SettingsInterface(ScrollArea):
             self.tr("设置用于触发调试功能的全局快捷键。"),
         )
         self.debugHotkeyLineEdit = KeyBindingWidget(self.debugHotkeyCard)
-        self.debugHotkeyLineEdit.setFixedWidth(120)
+        self.debugHotkeyLineEdit.setFixedWidth(100)
         self.debugHotkeyCard.hBoxLayout.addWidget(
             self.debugHotkeyLineEdit, 0, Qt.AlignRight
         )
+        self.debugHotkeyCard.hBoxLayout.addSpacing(5)
+        self.debugGamepadLineEdit = KeyBindingWidget(self.debugHotkeyCard)
+        self.debugGamepadLineEdit.set_gamepad_mode(True)
+        self.debugGamepadLineEdit.setFixedWidth(80)
+        self.debugGamepadLineEdit.setPlaceholderText("手柄")
+        self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
+        self.debugHotkeyCard.hBoxLayout.addWidget(self.debugGamepadLineEdit, 0, Qt.AlignRight)
         margins = self.debugHotkeyCard.hBoxLayout.contentsMargins()
         self.debugHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -188,10 +210,17 @@ class SettingsInterface(ScrollArea):
             self.tr("设置用于一键卖鱼的快捷键。"),
         )
         self.sellHotkeyLineEdit = KeyBindingWidget(self.sellHotkeyCard)
-        self.sellHotkeyLineEdit.setFixedWidth(120)
+        self.sellHotkeyLineEdit.setFixedWidth(100)
         self.sellHotkeyCard.hBoxLayout.addWidget(
             self.sellHotkeyLineEdit, 0, Qt.AlignRight
         )
+        self.sellHotkeyCard.hBoxLayout.addSpacing(5)
+        self.sellGamepadLineEdit = KeyBindingWidget(self.sellHotkeyCard)
+        self.sellGamepadLineEdit.set_gamepad_mode(True)
+        self.sellGamepadLineEdit.setFixedWidth(80)
+        self.sellGamepadLineEdit.setPlaceholderText("手柄")
+        self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
+        self.sellHotkeyCard.hBoxLayout.addWidget(self.sellGamepadLineEdit, 0, Qt.AlignRight)
         margins = self.sellHotkeyCard.hBoxLayout.contentsMargins()
         self.sellHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -346,10 +375,18 @@ class SettingsInterface(ScrollArea):
             parent=self.recordOnlyGroup,
         )
         self.recordOnlyHotkeyLineEdit = KeyBindingWidget(self.recordOnlyHotkeyCard)
+        self.recordOnlyHotkeyLineEdit.setFixedWidth(100)
         self.recordOnlyHotkeyLineEdit.setText(cfg.global_settings.get("record_only_hotkey", "F5"))
         self.recordOnlyHotkeyCard.hBoxLayout.addWidget(
             self.recordOnlyHotkeyLineEdit, 0, Qt.AlignRight
         )
+        self.recordOnlyHotkeyCard.hBoxLayout.addSpacing(5)
+        self.recordOnlyGamepadLineEdit = KeyBindingWidget(self.recordOnlyHotkeyCard)
+        self.recordOnlyGamepadLineEdit.set_gamepad_mode(True)
+        self.recordOnlyGamepadLineEdit.setFixedWidth(80)
+        self.recordOnlyGamepadLineEdit.setPlaceholderText("手柄")
+        self.recordOnlyGamepadLineEdit.setText(gamepad_mappings.get("record_only", ""))
+        self.recordOnlyHotkeyCard.hBoxLayout.addWidget(self.recordOnlyGamepadLineEdit, 0, Qt.AlignRight)
         margins = self.recordOnlyHotkeyCard.hBoxLayout.contentsMargins()
         self.recordOnlyHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -357,90 +394,6 @@ class SettingsInterface(ScrollArea):
         self.recordOnlyGroup.addSettingCard(self.recordOnlyHotkeyCard)
 
         self.vBoxLayout.addWidget(self.recordOnlyGroup)
-
-        self.gamepadGroup = SettingCardGroup(self.tr("手柄设置"), self.scrollWidget)
-
-        self.enableGamepadCard = SwitchSettingCard(
-            FluentIcon.GAME,
-            self.tr("启用手柄支持"),
-            self.tr("开启后可使用手柄按键触发功能"),
-        )
-        self.gamepadGroup.addSettingCard(self.enableGamepadCard)
-
-        self.gamepadToggleCard = SettingCard(
-            FluentIcon.PLAY,
-            self.tr("启动/暂停"),
-            self.tr("按下手柄按键触发启动/暂停"),
-            parent=self.gamepadGroup,
-        )
-        self.gamepadToggleLineEdit = KeyBindingWidget(self.gamepadToggleCard)
-        self.gamepadToggleLineEdit.set_gamepad_mode(True)
-        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
-        self.gamepadToggleLineEdit.setText(gamepad_mappings.get("toggle", ""))
-        self.gamepadToggleCard.hBoxLayout.addWidget(
-            self.gamepadToggleLineEdit, 0, Qt.AlignRight
-        )
-        margins = self.gamepadToggleCard.hBoxLayout.contentsMargins()
-        self.gamepadToggleCard.hBoxLayout.setContentsMargins(
-            margins.left(), margins.top(), 16, margins.bottom()
-        )
-        self.gamepadGroup.addSettingCard(self.gamepadToggleCard)
-
-        self.gamepadDebugCard = SettingCard(
-            FluentIcon.DEVELOPER_TOOLS,
-            self.tr("调试截图"),
-            self.tr("按下手柄按键触发调试截图"),
-            parent=self.gamepadGroup,
-        )
-        self.gamepadDebugLineEdit = KeyBindingWidget(self.gamepadDebugCard)
-        self.gamepadDebugLineEdit.set_gamepad_mode(True)
-        self.gamepadDebugLineEdit.setText(gamepad_mappings.get("debug", ""))
-        self.gamepadDebugCard.hBoxLayout.addWidget(
-            self.gamepadDebugLineEdit, 0, Qt.AlignRight
-        )
-        margins = self.gamepadDebugCard.hBoxLayout.contentsMargins()
-        self.gamepadDebugCard.hBoxLayout.setContentsMargins(
-            margins.left(), margins.top(), 16, margins.bottom()
-        )
-        self.gamepadGroup.addSettingCard(self.gamepadDebugCard)
-
-        self.gamepadSellCard = SettingCard(
-            FluentIcon.SHOPPING_CART,
-            self.tr("卖鱼"),
-            self.tr("按下手柄按键触发卖鱼"),
-            parent=self.gamepadGroup,
-        )
-        self.gamepadSellLineEdit = KeyBindingWidget(self.gamepadSellCard)
-        self.gamepadSellLineEdit.set_gamepad_mode(True)
-        self.gamepadSellLineEdit.setText(gamepad_mappings.get("sell", ""))
-        self.gamepadSellCard.hBoxLayout.addWidget(
-            self.gamepadSellLineEdit, 0, Qt.AlignRight
-        )
-        margins = self.gamepadSellCard.hBoxLayout.contentsMargins()
-        self.gamepadSellCard.hBoxLayout.setContentsMargins(
-            margins.left(), margins.top(), 16, margins.bottom()
-        )
-        self.gamepadGroup.addSettingCard(self.gamepadSellCard)
-
-        self.gamepadRecordOnlyCard = SettingCard(
-            FluentIcon.VIDEO,
-            self.tr("只记录"),
-            self.tr("按下手柄按键触发只记录模式"),
-            parent=self.gamepadGroup,
-        )
-        self.gamepadRecordOnlyLineEdit = KeyBindingWidget(self.gamepadRecordOnlyCard)
-        self.gamepadRecordOnlyLineEdit.set_gamepad_mode(True)
-        self.gamepadRecordOnlyLineEdit.setText(gamepad_mappings.get("record_only", ""))
-        self.gamepadRecordOnlyCard.hBoxLayout.addWidget(
-            self.gamepadRecordOnlyLineEdit, 0, Qt.AlignRight
-        )
-        margins = self.gamepadRecordOnlyCard.hBoxLayout.contentsMargins()
-        self.gamepadRecordOnlyCard.hBoxLayout.setContentsMargins(
-            margins.left(), margins.top(), 16, margins.bottom()
-        )
-        self.gamepadGroup.addSettingCard(self.gamepadRecordOnlyCard)
-
-        self.vBoxLayout.addWidget(self.gamepadGroup)
 
         # 6. Release Group (合并自动放生和单条放生)
         self.releaseGroup = SettingCardGroup(self.tr("放生设置"), self.scrollWidget)
@@ -633,12 +586,12 @@ class SettingsInterface(ScrollArea):
 
         self.enableRecordOnlyCard.checkedChanged.connect(self._save_global_settings)
         self.recordOnlyHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
+        self.recordOnlyGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
 
         self.enableGamepadCard.checkedChanged.connect(self._save_global_settings)
-        self.gamepadToggleLineEdit.editingFinished.connect(self._save_gamepad_mappings)
-        self.gamepadDebugLineEdit.editingFinished.connect(self._save_gamepad_mappings)
-        self.gamepadSellLineEdit.editingFinished.connect(self._save_gamepad_mappings)
-        self.gamepadRecordOnlyLineEdit.editingFinished.connect(self._save_gamepad_mappings)
+        self.hotkeyGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
+        self.debugGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
+        self.sellGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
@@ -761,10 +714,10 @@ class SettingsInterface(ScrollArea):
             cfg.global_settings.get("enable_gamepad", False)
         )
         gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
-        self.gamepadToggleLineEdit.setText(gamepad_mappings.get("toggle", ""))
-        self.gamepadDebugLineEdit.setText(gamepad_mappings.get("debug", ""))
-        self.gamepadSellLineEdit.setText(gamepad_mappings.get("sell", ""))
-        self.gamepadRecordOnlyLineEdit.setText(gamepad_mappings.get("record_only", ""))
+        self.hotkeyGamepadLineEdit.setText(gamepad_mappings.get("toggle", ""))
+        self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
+        self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
+        self.recordOnlyGamepadLineEdit.setText(gamepad_mappings.get("record_only", ""))
 
         self._update_release_cards_state()
 
@@ -868,10 +821,10 @@ class SettingsInterface(ScrollArea):
         if "gamepad_mappings" not in cfg.global_settings:
             cfg.global_settings["gamepad_mappings"] = {}
         
-        cfg.global_settings["gamepad_mappings"]["toggle"] = self.gamepadToggleLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["debug"] = self.gamepadDebugLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["sell"] = self.gamepadSellLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["record_only"] = self.gamepadRecordOnlyLineEdit.text()
+        cfg.global_settings["gamepad_mappings"]["toggle"] = self.hotkeyGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"]["debug"] = self.debugGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"]["sell"] = self.sellGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"]["record_only"] = self.recordOnlyGamepadLineEdit.text()
         
         cfg.save()
         self.gamepad_mapping_changed_signal.emit()
