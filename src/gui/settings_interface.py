@@ -333,7 +333,7 @@ class SettingsInterface(ScrollArea):
         self.recordOnlyGroup = SettingCardGroup(self.tr("只记录模式"), self.scrollWidget)
 
         self.enableRecordOnlyCard = SwitchSettingCard(
-            FluentIcon.RECORD,
+            FluentIcon.VIDEO,
             self.tr("启用只记录模式"),
             self.tr("开启后只记录渔获信息，不执行钓鱼动作"),
         )
@@ -423,7 +423,7 @@ class SettingsInterface(ScrollArea):
         self.gamepadGroup.addSettingCard(self.gamepadSellCard)
 
         self.gamepadRecordOnlyCard = SettingCard(
-            FluentIcon.RECORD,
+            FluentIcon.VIDEO,
             self.tr("只记录"),
             self.tr("按下手柄按键触发只记录模式"),
             parent=self.gamepadGroup,
