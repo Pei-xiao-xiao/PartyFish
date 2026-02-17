@@ -426,13 +426,60 @@ class ReleaseService:
             self.worker.msleep(1200)
 
             if not bucket_pos:
-                self.worker.log_updated.emit("未识别到桶图标，放生操作失败。")
+                self.worker.inputs.press_key("ESC")
+                return
+
+            zone = cfg.REGIONS["fish_inventory"]["zones"][0]
+            grid = zone["grid"]
+            zone_rect = cfg.get_bottom_right_rect(zone["coords"])
+            star_x = zone_rect[0] + int(grid["star_offset"][0] * cfg.scale)
+            star_y = zone_rect[1] + int(grid["star_offset"][1] * cfg.scale)
+            star_region = (
+                star_x,
+                star_y,
+                int(grid["star_size"][0] * cfg.scale),
+                int(grid["star_size"][1] * cfg.scale),
+            )
+
+            quality = self._detect_fish_quality(star_region, 0, 0)
+            if quality is None:
+                self.worker.inputs.press_key("ESC")
+                return
+
+            release_map = {
+                "标准": "release_standard",
+                "非凡": "release_uncommon",
+                "稀有": "release_rare",
+                "史诗": "release_epic",
+                "传奇": "release_legendary",
+            }
+            should_release = cfg.global_settings.get(release_map.get(quality), False)
+
+            if not should_release:
+                self.worker.inputs.press_key("ESC")
                 return
 
             fish_pos = cfg.REGIONS["fish_inventory"]["single_release_fish_pos"]
             fish_rect = cfg.get_bottom_right_rect((fish_pos[0], fish_pos[1], 1, 1))
             fish_x = fish_rect[0]
             fish_y = fish_rect[1]
+
+            if cfg.global_settings.get("enable_fish_name_protection", False):
+                self.worker.msleep(200)
+                self.worker.inputs.double_click(
+                    fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
+                )
+                self.worker.msleep(500)
+
+                fish_name_region = cfg.get_rect("fish_name_tooltip")
+                fish_name_img = self.worker.vision.screenshot(fish_name_region)
+                fish_name = None
+                if fish_name_img is not None:
+                    fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
+
+                if fish_name and cfg.is_fish_protected(fish_name, quality):
+                    self.worker.inputs.press_key("ESC")
+                    return
 
             self.worker.msleep(200)
             self.worker.inputs.click(
@@ -448,7 +495,6 @@ class ReleaseService:
             self.worker.inputs.click(
                 release_x + cfg.window_offset_x, release_y + cfg.window_offset_y
             )
-            self.worker.log_updated.emit("已点击放生按钮，鱼已放生")
             self.worker.msleep(800)
 
             self.worker.inputs.press_key("ESC")

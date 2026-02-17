@@ -121,7 +121,7 @@ class ConfigManager:
             "uno_hotkey": "F3",
             "uno_current_cards": 7,
             "uno_max_cards": 35,
-            "release_mode": "off",  # 放生模式: off(关)/single(单条放生)/auto(自动放生)
+            "release_mode": "off",
             "auto_release_enabled": False,
             "enable_fish_name_protection": False,
             "release_standard": True,
@@ -131,6 +131,10 @@ class ConfigManager:
             "release_legendary": False,
             "enable_legendary_screenshot": True,
             "enable_first_catch_screenshot": True,
+            "enable_record_only": False,
+            "record_only_hotkey": "F5",
+            "enable_gamepad": False,
+            "gamepad_mappings": {},
         }
 
     def save(self):

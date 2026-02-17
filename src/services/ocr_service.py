@@ -5,7 +5,7 @@ OCR 服务
 
 import re
 import time
-import difflib
+from rapidfuzz import process, fuzz
 import cv2
 from rapidocr_onnxruntime import RapidOCR
 from src.config import cfg
@@ -16,7 +16,7 @@ class OCRService:
 
     def __init__(self):
         """初始化 OCR 引擎"""
-        self.ocr = RapidOCR(intra_op_num_threads=1, inter_op_num_threads=1)
+        self.ocr = RapidOCR(intra_op_num_threads=4, inter_op_num_threads=4)
 
     def recognize_catch_info(self, vision, log_callback=None) -> tuple[bool, dict]:
         """
@@ -194,19 +194,20 @@ class OCRService:
                 if re.search(r"[\u4e00-\u9fa5]", fish_name):
                     search_name = "".join(re.findall(r"[\u4e00-\u9fa5]+", fish_name))
 
-                matches = difflib.get_close_matches(
-                    search_name, cfg.fish_names_list, n=1, cutoff=0.6
+                matches = process.extract(
+                    search_name, cfg.fish_names_list, scorer=fuzz.ratio, limit=1, score_cutoff=60
                 )
 
                 if not matches and search_name != fish_name:
-                    matches = difflib.get_close_matches(
-                        fish_name, cfg.fish_names_list, n=1, cutoff=0.6
+                    matches = process.extract(
+                        fish_name, cfg.fish_names_list, scorer=fuzz.ratio, limit=1, score_cutoff=60
                     )
 
                 if matches:
-                    if fish_name != matches[0] and log_callback:
-                        log_callback(f"鱼名校正: '{fish_name}' -> '{matches[0]}'")
-                    fish_name = matches[0]
+                    matched_name = matches[0][0]
+                    if fish_name != matched_name and log_callback:
+                        log_callback(f"鱼名校正: '{fish_name}' -> '{matched_name}'")
+                    fish_name = matched_name
                 else:
                     if re.search(r"[\u4e00-\u9fa5]", fish_name):
                         fish_name = re.sub(r"[^\u4e00-\u9fa5]+$", "", fish_name)
