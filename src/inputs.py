@@ -14,30 +14,36 @@ WHEEL_DELTA = 120
 
 class InputController(QObject):
     toggle_script_signal = Signal()
-    debug_screenshot_signal = Signal()  # Signal for debug screenshot
+    debug_screenshot_signal = Signal()
     sell_hotkey_signal = Signal()
     uno_hotkey_signal = Signal()
+    record_only_hotkey_signal = Signal()
 
     def __init__(self):
         super().__init__()
         self.running = False
         self.keyboard_listener = None
         self._hotkey_handler = None
-        self._debug_hotkey_handler = None  # Handler for F10
+        self._debug_hotkey_handler = None
         self._sell_hotkey_handler = None
         self._uno_hotkey_handler = None
+        self._record_only_hotkey_handler = None
         self.is_mouse_down = False
 
-        # Store configured hotkeys as strings for mouse hotkey matching
         self._main_hotkey_str = cfg.hotkey
         self._debug_hotkey_str = cfg.global_settings.get("debug_hotkey", "F10")
         self._sell_hotkey_str = cfg.global_settings.get("sell_hotkey", "F4")
         self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
+        self._record_only_hotkey_str = cfg.global_settings.get("record_only_hotkey", "F5")
 
         self._update_hotkey_handler()
         self._update_debug_hotkey_handler()
         self._update_sell_hotkey_handler()
         self._update_uno_hotkey_handler()
+        self._update_record_only_hotkey_handler()
+
+        self._gamepad_controller = None
+        self._init_gamepad()
 
     def _parse_hotkey_string(self, hotkey_string):
         """Helper function to parse a hotkey string into pynput format."""
@@ -171,7 +177,6 @@ class InputController(QObject):
         """
         self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
 
-        # Skip keyboard.HotKey for mouse buttons
         if self._uno_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._uno_hotkey_handler = None
             return
@@ -184,6 +189,57 @@ class InputController(QObject):
         except Exception as e:
             print(f"Error parsing uno hotkey '{self._uno_hotkey_str}': {e}")
             self._uno_hotkey_handler = None
+
+    def _update_record_only_hotkey_handler(self):
+        """
+        Parses the record only hotkey from config and creates a pynput HotKey handler.
+        """
+        self._record_only_hotkey_str = cfg.global_settings.get("record_only_hotkey", "F5")
+
+        if self._record_only_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
+            self._record_only_hotkey_handler = None
+            return
+
+        try:
+            formatted_hotkey = self._parse_hotkey_string(self._record_only_hotkey_str)
+            self._record_only_hotkey_handler = keyboard.HotKey(
+                keyboard.HotKey.parse(formatted_hotkey), self.record_only_hotkey_signal.emit
+            )
+        except Exception as e:
+            print(f"Error parsing record only hotkey '{self._record_only_hotkey_str}': {e}")
+            self._record_only_hotkey_handler = None
+
+    def _init_gamepad(self):
+        """
+        Initialize gamepad controller if enabled.
+        """
+        if not cfg.global_settings.get("enable_gamepad", False):
+            return
+
+        try:
+            from src.gamepad_controller import gamepad_controller
+            self._gamepad_controller = gamepad_controller
+            self._gamepad_controller.gamepad_button_pressed.connect(self._on_gamepad_button)
+        except Exception as e:
+            print(f"Failed to initialize gamepad controller: {e}")
+            self._gamepad_controller = None
+
+    def _on_gamepad_button(self, button_name):
+        """
+        Handle gamepad button press events.
+        """
+        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
+        
+        if button_name == gamepad_mappings.get("toggle"):
+            self.toggle_script_signal.emit()
+        elif button_name == gamepad_mappings.get("debug"):
+            self.debug_screenshot_signal.emit()
+        elif button_name == gamepad_mappings.get("sell"):
+            self.sell_hotkey_signal.emit()
+        elif button_name == gamepad_mappings.get("uno"):
+            self.uno_hotkey_signal.emit()
+        elif button_name == gamepad_mappings.get("record_only"):
+            self.record_only_hotkey_signal.emit()
 
     def add_jitter(self, base_time):
         jitter_range = cfg.jitter_range
@@ -317,6 +373,12 @@ class InputController(QObject):
             except Exception:
                 pass
 
+        if self._record_only_hotkey_handler:
+            try:
+                self._record_only_hotkey_handler.press(self.keyboard_listener.canonical(key))
+            except Exception:
+                pass
+
     def _on_release(self, key):
         """
         Callback for keyboard release events.
@@ -347,6 +409,12 @@ class InputController(QObject):
             except Exception:
                 pass
 
+        if self._record_only_hotkey_handler:
+            try:
+                self._record_only_hotkey_handler.release(self.keyboard_listener.canonical(key))
+            except Exception:
+                pass
+
     def start_listening(self):
         """
         Starts the keyboard listener.
@@ -354,19 +422,23 @@ class InputController(QObject):
         if self.running:
             return
 
-        self._update_hotkey_handler()  # Ensure latest config
+        self._update_hotkey_handler()
         self._update_debug_hotkey_handler()
         self._update_sell_hotkey_handler()
         self._update_uno_hotkey_handler()
+        self._update_record_only_hotkey_handler()
+        self._init_gamepad()
         self.running = True
         self.keyboard_listener = keyboard.Listener(
             on_press=self._on_press, on_release=self._on_release
         )
         self.keyboard_listener.start()
 
-        # 添加鼠标监听器支持侧键
         self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
         self.mouse_listener.start()
+
+        if self._gamepad_controller:
+            self._gamepad_controller.start_listening()
 
     def stop_listening(self):
         """
@@ -382,6 +454,8 @@ class InputController(QObject):
         if hasattr(self, "mouse_listener") and self.mouse_listener:
             self.mouse_listener.stop()
             self.mouse_listener = None
+        if self._gamepad_controller:
+            self._gamepad_controller.stop_listening()
 
     @staticmethod
     def hold_key(key_name):
@@ -399,7 +473,6 @@ class InputController(QObject):
         if not pressed:
             return
 
-        # 映射鼠标按键到字符串表示
         button_str = ""
         if button == mouse.Button.left:
             button_str = "Mouse1"
@@ -415,7 +488,6 @@ class InputController(QObject):
         if not button_str:
             return
 
-        # 检查是否匹配任何热键
         if button_str == self._main_hotkey_str:
             self.toggle_script_signal.emit()
         elif button_str == self._debug_hotkey_str:
@@ -424,6 +496,8 @@ class InputController(QObject):
             self.sell_hotkey_signal.emit()
         elif button_str == self._uno_hotkey_str:
             self.uno_hotkey_signal.emit()
+        elif button_str == self._record_only_hotkey_str:
+            self.record_only_hotkey_signal.emit()
 
     @staticmethod
     def release_key(key_name):

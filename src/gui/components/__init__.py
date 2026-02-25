@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QLineEdit
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from qfluentwidgets import Theme, qconfig
 
@@ -14,19 +14,29 @@ QUALITY_COLORS = {
 
 
 class KeyBindingWidget(QLineEdit):
+    gamepad_button_captured = Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPlaceholderText("Click and press keys")
         self.setAlignment(Qt.AlignCenter)
-        self.setReadOnly(True) # Prevent manual typing
+        self.setReadOnly(True)
         self.is_capturing = False
         self.original_text = ""
+        self._gamepad_mode = False
+        self._gamepad_connection = None
+
+    def set_gamepad_mode(self, enabled: bool):
+        self._gamepad_mode = enabled
+        if enabled:
+            self.setPlaceholderText("点击后按手柄按键")
+        else:
+            self.setPlaceholderText("Click and press keys")
 
     def mousePressEvent(self, event):
         if not self.is_capturing:
             self.start_capture()
         else:
-            # Handle mouse button capture
             button = event.button()
             modifiers = event.modifiers()
             parts = []
@@ -38,17 +48,16 @@ class KeyBindingWidget(QLineEdit):
             if modifiers & Qt.ShiftModifier:
                 parts.append("Shift")
 
-            # Disable left and right mouse buttons
             if button == Qt.LeftButton:
-                return  # Ignore left mouse button
+                return
             elif button == Qt.RightButton:
-                return  # Ignore right mouse button
+                return
             elif button == Qt.MiddleButton:
                 parts.append("Mouse3")
             elif button == Qt.XButton1:
-                parts.append("Mouse4")  # Side button 1
+                parts.append("Mouse4")
             elif button == Qt.XButton2:
-                parts.append("Mouse5")  # Side button 2
+                parts.append("Mouse5")
 
             hotkey_str = "+ ".join(parts)
             self.setText(hotkey_str)
@@ -60,17 +69,49 @@ class KeyBindingWidget(QLineEdit):
     def start_capture(self):
         self.is_capturing = True
         self.original_text = self.text()
-        self.setText("请按下按键...")
+        if self._gamepad_mode:
+            self.setText("请按手柄按键...")
+            self._connect_gamepad()
+        else:
+            self.setText("请按下按键...")
         self.setProperty("isCapturing", True)
         self.update_style()
 
     def stop_capture(self):
         self.is_capturing = False
         self.setProperty("isCapturing", False)
+        self._disconnect_gamepad()
         self.update_style()
 
+    def _connect_gamepad(self):
+        if not self._gamepad_mode:
+            return
+        try:
+            from src.gamepad_controller import gamepad_controller
+            self._gamepad_connection = gamepad_controller.gamepad_button_pressed.connect(
+                self._on_gamepad_button
+            )
+            gamepad_controller.start_listening()
+        except Exception as e:
+            print(f"[KeyBindingWidget] Failed to connect gamepad: {e}")
+
+    def _disconnect_gamepad(self):
+        if self._gamepad_connection:
+            try:
+                from src.gamepad_controller import gamepad_controller
+                gamepad_controller.gamepad_button_pressed.disconnect(self._on_gamepad_button)
+            except Exception:
+                pass
+            self._gamepad_connection = None
+
+    def _on_gamepad_button(self, button_name: str):
+        if self.is_capturing and self._gamepad_mode:
+            self.setText(button_name)
+            self.stop_capture()
+            self.editingFinished.emit()
+            self.gamepad_button_captured.emit(button_name)
+
     def update_style(self):
-        # Apply custom style based on capturing state
         color = qconfig.themeColor.name
         if self.property("isCapturing"):
             self.setStyleSheet(f"border: 2px solid {color}; background-color: rgba(0, 159, 227, 0.1);")
@@ -83,9 +124,14 @@ class KeyBindingWidget(QLineEdit):
         if not self.is_capturing:
             return
 
+        if self._gamepad_mode:
+            if event.key() == Qt.Key_Escape:
+                self.setText(self.original_text)
+                self.stop_capture()
+            return
+
         key = event.key()
         
-        # Modifier keys alone should not be the full hotkey
         if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
             return
 
@@ -120,7 +166,6 @@ class KeyBindingWidget(QLineEdit):
         if Qt.Key_F1 <= key <= Qt.Key_F12:
             return f"F{key - Qt.Key_F1 + 1}"
         
-        # Mapping for other common keys
         key_map = {
             Qt.Key_Space: "Space",
             Qt.Key_Tab: "Tab",
@@ -139,7 +184,6 @@ class KeyBindingWidget(QLineEdit):
         if key in key_map:
             return key_map[key]
         
-        # Handle regular letters/numbers
         if Qt.Key_0 <= key <= Qt.Key_9 or Qt.Key_A <= key <= Qt.Key_Z:
             return chr(key).upper()
             
