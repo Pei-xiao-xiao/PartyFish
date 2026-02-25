@@ -58,6 +58,7 @@ class SettingsInterface(ScrollArea):
     records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
     reset_overlay_position_signal = Signal()  # 重置悬浮窗位置信号
     release_mode_changed_signal = Signal(str)  # 放生模式变化信号
+    season_filter_changed_signal = Signal()  # 季节筛选变化信号
 
     def __init__(self, parent=None):
         super().__init__(parent)
