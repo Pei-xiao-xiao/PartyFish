@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtCore import Qt, QSize, Signal, QUrl
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QPainter, QColor, QFont
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import (
     FluentIcon,
@@ -299,6 +299,18 @@ class MainWindow(FluentWindow):
 
         self.update_status(f"预设已切换为 '{preset_name}'，脚本已暂停。")
         self.append_log("请检查配置，然后按快捷键继续。")
+
+    def paintEvent(self, event):
+        """绘制水印"""
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setPen(QColor(128, 128, 128, 60))
+        painter.setFont(QFont("Microsoft YaHei", 20))
+        painter.rotate(-30)
+        text = "免费软件 禁止倒卖"
+        for x in range(-500, self.width() + 500, 300):
+            for y in range(0, self.height() + 500, 150):
+                painter.drawText(x, y, text)
 
     def closeEvent(self, event):
         """关闭窗口事件"""
