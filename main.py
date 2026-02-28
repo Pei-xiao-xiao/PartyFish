@@ -57,10 +57,17 @@ if __name__ == "__main__":
         saved_hardware = cfg.global_settings.get("hardware_info", {})
 
         # 检查是否需要显示欢迎窗口
-        # 如果是第一次运行，或者硬件信息发生变化，则显示欢迎窗口
+        # 如果是第一次运行，或者硬件信息发生变化（CPU、内存、GPU），则显示欢迎窗口
+        # 注意：不比较 account_name，因为用户可能切换 Windows 账号
+        hardware_keys_to_check = ["cpu", "memory", "gpu"]
+        hardware_changed = any(
+            current_hardware.get(key) != saved_hardware.get(key)
+            for key in hardware_keys_to_check
+        )
+
         if (
             not cfg.global_settings.get("welcome_dialog_shown", False)
-            or current_hardware != saved_hardware
+            or hardware_changed
         ):
             # 显示欢迎提示窗口
             show_welcome_dialog()

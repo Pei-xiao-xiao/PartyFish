@@ -182,10 +182,16 @@ class FishingWorker(QThread):
                                 # 重置到初始状态
                                 self.state_machine.reset()
 
+            except KeyboardInterrupt:
+                # 用户中断，优雅退出
+                self.log_updated.emit("收到用户中断信号")
+                self.pause("用户中断")
             except Exception as e:
-                self.log_updated.emit(f"发生错误: {e}")
+                error_msg = f"发生错误：{type(e).__name__}: {e}"
+                self.log_updated.emit(error_msg)
+                print(f"[FishingWorker] {error_msg}")  # 同时输出到控制台
                 self.pause()
-                self.status_updated.emit(f"错误: {e}, 已暂停")
+                self.status_updated.emit(f"错误：{e}, 已暂停")
 
             # 循环间隔，等待指定时间后再进行下一轮
             self.smart_sleep(cfg.cycle_interval)
@@ -499,14 +505,14 @@ class PopupWorker(QThread):
                 error_msg = str(e)
                 # 忽略 mss 截图相关的已知错误，避免刷屏
                 if "ScreenShotError" in error_msg or "_thread._local" in error_msg:
-                    # 可以在控制台打印但不发送到 UI
-                    # print(f"[弹窗处理服务] 截图失败(已忽略): {e}")
+                    pass
+                elif "KeyboardInterrupt" in error_msg:
                     pass
                 else:
-                    self.log_updated.emit(f"[弹窗处理服务] 发生错误: {e}")
+                    self.log_updated.emit(f"[弹窗处理服务] 发生错误：{type(e).__name__}: {e}")
 
             # 控制循环频率
-            self.msleep(500)  # 每0.5秒检测一次
+            self.msleep(500)  # 每 0.5 秒检测一次
 
         self.log_updated.emit("弹窗处理服务已停止。")
 

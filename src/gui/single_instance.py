@@ -110,14 +110,14 @@ class SingleInstance:
             icon_path = app_path / "resources" / "favicon.ico"
             if icon_path.exists():
                 app.setWindowIcon(QIcon(str(icon_path)))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"加载应用图标失败：{e}")
 
         # 创建自定义对话框
         dialog = QDialog()
         dialog.setWindowTitle("提示")
         dialog.setFixedSize(320, 160)
-        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dialog.setAttribute(Qt.WA_TranslucentBackground)
 
         # 主布局
@@ -240,7 +240,7 @@ class SingleInstance:
             icon_path = app_path / "resources" / "favicon.ico"
             if icon_path.exists():
                 dialog.setWindowIcon(QIcon(str(icon_path)))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"设置窗口图标失败：{e}")
 
         dialog.exec()

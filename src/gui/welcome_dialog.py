@@ -50,7 +50,7 @@ class WelcomeDialog(QDialog):
         main_layout.setContentsMargins(30, 30, 30, 30)
 
         # 标题
-        title_label = QLabel("🎉 欢迎使用 PartyFish")
+        title_label = QLabel("欢迎使用 PartyFish")
         title_font = QFont(ui_font)
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -93,7 +93,11 @@ class WelcomeDialog(QDialog):
 def show_welcome_dialog():
     """显示欢迎提示窗口"""
     # 获取硬件信息（绑定但不显示）
-    hardware_info = get_all_hardware_info()
+    try:
+        hardware_info = get_all_hardware_info()
+    except Exception as e:
+        print(f"获取硬件信息失败：{e}")
+        hardware_info = {}
 
     # 可以在这里添加硬件信息绑定逻辑（如果需要）
     # 例如：保存到配置文件或发送到服务器

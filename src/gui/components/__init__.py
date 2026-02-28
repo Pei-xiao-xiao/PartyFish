@@ -88,21 +88,45 @@ class KeyBindingWidget(QLineEdit):
             return
         try:
             from src.gamepad_controller import gamepad_controller
-            self._gamepad_connection = gamepad_controller.gamepad_button_pressed.connect(
-                self._on_gamepad_button
+            
+            # 确保 pygame 已初始化
+            if not gamepad_controller._pygame_initialized:
+                if not gamepad_controller._init_pygame():
+                    print("[KeyBindingWidget] Failed to initialize pygame")
+                    return
+            
+            # 确保手柄控制器正在监听
+            if not gamepad_controller._running:
+                gamepad_controller.start_listening()
+                print("[KeyBindingWidget] Started gamepad listening")
+            
+            # 连接信号（使用 UniqueConnection 避免重复连接）
+            try:
+                gamepad_controller.gamepad_button_pressed.disconnect(self._on_gamepad_button)
+            except (TypeError, RuntimeError):
+                pass  # 信号未连接，忽略
+            
+            gamepad_controller.gamepad_button_pressed.connect(
+                self._on_gamepad_button,
+                Qt.UniqueConnection
             )
-            gamepad_controller.start_listening()
+            self._gamepad_connection = True
+            print(f"[KeyBindingWidget] Gamepad connected for {self.placeholderText()}")
         except Exception as e:
             print(f"[KeyBindingWidget] Failed to connect gamepad: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _disconnect_gamepad(self):
         if self._gamepad_connection:
             try:
                 from src.gamepad_controller import gamepad_controller
                 gamepad_controller.gamepad_button_pressed.disconnect(self._on_gamepad_button)
+                print(f"[KeyBindingWidget] Gamepad disconnected for {self.placeholderText()}")
             except Exception:
                 pass
-            self._gamepad_connection = None
+            finally:
+                self._gamepad_connection = None
 
     def _on_gamepad_button(self, button_name: str):
         if self.is_capturing and self._gamepad_mode:

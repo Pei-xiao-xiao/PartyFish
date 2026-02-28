@@ -225,6 +225,9 @@ class InputController(QObject):
         except Exception as e:
             print(f"Failed to initialize gamepad controller: {e}")
             self._gamepad_controller = None
+        except ImportError as e:
+            print(f"Gamepad controller module not found: {e}")
+            self._gamepad_controller = None
 
     def _reinit_gamepad(self):
         """

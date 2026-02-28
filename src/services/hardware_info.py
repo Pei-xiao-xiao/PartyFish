@@ -17,7 +17,7 @@ def get_account_name():
     """获取当前登录账号名"""
     try:
         return os.getlogin()
-    except:
+    except Exception:
         return "未知账号"
 
 
@@ -46,15 +46,14 @@ def get_cpu_info():
 def get_memory_info():
     """获取内存信息"""
     try:
-        # 使用psutil库获取内存信息
+        # 使用 psutil 库获取内存信息
         total_memory = psutil.virtual_memory().total
-        # 转换为GB
+        # 转换为 GB
         total_memory_gb = total_memory / (1024**3)
         return f"{total_memory_gb:.1f} GB"
     except Exception as e:
-        print(f"psutil获取内存信息失败: {e}")
-
-    return "未知内存"
+        print(f"psutil 获取内存信息失败：{e}")
+        return "未知内存"
 
 
 def get_gpu_info():

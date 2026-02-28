@@ -354,7 +354,7 @@ class Config(metaclass=SingletonMeta):
             lang = locale.getdefaultlocale()[0]
             if lang in ["zh_TW", "zh_HK"]:
                 return "Microsoft JhengHei"
-        except:
+        except Exception:
             pass
         return "Microsoft YaHei"
 

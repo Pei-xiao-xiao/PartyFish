@@ -1,3 +1,9 @@
+"""
+UNO 识别管理器模块
+
+负责自动检测游戏中的 UNO 卡牌并自动点击
+支持牌数统计、倒计时显示和日志记录
+"""
 import threading
 import time
 from pynput import mouse
@@ -7,7 +13,7 @@ from src.config import cfg
 
 
 class UnoManager(QObject):
-    """UNO识别管理器 - 自动检测并点击UNO卡牌"""
+    """UNO 识别管理器 - 自动检测并点击 UNO 卡牌"""
 
     # 信号定义
     cards_updated = Signal(int, int)  # 当前牌数, 最大牌数
@@ -57,8 +63,8 @@ class UnoManager(QObject):
                 if vision.find_uno_card():
                     # 判断是否达到最大牌数且未等待过
                     if self.current_cards == self.max_cards and not self.waited_after_max:
-                        self.log_message.emit(f"UNO识别: 已达到最大牌数 {self.max_cards}，等待5秒后点击")
-                        # 等待5秒，每秒更新倒计时
+                        self.log_message.emit(f"UNO 识别：已经达到最大牌数 {self.max_cards}，等待 5 秒后点击")
+                        # 等待 5 秒，每秒更新倒计时
                         for i in range(5, 0, -1):
                             if not self.running:
                                 return
@@ -68,7 +74,7 @@ class UnoManager(QObject):
                         # 使用上次位置点击
                         if self.last_click_pos:
                             self._click_at_position(self.last_click_pos)
-                            self.log_message.emit(f"UNO识别: 使用上次位置点击 ({self.last_click_pos[0]}, {self.last_click_pos[1]})")
+                            self.log_message.emit(f"UNO 识别：使用上次位置点击 ({self.last_click_pos[0]}, {self.last_click_pos[1]})")
                         self.waited_after_max = True
                     else:
                         # 正常点击并保存位置
@@ -78,14 +84,18 @@ class UnoManager(QObject):
 
                     self.current_cards += 1
 
-                    # 发射信号更新UI
+                    # 发射信号更新 UI
                     self.cards_updated.emit(self.current_cards, self.max_cards)
-                    self.log_message.emit(f"UNO识别: 检测到卡牌，当前 {self.current_cards}/{self.max_cards}")
+                    self.log_message.emit(f"UNO 识别：检测到卡牌，当前 {self.current_cards}/{self.max_cards}")
 
                 time.sleep(0.5)
+            except KeyboardInterrupt:
+                # 用户中断，优雅退出
+                self.log_message.emit("UNO 识别：收到用户中断信号")
+                break
             except Exception as e:
-                error_msg = f"UNO 识别错误: {e}"
-                print(error_msg)
+                error_msg = f"UNO 识别错误：{type(e).__name__}: {e}"
+                print(f"[UnoManager] {error_msg}")
                 self.log_message.emit(error_msg)
 
     def _click_uno_position(self):
