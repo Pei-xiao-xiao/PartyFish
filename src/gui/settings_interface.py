@@ -54,11 +54,12 @@ class SettingsInterface(ScrollArea):
     uno_hotkey_changed_signal = Signal(str)
     record_only_hotkey_changed_signal = Signal(str)
     theme_changed_signal = Signal(str)
-    account_list_changed_signal = Signal()  # 账号列表变化信号
-    records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
-    reset_overlay_position_signal = Signal()  # 重置悬浮窗位置信号
-    release_mode_changed_signal = Signal(str)  # 放生模式变化信号
-    season_filter_changed_signal = Signal()  # 季节筛选变化信号
+    account_list_changed_signal = Signal()
+    records_updated_signal = Signal()
+    reset_overlay_position_signal = Signal()
+    release_mode_changed_signal = Signal(str)
+    season_filter_changed_signal = Signal()
+    gamepad_mapping_changed_signal = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -851,6 +852,7 @@ class SettingsInterface(ScrollArea):
             self.record_only_hotkey_changed_signal.emit(new_record_only_hotkey)
 
         cfg.global_settings["enable_gamepad"] = self.enableGamepadCard.isChecked()
+        self.gamepad_mapping_changed_signal.emit()
 
         cfg.save()
 

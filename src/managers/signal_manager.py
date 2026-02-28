@@ -150,3 +150,6 @@ class SignalManager:
     def _connect_hotkey_signals(self):
         """连接快捷键相关信号"""
         self.window.preset_should_change.connect(self.window.worker.update_preset)
+        self.window.settings_interface.gamepad_mapping_changed_signal.connect(
+            self.window.input_controller._reinit_gamepad
+        )

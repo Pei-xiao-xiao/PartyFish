@@ -220,9 +220,25 @@ class InputController(QObject):
             from src.gamepad_controller import gamepad_controller
             self._gamepad_controller = gamepad_controller
             self._gamepad_controller.gamepad_button_pressed.connect(self._on_gamepad_button)
+            if self.running:
+                self._gamepad_controller.start_listening()
         except Exception as e:
             print(f"Failed to initialize gamepad controller: {e}")
             self._gamepad_controller = None
+
+    def _reinit_gamepad(self):
+        """
+        Reinitialize gamepad controller (called when gamepad settings change).
+        """
+        if self._gamepad_controller:
+            self._gamepad_controller.stop_listening()
+            try:
+                self._gamepad_controller.gamepad_button_pressed.disconnect(self._on_gamepad_button)
+            except Exception:
+                pass
+            self._gamepad_controller = None
+
+        self._init_gamepad()
 
     def _on_gamepad_button(self, button_name):
         """
