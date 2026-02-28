@@ -131,6 +131,7 @@ class ConfigManager:
             "release_legendary": False,
             "enable_legendary_screenshot": True,
             "enable_first_catch_screenshot": True,
+            "enable_season_filter": True,
             "enable_record_only": False,
             "record_only_hotkey": "F5",
             "enable_gamepad": False,

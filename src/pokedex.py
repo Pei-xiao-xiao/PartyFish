@@ -491,7 +491,9 @@ class Pokedex(QObject):
                                 continue
 
                         # 2.4 季节检查 (OR)
-                        if target_seasons:
+                        if target_seasons and cfg.global_settings.get(
+                            "enable_season_filter", True
+                        ):
                             fish_seasons = set(cond.get("season", []))
                             if not fish_seasons.intersection(target_seasons):
                                 continue

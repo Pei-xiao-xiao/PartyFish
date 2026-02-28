@@ -335,25 +335,25 @@ class OverlayWindow(QWidget):
 
         # 特殊状态处理 - 使用更可爱的用词
         if "准备" in display_text:
-            display_text = "准备好啦"
+            display_text = "准备好了"
         elif "等待咬钩" in display_text:
-            display_text = "等果冻鱼上钩中"
+            display_text = "等鱼上钩中..."
         elif "上鱼了" in display_text:
             display_text = "好鱼来了！"
         elif "鱼跑了" in display_text:
-            display_text = "呜呜跑掉了"
+            display_text = "鱼跑掉了"
         elif "未检测到游戏" in display_text or "环境检查失败" in display_text:
-            display_text = "找不到游戏啦"
+            display_text = "找不到游戏了"
         elif "没有鱼饵" in display_text:
-            display_text = "鱼饵用完啦"
+            display_text = "鱼饵用完了"
         elif "鱼桶" in display_text and "满" in display_text:
-            display_text = "鱼桶满满的"
+            display_text = "鱼桶满了"
         elif "抛竿" in display_text:
-            display_text = "正在抛竿呢"
+            display_text = "正在抛竿..."
         elif "记录" in display_text:
             display_text = "记录中"
         elif "暂停" in display_text:
-            display_text = "休息一下下"
+            display_text = "休息一下"
 
         self.status_label.setText(display_text)
 
@@ -490,12 +490,15 @@ class OverlayWindow(QWidget):
 
             current_time = self._last_time
             current_weather = self._last_weather
-            current_season = "春季"
 
-            # 构建筛选条件：时间 + 天气 + 季节
-            criteria = {"time": [current_time], "season": [current_season]}
+            # 构建筛选条件：时间 + 天气 + 季节（排除冬季）
+            criteria = {"time": [current_time]}
             if current_weather:
                 criteria["weather"] = [current_weather]
+            if cfg.global_settings.get("enable_season_filter", True):
+                criteria["season"] = ["春季"]
+            else:
+                criteria["season"] = ["春季", "夏季", "秋季"]
 
             all_fish = pokedex.get_all_fish()
             catchable_fish = pokedex.filter_fish_multi(all_fish, criteria)
@@ -559,7 +562,9 @@ class OverlayWindow(QWidget):
                         weather_ok = not current_weather or current_weather in cond.get(
                             "weather", []
                         )
-                        season_ok = current_season in cond.get("season", [])
+                        season_ok = not cfg.global_settings.get(
+                            "enable_season_filter", True
+                        ) or "春季" in cond.get("season", [])
                         if time_ok and weather_ok and season_ok:
                             fish_locs.update(loc_list)
                 # 取第一个匹配地点作为分组键
@@ -575,22 +580,13 @@ class OverlayWindow(QWidget):
                     self.preview_layout.addWidget(sep)
                 first_group = False
 
-                # 地点图标
-                icon_path = os.path.join(loc_base, f"{loc_name}.png")
-                if loc_name and os.path.exists(icon_path):
-                    loc_label = QLabel()
-                    loc_label.setFixedSize(24, 24)
-                    loc_label.setScaledContents(True)
-                    loc_label.setPixmap(QPixmap(icon_path))
-                    loc_label.setToolTip(loc_name)
-                    self.preview_layout.addWidget(loc_label)
-
                 # 该地点的鱼
                 for fish in fish_by_location[loc_name]:
                     fish_name = fish.get("name", "Unknown")
                     image_path = pokedex.get_fish_image_path(fish_name)
+                    loc_icon_path = os.path.join(loc_base, f"{loc_name}.png") if loc_name else None
                     preview_item = FishPreviewItem(
-                        fish_name, str(image_path) if image_path else None
+                        fish_name, str(image_path) if image_path else None, loc_icon_path
                     )
                     preview_item.setToolTip(f"{fish_name} ({loc_name})")
                     self.preview_layout.addWidget(preview_item)

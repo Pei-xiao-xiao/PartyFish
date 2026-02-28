@@ -54,11 +54,11 @@ class SettingsInterface(ScrollArea):
     uno_hotkey_changed_signal = Signal(str)
     record_only_hotkey_changed_signal = Signal(str)
     theme_changed_signal = Signal(str)
-    account_list_changed_signal = Signal()
-    records_updated_signal = Signal()
-    reset_overlay_position_signal = Signal()
-    release_mode_changed_signal = Signal(str)
-    gamepad_mapping_changed_signal = Signal()
+    account_list_changed_signal = Signal()  # 账号列表变化信号
+    records_updated_signal = Signal()  # 记录更新信号，用于通知记录界面刷新数据
+    reset_overlay_position_signal = Signal()  # 重置悬浮窗位置信号
+    release_mode_changed_signal = Signal(str)  # 放生模式变化信号
+    season_filter_changed_signal = Signal()  # 季节筛选变化信号
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -174,7 +174,9 @@ class SettingsInterface(ScrollArea):
         self.hotkeyGamepadLineEdit.setPlaceholderText("手柄")
         gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
         self.hotkeyGamepadLineEdit.setText(gamepad_mappings.get("toggle", ""))
-        self.hotkeyCard.hBoxLayout.addWidget(self.hotkeyGamepadLineEdit, 0, Qt.AlignRight)
+        self.hotkeyCard.hBoxLayout.addWidget(
+            self.hotkeyGamepadLineEdit, 0, Qt.AlignRight
+        )
         margins = self.hotkeyCard.hBoxLayout.contentsMargins()
         self.hotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -197,7 +199,9 @@ class SettingsInterface(ScrollArea):
         self.debugGamepadLineEdit.setFixedWidth(80)
         self.debugGamepadLineEdit.setPlaceholderText("手柄")
         self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
-        self.debugHotkeyCard.hBoxLayout.addWidget(self.debugGamepadLineEdit, 0, Qt.AlignRight)
+        self.debugHotkeyCard.hBoxLayout.addWidget(
+            self.debugGamepadLineEdit, 0, Qt.AlignRight
+        )
         margins = self.debugHotkeyCard.hBoxLayout.contentsMargins()
         self.debugHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -220,7 +224,9 @@ class SettingsInterface(ScrollArea):
         self.sellGamepadLineEdit.setFixedWidth(80)
         self.sellGamepadLineEdit.setPlaceholderText("手柄")
         self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
-        self.sellHotkeyCard.hBoxLayout.addWidget(self.sellGamepadLineEdit, 0, Qt.AlignRight)
+        self.sellHotkeyCard.hBoxLayout.addWidget(
+            self.sellGamepadLineEdit, 0, Qt.AlignRight
+        )
         margins = self.sellHotkeyCard.hBoxLayout.contentsMargins()
         self.sellHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -259,6 +265,13 @@ class SettingsInterface(ScrollArea):
             self.tr("开启时识别鱼类信息并记录，关闭时仅执行钓鱼动作"),
         )
         self.globalGroup.addSettingCard(self.fishRecognitionCard)
+
+        self.seasonFilterCard = SwitchSettingCard(
+            FluentIcon.CALENDAR,
+            self.tr("季节筛选"),
+            self.tr("关闭后图鉴筛选时不考虑季节条件"),
+        )
+        self.globalGroup.addSettingCard(self.seasonFilterCard)
 
         self.legendaryScreenshotCard = SwitchSettingCard(
             FluentIcon.CAMERA,
@@ -359,7 +372,9 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.unoGroup)
 
-        self.recordOnlyGroup = SettingCardGroup(self.tr("只记录模式"), self.scrollWidget)
+        self.recordOnlyGroup = SettingCardGroup(
+            self.tr("只记录模式"), self.scrollWidget
+        )
 
         self.enableRecordOnlyCard = SwitchSettingCard(
             FluentIcon.VIDEO,
@@ -376,7 +391,9 @@ class SettingsInterface(ScrollArea):
         )
         self.recordOnlyHotkeyLineEdit = KeyBindingWidget(self.recordOnlyHotkeyCard)
         self.recordOnlyHotkeyLineEdit.setFixedWidth(100)
-        self.recordOnlyHotkeyLineEdit.setText(cfg.global_settings.get("record_only_hotkey", "F5"))
+        self.recordOnlyHotkeyLineEdit.setText(
+            cfg.global_settings.get("record_only_hotkey", "F5")
+        )
         self.recordOnlyHotkeyCard.hBoxLayout.addWidget(
             self.recordOnlyHotkeyLineEdit, 0, Qt.AlignRight
         )
@@ -386,7 +403,9 @@ class SettingsInterface(ScrollArea):
         self.recordOnlyGamepadLineEdit.setFixedWidth(80)
         self.recordOnlyGamepadLineEdit.setPlaceholderText("手柄")
         self.recordOnlyGamepadLineEdit.setText(gamepad_mappings.get("record_only", ""))
-        self.recordOnlyHotkeyCard.hBoxLayout.addWidget(self.recordOnlyGamepadLineEdit, 0, Qt.AlignRight)
+        self.recordOnlyHotkeyCard.hBoxLayout.addWidget(
+            self.recordOnlyGamepadLineEdit, 0, Qt.AlignRight
+        )
         margins = self.recordOnlyHotkeyCard.hBoxLayout.contentsMargins()
         self.recordOnlyHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -574,19 +593,26 @@ class SettingsInterface(ScrollArea):
         self.debugHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
         self.sellHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
         self.unoHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
-        self.recordOnlyHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
+        self.recordOnlyHotkeyLineEdit.editingFinished.connect(
+            self._save_global_settings
+        )
 
         self.jiashiCard.checkedChanged.connect(self._save_global_settings)
         self.autoClickSellCard.checkedChanged.connect(self._save_global_settings)
         self.antiAfkCard.checkedChanged.connect(self._save_global_settings)
         self.soundAlertCard.checkedChanged.connect(self._save_global_settings)
         self.fishRecognitionCard.checkedChanged.connect(self._save_global_settings)
+        self.seasonFilterCard.checkedChanged.connect(self._on_season_filter_changed)
         self.legendaryScreenshotCard.checkedChanged.connect(self._save_global_settings)
         self.firstCatchScreenshotCard.checkedChanged.connect(self._save_global_settings)
 
         self.enableRecordOnlyCard.checkedChanged.connect(self._save_global_settings)
-        self.recordOnlyHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
-        self.recordOnlyGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
+        self.recordOnlyHotkeyLineEdit.editingFinished.connect(
+            self._save_global_settings
+        )
+        self.recordOnlyGamepadLineEdit.editingFinished.connect(
+            self._save_gamepad_mappings
+        )
 
         self.enableGamepadCard.checkedChanged.connect(self._save_global_settings)
         self.hotkeyGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
@@ -595,7 +621,9 @@ class SettingsInterface(ScrollArea):
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
-        self.autoReleaseEnabledCard.checkedChanged.connect(self._on_auto_release_changed)
+        self.autoReleaseEnabledCard.checkedChanged.connect(
+            self._on_auto_release_changed
+        )
         self.enableFishNameProtectionCard.checkedChanged.connect(
             self._save_global_settings
         )
@@ -630,6 +658,10 @@ class SettingsInterface(ScrollArea):
     def _on_theme_changed(self, theme):
         self.theme_changed_signal.emit(theme)
         self._save_global_settings()
+
+    def _on_season_filter_changed(self):
+        self._save_global_settings()
+        self.season_filter_changed_signal.emit()
 
     def _load_settings_to_ui(self, preset_name_to_load=None):
         # Block signals to prevent recursive calls while updating the UI
@@ -672,6 +704,9 @@ class SettingsInterface(ScrollArea):
         )
         self.fishRecognitionCard.setChecked(
             cfg.global_settings.get("enable_fish_recognition", True)
+        )
+        self.seasonFilterCard.setChecked(
+            cfg.global_settings.get("enable_season_filter", True)
         )
         self.legendaryScreenshotCard.setChecked(
             cfg.global_settings.get("enable_legendary_screenshot", True)
@@ -780,6 +815,7 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["enable_fish_recognition"] = (
             self.fishRecognitionCard.isChecked()
         )
+        cfg.global_settings["enable_season_filter"] = self.seasonFilterCard.isChecked()
         cfg.global_settings["enable_legendary_screenshot"] = (
             self.legendaryScreenshotCard.isChecked()
         )
@@ -806,7 +842,9 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["jitter_range"] = self.jitterSlider.value()
         cfg.global_settings["theme"] = self.themeComboBox.currentText()
 
-        cfg.global_settings["enable_record_only"] = self.enableRecordOnlyCard.isChecked()
+        cfg.global_settings["enable_record_only"] = (
+            self.enableRecordOnlyCard.isChecked()
+        )
         new_record_only_hotkey = self.recordOnlyHotkeyLineEdit.text()
         if cfg.global_settings.get("record_only_hotkey") != new_record_only_hotkey:
             cfg.global_settings["record_only_hotkey"] = new_record_only_hotkey
@@ -820,12 +858,20 @@ class SettingsInterface(ScrollArea):
         """Save gamepad button mappings."""
         if "gamepad_mappings" not in cfg.global_settings:
             cfg.global_settings["gamepad_mappings"] = {}
-        
-        cfg.global_settings["gamepad_mappings"]["toggle"] = self.hotkeyGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["debug"] = self.debugGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["sell"] = self.sellGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["record_only"] = self.recordOnlyGamepadLineEdit.text()
-        
+
+        cfg.global_settings["gamepad_mappings"][
+            "toggle"
+        ] = self.hotkeyGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"][
+            "debug"
+        ] = self.debugGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"][
+            "sell"
+        ] = self.sellGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"][
+            "record_only"
+        ] = self.recordOnlyGamepadLineEdit.text()
+
         cfg.save()
         self.gamepad_mapping_changed_signal.emit()
 
@@ -853,7 +899,9 @@ class SettingsInterface(ScrollArea):
         self._update_release_cards_state()
 
         # 发射信号通知主页更新
-        self.release_mode_changed_signal.emit(cfg.global_settings.get("release_mode", "off"))
+        self.release_mode_changed_signal.emit(
+            cfg.global_settings.get("release_mode", "off")
+        )
 
     def _update_release_cards_state(self):
         """根据放生模式更新放生相关卡片的启用状态"""
@@ -903,7 +951,9 @@ class SettingsInterface(ScrollArea):
         self._update_release_cards_state()
 
         # 发射信号通知主页更新
-        self.release_mode_changed_signal.emit(cfg.global_settings.get("release_mode", "off"))
+        self.release_mode_changed_signal.emit(
+            cfg.global_settings.get("release_mode", "off")
+        )
 
     def update_release_mode_from_main(self, mode):
         """从主页更新放生模式"""

@@ -45,7 +45,7 @@ class NumericTableWidgetItem(QTableWidgetItem):
 
     def __lt__(self, other):
         try:
-            return float(self.text()) < float(other.text())
+            return float(self.text().replace(' kg', '')) < float(other.text().replace(' kg', ''))
         except ValueError:
             return super().__lt__(other)
 
@@ -152,7 +152,13 @@ class RecordsInterface(QWidget):
         self.table.setSortingEnabled(True)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.ResizeToContents
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Stretch
         )
         self.table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
@@ -342,9 +348,14 @@ class RecordsInterface(QWidget):
         items = [
             QTableWidgetItem(str(timestamp)),
             QTableWidgetItem(str(name)),
-            NumericTableWidgetItem(str(weight)),
+            NumericTableWidgetItem(f"{weight} kg"),
             QTableWidgetItem(str(quality)),
         ]
+
+        # 名称、重量、品质列居中对齐
+        items[1].setTextAlignment(QtCoreQt.AlignmentFlag.AlignCenter)
+        items[2].setTextAlignment(QtCoreQt.AlignmentFlag.AlignCenter)
+        items[3].setTextAlignment(QtCoreQt.AlignmentFlag.AlignCenter)
 
         # Determine color based on quality and theme
         quality_str = str(quality)
