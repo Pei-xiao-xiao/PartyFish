@@ -2,7 +2,7 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.3.6"
+VERSION = "3.3.8Beta"
 RELEASE_NOTES = """"""
 
 

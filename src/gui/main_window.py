@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtCore import Qt, QSize, Signal, QUrl
-from PySide6.QtGui import QIcon, QPainter, QColor, QFont
+from PySide6.QtGui import QIcon, QPainter, QColor, QFont, QPixmap
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import (
     FluentIcon,
@@ -143,6 +143,10 @@ class MainWindow(FluentWindow):
         # 启动周期重置管理器
         self.cycle_reset_manager.start()
 
+        # Watermark cache to avoid rebuilding text grid on every repaint.
+        self._watermark_cache = None
+        self._watermark_cache_size = QSize(0, 0)
+
     def _update_overlay_limit(self, _=None):
         """更新悬浮窗和首页的销售额度显示"""
         self.sales_limit_manager.update_overlay_limit(_)
@@ -237,14 +241,14 @@ class MainWindow(FluentWindow):
     def _toggle_record_only_mode(self):
         """切换只记录模式"""
         from src.config import cfg
-        
+
         current = cfg.global_settings.get("enable_record_only", False)
         cfg.global_settings["enable_record_only"] = not current
         cfg.save()
-        
+
         # 通知工作线程
         self.worker.update_record_only_mode(not current)
-        
+
         # 更新 UI 显示
         if not current:
             self.append_log("[系统] 已启用只记录模式")
@@ -331,14 +335,26 @@ class MainWindow(FluentWindow):
     def paintEvent(self, event):
         """绘制水印"""
         super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setPen(QColor(128, 128, 128, 60))
-        painter.setFont(QFont("Microsoft YaHei", 20))
-        painter.rotate(-30)
-        text = "免费软件 禁止倒卖"
-        for x in range(-500, self.width() + 500, 300):
-            for y in range(0, self.height() + 500, 150):
-                painter.drawText(x, y, text)
+        current_size = self.size()
+        if self._watermark_cache is None or self._watermark_cache_size != current_size:
+            self._watermark_cache_size = QSize(current_size)
+            cache = QPixmap(current_size)
+            cache.fill(Qt.transparent)
+
+            cache_painter = QPainter(cache)
+            cache_painter.setPen(QColor(128, 128, 128, 60))
+            cache_painter.setFont(QFont("Microsoft YaHei", 20))
+            cache_painter.rotate(-30)
+            text = "免费软件 禁止倒卖"
+            for x in range(-500, self.width() + 500, 300):
+                for y in range(0, self.height() + 500, 150):
+                    cache_painter.drawText(x, y, text)
+            cache_painter.end()
+            self._watermark_cache = cache
+
+        if self._watermark_cache is not None:
+            painter = QPainter(self)
+            painter.drawPixmap(0, 0, self._watermark_cache)
 
     def closeEvent(self, event):
         """关闭窗口事件"""
