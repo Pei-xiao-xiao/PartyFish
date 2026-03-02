@@ -119,6 +119,11 @@ class MainWindow(FluentWindow):
             lambda: self.home_interface._refresh_fish_preview()
         )
 
+        # 连接只记录模式热键信号
+        self.input_controller.record_only_hotkey_signal.connect(
+            self._toggle_record_only_mode
+        )
+
         # Start the worker thread, but it will be initially paused
         self.worker.start()
         self.popup_worker.start()
@@ -228,6 +233,29 @@ class MainWindow(FluentWindow):
         else:
             self.worker.pause()
             self.audio_manager.play_control_sound("pause")
+
+    def _toggle_record_only_mode(self):
+        """切换只记录模式"""
+        from src.config import cfg
+        
+        current = cfg.global_settings.get("enable_record_only", False)
+        cfg.global_settings["enable_record_only"] = not current
+        cfg.save()
+        
+        # 通知工作线程
+        self.worker.update_record_only_mode(not current)
+        
+        # 更新 UI 显示
+        if not current:
+            self.append_log("[系统] 已启用只记录模式")
+            self.update_status("只记录模式")
+        else:
+            self.append_log("[系统] 已禁用只记录模式")
+            # 恢复到之前的状态
+            if self.worker.paused:
+                self.update_status("已暂停")
+            else:
+                self.update_status("运行中")
 
     def _connect_uno_signals(self):
         """连接UNO管理器的信号到UI更新"""
