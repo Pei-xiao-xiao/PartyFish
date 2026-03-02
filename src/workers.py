@@ -71,6 +71,7 @@ class FishingWorker(QThread):
 
         # 等待用户按 F2 解除暂停
         while self.paused and self.running:
+            self.fishing_service.drain_async_results()
             self.msleep(100)
 
         if not self.running:
@@ -86,10 +87,13 @@ class FishingWorker(QThread):
                 if not self.running:
                     break
 
+                self.fishing_service.drain_async_results()
                 self.msleep(100)  # 暂停时避免CPU空转
 
             if not self.running:
                 break
+
+            self.fishing_service.drain_async_results()
 
             try:
                 if self.state_machine.is_finding_prompt():
@@ -109,7 +113,9 @@ class FishingWorker(QThread):
                         # 收线失败（鱼跑了），重置状态机重新开始
                         self.state_machine.reset()
                     else:
-                        should_release = self.fishing_service.record_catch()
+                        should_release = (
+                            self.fishing_service.record_catch_non_blocking()
+                        )
                         self.log_updated.emit("收起渔获, 准备下一轮。")
 
                         # 改进的关闭弹窗逻辑：循环检测直到弹窗消失
@@ -193,6 +199,8 @@ class FishingWorker(QThread):
                 self.pause()
                 self.status_updated.emit(f"错误：{e}, 已暂停")
 
+            self.fishing_service.drain_async_results()
+
             # 循环间隔，等待指定时间后再进行下一轮
             self.smart_sleep(cfg.cycle_interval)
 
@@ -231,6 +239,7 @@ class FishingWorker(QThread):
         :param reason: 停止的具体原因，将作为最终状态显示在GUI上
         """
         self.running = False
+        self.fishing_service.shutdown_async_processing(wait=False)
         # Remove self.wait() to prevent GUI freezing.
         # The main thread should wait for us, not us blocking inside our own stop method called from main thread.
         # But actually, stop() is called from main thread. If we wait() here, we block main thread until run() finishes.
@@ -509,7 +518,9 @@ class PopupWorker(QThread):
                 elif "KeyboardInterrupt" in error_msg:
                     pass
                 else:
-                    self.log_updated.emit(f"[弹窗处理服务] 发生错误：{type(e).__name__}: {e}")
+                    self.log_updated.emit(
+                        f"[弹窗处理服务] 发生错误：{type(e).__name__}: {e}"
+                    )
 
             # 控制循环频率
             self.msleep(500)  # 每 0.5 秒检测一次

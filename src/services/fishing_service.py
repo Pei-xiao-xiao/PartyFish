@@ -4,7 +4,9 @@
 """
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from src.config import cfg
+from src.services.ocr_service import OCRService
 from src.services.record_service import RecordService
 from src.services.screenshot_service import ScreenshotService
 
@@ -14,6 +16,12 @@ class FishingService:
 
     def __init__(self, worker):
         self.worker = worker
+        # Keep async catch tasks serial to avoid concurrent record writes.
+        self._async_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="catch-recorder"
+        )
+        self._async_futures = []
+        self._async_ocr_service = OCRService()
 
     def _get_initial_bait_amount(self):
         """
@@ -533,6 +541,221 @@ class FishingService:
                 self.worker.log_updated.emit(f"截图失败: {result}")
 
         return should_release
+
+    def _should_run_async_catch_processing(self) -> bool:
+        """Return True when catch recognition can run asynchronously."""
+        release_mode = cfg.global_settings.get("release_mode", "off")
+        if release_mode == "single":
+            # Single-release mode depends on the current catch result.
+            self.worker.log_updated.emit("单条放生模式已开启，渔获识别保持同步执行。")
+            return False
+
+        return True
+
+    def _capture_catch_snapshots(self):
+        """Capture OCR frames quickly before the popup gets closed."""
+        ocr_area = cfg.get_rect("ocr_area")
+        if not ocr_area:
+            return []
+
+        self.worker.smart_sleep(0.15)
+
+        snapshots = []
+        for index in range(2):
+            frame = self.worker.vision.screenshot(ocr_area)
+            if frame is not None:
+                snapshots.append(frame)
+            if index == 0:
+                self.worker.msleep(80)
+
+        return snapshots
+
+    def _maybe_trigger_steam_screenshot_early(self, ocr_snapshots):
+        """
+        Steam mode screenshots must be triggered immediately.
+        Use cached OCR frames to decide whether to press F12 before popup closes.
+        """
+        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        if screenshot_mode != "steam":
+            return
+
+        first_enabled = cfg.global_settings.get("enable_first_catch_screenshot", True)
+        legend_enabled = cfg.global_settings.get("enable_legendary_screenshot", True)
+        if not first_enabled and not legend_enabled:
+            return
+
+        success, catch_data = self.worker.ocr_service.recognize_catch_info_from_images(
+            ocr_snapshots, log_callback=None
+        )
+        if not success:
+            self.worker.log_updated.emit("Steam 截图预判失败，跳过即时 F12。")
+            return
+
+        fish_name = catch_data["name"]
+        quality = catch_data["quality"]
+        is_new_record = catch_data["is_new_record"]
+
+        need_first = is_new_record and first_enabled
+        need_legend = quality == "传奇" and legend_enabled
+
+        if need_first:
+            shot_ok, result = ScreenshotService.capture_first_catch(fish_name, quality)
+            self.worker.log_updated.emit(
+                f"Steam 首捕截图: {result}"
+                if shot_ok
+                else f"Steam 首捕截图失败: {result}"
+            )
+
+        if need_legend:
+            shot_ok, result = ScreenshotService.capture_legendary(
+                fish_name, quality, is_new_record
+            )
+            self.worker.log_updated.emit(
+                f"Steam 传奇截图: {result}"
+                if shot_ok
+                else f"Steam 传奇截图失败: {result}"
+            )
+
+    def _process_catch_in_background(self, ocr_snapshots):
+        """Run OCR + record persistence in background thread."""
+        logs = []
+        success, catch_data = self._async_ocr_service.recognize_catch_info_from_images(
+            ocr_snapshots, log_callback=logs.append
+        )
+
+        if not success:
+            return {"logs": logs, "catch_data": None}
+
+        fish_name = catch_data["name"]
+        quality = catch_data["quality"]
+        weight = catch_data["weight"]
+        is_new_record = catch_data["is_new_record"]
+
+        logs.append(f"钓到鱼: {fish_name}, 重量: {weight}kg, 品质: {quality}")
+
+        if not RecordService.save_catch_record(
+            fish_name, quality, weight, is_new_record
+        ):
+            logs.append("写入记录文件失败")
+
+        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        if screenshot_mode == "steam":
+            # Steam F12 must be triggered early in foreground, skip delayed background trigger.
+            return {
+                "logs": logs,
+                "catch_data": {
+                    "name": fish_name,
+                    "weight": weight,
+                    "quality": quality,
+                    "is_new_record": is_new_record,
+                },
+            }
+
+        if is_new_record and cfg.global_settings.get(
+            "enable_first_catch_screenshot", True
+        ):
+            success, result = ScreenshotService.capture_first_catch(fish_name, quality)
+            logs.append(f"截图已保存至 {result}" if success else f"截图失败: {result}")
+
+        if quality == "传奇" and cfg.global_settings.get(
+            "enable_legendary_screenshot", True
+        ):
+            success, result = ScreenshotService.capture_legendary(
+                fish_name, quality, is_new_record
+            )
+            logs.append(f"截图已保存至 {result}" if success else f"截图失败: {result}")
+
+        return {
+            "logs": logs,
+            "catch_data": {
+                "name": fish_name,
+                "weight": weight,
+                "quality": quality,
+                "is_new_record": is_new_record,
+            },
+        }
+
+    def _submit_async_catch_processing(self, ocr_snapshots) -> bool:
+        try:
+            future = self._async_executor.submit(
+                self._process_catch_in_background, ocr_snapshots
+            )
+            self._async_futures.append(future)
+            return True
+        except Exception as e:
+            self.worker.log_updated.emit(f"后台任务提交失败: {type(e).__name__}: {e}")
+            return False
+
+    def drain_async_results(self):
+        """Poll completed async catch tasks and emit signals from worker thread."""
+        if not self._async_futures:
+            return
+
+        pending = []
+        for future in self._async_futures:
+            if not future.done():
+                pending.append(future)
+                continue
+
+            try:
+                result = future.result()
+            except Exception as e:
+                self.worker.log_updated.emit(
+                    f"后台渔获处理异常: {type(e).__name__}: {e}"
+                )
+                continue
+
+            for message in result.get("logs", []):
+                self.worker.log_updated.emit(message)
+
+            catch_data = result.get("catch_data")
+            if catch_data:
+                self.worker.record_added.emit(catch_data)
+
+        self._async_futures = pending
+
+    def shutdown_async_processing(self, wait: bool = False):
+        """Shutdown async executor to avoid lingering threads on app exit."""
+        try:
+            for future in self._async_futures:
+                if not future.done():
+                    future.cancel()
+            self._async_futures.clear()
+            self._async_executor.shutdown(wait=wait, cancel_futures=True)
+        except Exception:
+            pass
+
+    def record_catch_non_blocking(self):
+        """
+        Non-blocking catch entry:
+        - Async path: quickly capture OCR frames and return immediately.
+        - Fallback path: run existing synchronous record_catch().
+        """
+        if not self.worker.running:
+            return False
+
+        if not cfg.global_settings.get("enable_fish_recognition", True):
+            return self.record_catch()
+
+        if not self._should_run_async_catch_processing():
+            return self.record_catch()
+
+        self.worker.status_updated.emit("记录渔获(后台)")
+        self.worker.log_updated.emit("正在快速采集渔获快照，后台识别中...")
+
+        snapshots = self._capture_catch_snapshots()
+        if not snapshots:
+            self.worker.log_updated.emit("未采集到有效渔获快照，回退到同步识别。")
+            return self.record_catch()
+
+        self._maybe_trigger_steam_screenshot_early(snapshots)
+
+        if snapshots and self._submit_async_catch_processing(snapshots):
+            self.worker.log_updated.emit("渔获识别已转入后台，继续下一轮。")
+            return False
+
+        self.worker.log_updated.emit("后台处理启动失败，回退到同步识别。")
+        return self.record_catch()
 
     def _record_event(self, event_type: str):
         """记录事件到CSV"""

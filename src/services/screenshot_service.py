@@ -14,6 +14,10 @@ from src.config import cfg
 
 
 class ScreenshotService:
+    # Merge duplicate Steam F12 triggers fired in the same catch cycle.
+    _steam_f12_lock = threading.Lock()
+    _last_steam_f12_monotonic = 0.0
+    _steam_f12_cooldown_sec = 0.7
     """截图服务类"""
 
     def __init__(self):
@@ -177,7 +181,14 @@ class ScreenshotService:
         try:
             from src.inputs import InputController
 
-            InputController.press_key("F12")
-            return True, "Steam截图已触发"
+            now = time.monotonic()
+            with ScreenshotService._steam_f12_lock:
+                elapsed = now - ScreenshotService._last_steam_f12_monotonic
+                if elapsed < ScreenshotService._steam_f12_cooldown_sec:
+                    return True, "Steam截图已触发（已合并重复触发）"
+
+                InputController.press_key("F12")
+                ScreenshotService._last_steam_f12_monotonic = now
+                return True, "Steam截图已触发"
         except Exception as e:
             return False, str(e)

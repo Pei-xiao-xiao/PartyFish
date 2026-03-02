@@ -82,6 +82,58 @@ class OCRService:
         # 解析文本
         return self._parse_catch_text(full_text, log_callback)
 
+    def recognize_catch_info_from_images(
+        self, images, log_callback=None
+    ) -> tuple[bool, dict]:
+        """Recognize catch info from pre-captured image frames."""
+        if images is None:
+            if log_callback:
+                log_callback("OCR input is empty.")
+            return False, {}
+
+        if not isinstance(images, (list, tuple)):
+            images = [images]
+
+        valid_images = [img for img in images if img is not None]
+        if not valid_images:
+            if log_callback:
+                log_callback("OCR did not receive any valid frame.")
+            return False, {}
+
+        total = len(valid_images)
+        for idx, image in enumerate(valid_images, start=1):
+            result, _ = self.ocr(image)
+            if not result:
+                if log_callback:
+                    log_callback(f"OCR frame {idx}/{total}: no text detected.")
+                continue
+
+            full_text = "".join([res[1] for res in result])
+            if log_callback:
+                log_callback(f"OCR raw text (frame {idx}): {full_text}")
+
+            success, catch_data = self._parse_catch_text(full_text, log_callback)
+            if success:
+                return True, catch_data
+
+        if log_callback:
+            log_callback("OCR failed on all cached frames.")
+
+        try:
+            debug_dir = cfg._get_application_path() / "debug_screenshots"
+            if not debug_dir.exists():
+                debug_dir.mkdir(parents=True)
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            debug_filename = debug_dir / f"ocr_failed_snapshot_{timestamp}.png"
+            cv2.imwrite(str(debug_filename), valid_images[-1])
+            if log_callback:
+                log_callback(f"Saved OCR debug snapshot: {debug_filename}")
+        except Exception as e:
+            if log_callback:
+                log_callback(f"Failed to save OCR debug snapshot: {e}")
+
+        return False, {}
+
     def _parse_catch_text(self, full_text: str, log_callback=None) -> tuple[bool, dict]:
         """
         解析渔获文本
@@ -195,12 +247,20 @@ class OCRService:
                     search_name = "".join(re.findall(r"[\u4e00-\u9fa5]+", fish_name))
 
                 matches = process.extract(
-                    search_name, cfg.fish_names_list, scorer=fuzz.ratio, limit=1, score_cutoff=60
+                    search_name,
+                    cfg.fish_names_list,
+                    scorer=fuzz.ratio,
+                    limit=1,
+                    score_cutoff=60,
                 )
 
                 if not matches and search_name != fish_name:
                     matches = process.extract(
-                        fish_name, cfg.fish_names_list, scorer=fuzz.ratio, limit=1, score_cutoff=60
+                        fish_name,
+                        cfg.fish_names_list,
+                        scorer=fuzz.ratio,
+                        limit=1,
+                        score_cutoff=60,
                     )
 
                 if matches:
