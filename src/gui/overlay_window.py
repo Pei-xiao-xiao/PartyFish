@@ -350,6 +350,8 @@ class OverlayWindow(QWidget):
             display_text = "鱼桶满了"
         elif "抛竿" in display_text:
             display_text = "正在抛竿..."
+        elif "放生" in display_text:
+            display_text = "正在放生..."
         elif "记录" in display_text:
             display_text = "记录中"
         elif "暂停" in display_text:
@@ -584,9 +586,13 @@ class OverlayWindow(QWidget):
                 for fish in fish_by_location[loc_name]:
                     fish_name = fish.get("name", "Unknown")
                     image_path = pokedex.get_fish_image_path(fish_name)
-                    loc_icon_path = os.path.join(loc_base, f"{loc_name}.png") if loc_name else None
+                    loc_icon_path = (
+                        os.path.join(loc_base, f"{loc_name}.png") if loc_name else None
+                    )
                     preview_item = FishPreviewItem(
-                        fish_name, str(image_path) if image_path else None, loc_icon_path
+                        fish_name,
+                        str(image_path) if image_path else None,
+                        loc_icon_path,
                     )
                     preview_item.setToolTip(f"{fish_name} ({loc_name})")
                     self.preview_layout.addWidget(preview_item)

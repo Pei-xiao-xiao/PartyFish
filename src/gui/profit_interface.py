@@ -6,7 +6,7 @@
 import csv
 from collections import defaultdict
 from datetime import datetime, timedelta
-from PySide6.QtCore import Qt, Signal, QPointF
+from PySide6.QtCore import Qt, Signal, QPointF, QTimer
 from PySide6.QtGui import QColor, QBrush, QLinearGradient, QPainter, QCursor
 from PySide6.QtWidgets import (
     QWidget,
@@ -175,6 +175,10 @@ class ProfitInterface(QWidget):
         self.line_chart_dates = []
         self.bar_categories_dates = []
         self._editing_blocked = False
+        self._pending_reload = False
+        self._reload_timer = QTimer(self)
+        self._reload_timer.setSingleShot(True)
+        self._reload_timer.timeout.connect(self._flush_pending_reload)
 
         # 加载数据
         self.reload_data()
@@ -469,8 +473,31 @@ class ProfitInterface(QWidget):
         """Public API for theme switch refresh."""
         self.reload_data()
 
+    def request_reload(self, delay_ms: int = 250):
+        """
+        Request a deferred data reload.
+        When interface is hidden, mark dirty and reload on next show.
+        """
+        self._pending_reload = True
+        if not self.isVisible():
+            self._reload_timer.stop()
+            return
+        if not self._reload_timer.isActive():
+            self._reload_timer.start(max(0, delay_ms))
+
+    def _flush_pending_reload(self):
+        if not self._pending_reload or not self.isVisible():
+            return
+        self.reload_data()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._pending_reload and not self._reload_timer.isActive():
+            self._reload_timer.start(10)
+
     def reload_data(self):
         """重新加载数据并刷新界面"""
+        self._pending_reload = False
         self._apply_theme_styles()
         # 使用服务加载数据
         start_time = self.analysis_service.get_current_cycle_start_time()
@@ -676,7 +703,7 @@ class ProfitInterface(QWidget):
 
     def add_sale_record(self, amount):
         """添加销售记录（由 worker 调用）"""
-        self.reload_data()
+        self.request_reload(delay_ms=0)
 
     def _on_line_hover(self, point, state, name, history_stats):
         """趋势图悬停提示"""

@@ -41,7 +41,7 @@ class SignalManager:
             self.window.home_interface.add_record_to_session_table
         )
         self.window.worker.record_added.connect(
-            lambda x: self.window.profit_interface.reload_data()
+            lambda x: self.window.profit_interface.request_reload()
         )
         self.window.worker.sale_recorded.connect(
             self.window.profit_interface.add_sale_record

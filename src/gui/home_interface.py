@@ -1275,10 +1275,8 @@ class HomeInterface(QWidget):
                 "color: #52c41a; font-size: 12px; font-weight: 500;"
             )
 
-            # 重置计数
+            # 本次软件会话内持续累计计时；仅在首次启动时从 00:00:00 开始。
             if not self.timer.isActive():
-                self.total_catch = 0
-                self.run_time = QTime(0, 0, 0)
                 self.timer.start(1000)
                 self._refresh_run_time_label()
 

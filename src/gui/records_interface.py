@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
 )
 from PySide6.QtGui import QColor, QBrush, Qt, QPainter, QCursor
-from PySide6.QtCore import Qt as QtCoreQt, QMargins, QDate, Signal
+from PySide6.QtCore import Qt as QtCoreQt, QMargins, QDate, Signal, QTimer
 from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
 from qfluentwidgets import (
     TableWidget,
@@ -213,6 +213,11 @@ class RecordsInterface(QWidget):
 
         # --- Data Storage ---
         self.all_records = []
+        self._pending_table_records = []
+        self._filter_active_last = False
+        self._flush_timer = QTimer(self)
+        self._flush_timer.setSingleShot(True)
+        self._flush_timer.timeout.connect(self._flush_pending_records)
         self._load_data()
 
     def _init_pie_chart(self):
@@ -364,6 +369,8 @@ class RecordsInterface(QWidget):
 
     def _load_data(self):
         """Load data from CSV and populate table"""
+        self._flush_timer.stop()
+        self._pending_table_records.clear()
         self.all_records = self.data_service.load_records()
         self._update_stats_and_table(rebuild_table=True)
 
@@ -382,9 +389,13 @@ class RecordsInterface(QWidget):
             )
         self.table.setSortingEnabled(True)
 
-    def _add_row_to_table(self, timestamp, name, quality, weight, is_new_record=False):
+    def _add_row_to_table(
+        self, timestamp, name, quality, weight, is_new_record=False, row_index=None
+    ):
         row_count = self.table.rowCount()
-        self.table.insertRow(row_count)
+        if row_index is None or row_index < 0 or row_index > row_count:
+            row_index = row_count
+        self.table.insertRow(row_index)
 
         items = [
             QTableWidgetItem(str(timestamp)),
@@ -419,9 +430,9 @@ class RecordsInterface(QWidget):
         items[3].setData(QtCoreQt.ItemDataRole.UserRole, is_new_record)
 
         for col_index, item in enumerate(items):
-            self.table.setItem(row_count, col_index, item)
+            self.table.setItem(row_index, col_index, item)
 
-        self.table.add_delete_button(row_count)
+        self.table.add_delete_button(row_index)
 
     def _on_delete_row(self, row: int):
         """Delete selected fishing record and refresh current table."""
@@ -513,6 +524,22 @@ class RecordsInterface(QWidget):
         current_view = current_view_item.text() if current_view_item else "全部统计"
         today_str = datetime.now().strftime("%Y-%m-%d")
 
+        has_custom_filter = not (
+            filter_quality == "全部品质"
+            and not search_text
+            and current_view == "全部统计"
+        )
+        if not has_custom_filter:
+            if not self._filter_active_last:
+                return
+            for row in range(self.table.rowCount()):
+                if self.table.isRowHidden(row):
+                    self.table.setRowHidden(row, False)
+            self._filter_active_last = False
+            return
+
+        self._filter_active_last = True
+
         for row in range(self.table.rowCount()):
             timestamp_item = self.table.item(row, 0)
             quality_item = self.table.item(row, 3)
@@ -574,10 +601,43 @@ class RecordsInterface(QWidget):
 
         # 添加到列表开头
         self.all_records.insert(0, fish_record)
+        # Queue table updates and flush in batches to avoid blocking status signal handling.
+        self._pending_table_records.insert(0, fish_record)
+        if self.isVisible() and not self._flush_timer.isActive():
+            self._flush_timer.start(30)
 
-        # 刷新界面
-        self._update_stats_and_table(rebuild_table=True)
+    def _flush_pending_records(self):
+        if not self.isVisible():
+            return
+        if not self._pending_table_records:
+            return
+
+        batch_size = 30
+        batch = self._pending_table_records[:batch_size]
+        del self._pending_table_records[:batch_size]
+
+        self.table.setSortingEnabled(False)
+        for record in reversed(batch):
+            self._add_row_to_table(
+                record.timestamp,
+                record.name,
+                record.quality,
+                record.weight,
+                record.is_new_record,
+                row_index=0,
+            )
+        self.table.setSortingEnabled(True)
+
+        self._update_stats_and_table(rebuild_table=False)
         self.table.scrollToTop()
+
+        if self._pending_table_records:
+            self._flush_timer.start(20)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._pending_table_records and not self._flush_timer.isActive():
+            self._flush_timer.start(10)
 
     def refresh_table_colors(self):
         """

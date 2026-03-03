@@ -408,12 +408,33 @@ class ReleaseService:
 
     def execute_single_release(self):
         """执行单条放生操作"""
+
+        def _abort_if_paused_or_stopped() -> bool:
+            if self.worker.running and not self.worker.paused:
+                return False
+            self.worker.inputs.release_key("C")
+            self.worker.inputs.press_key("ESC")
+            if self.worker.paused:
+                self.worker.log_updated.emit("单条放生被暂停，已中止")
+                self.worker.status_updated.emit("已暂停")
+            return True
+
+        if not self.worker.running or self.worker.paused:
+            return
+
+        self.worker.status_updated.emit("自动放生中")
+        self.worker.log_updated.emit("正在执行单条放生...")
+
         try:
             self.worker.inputs.hold_key("C")
             self.worker.msleep(300)
+            if _abort_if_paused_or_stopped():
+                return
 
             bucket_pos = self.worker.vision.find_template("tong_gray", threshold=0.8)
             self.worker.msleep(200)
+            if _abort_if_paused_or_stopped():
+                return
 
             if bucket_pos:
                 ctypes.windll.user32.SetCursorPos(
@@ -421,9 +442,13 @@ class ReleaseService:
                     bucket_pos[1] + cfg.window_offset_y,
                 )
                 self.worker.msleep(500)
+                if _abort_if_paused_or_stopped():
+                    return
 
             self.worker.inputs.release_key("C")
             self.worker.msleep(1200)
+            if _abort_if_paused_or_stopped():
+                return
 
             if not bucket_pos:
                 self.worker.inputs.press_key("ESC")
@@ -466,10 +491,14 @@ class ReleaseService:
 
             if cfg.global_settings.get("enable_fish_name_protection", False):
                 self.worker.msleep(200)
+                if _abort_if_paused_or_stopped():
+                    return
                 self.worker.inputs.double_click(
                     fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
                 )
                 self.worker.msleep(500)
+                if _abort_if_paused_or_stopped():
+                    return
 
                 fish_name_region = cfg.get_rect("fish_name_tooltip")
                 fish_name_img = self.worker.vision.screenshot(fish_name_region)
@@ -482,24 +511,35 @@ class ReleaseService:
                     return
 
             self.worker.msleep(200)
+            if _abort_if_paused_or_stopped():
+                return
             self.worker.inputs.click(
                 fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
             )
             self.worker.msleep(800)
+            if _abort_if_paused_or_stopped():
+                return
 
             offset = cfg.REGIONS["fish_inventory"]["single_release_button_offset"]
             release_x = fish_x + int(offset[0] * cfg.scale)
             release_y = fish_y + int(offset[1] * cfg.scale)
             self.worker.msleep(200)
+            if _abort_if_paused_or_stopped():
+                return
 
             self.worker.inputs.click(
                 release_x + cfg.window_offset_x, release_y + cfg.window_offset_y
             )
             self.worker.msleep(800)
+            if _abort_if_paused_or_stopped():
+                return
 
             self.worker.inputs.press_key("ESC")
             self.worker.msleep(500)
+            if _abort_if_paused_or_stopped():
+                return
 
         except Exception as e:
             self.worker.log_updated.emit(f"单条放生操作发生错误: {e}")
+            self.worker.inputs.release_key("C")
             self.worker.inputs.press_key("ESC")

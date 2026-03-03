@@ -253,10 +253,12 @@ class FishingWorker(QThread):
 
     def smart_sleep(self, duration):
         """
-        可中断的睡眠函数，能够及时响应停止信号
+        可中断的睡眠函数，能够及时响应停止/暂停信号
         """
         end_time = time.time() + duration
         while self.running and time.time() < end_time:
+            if self.paused:
+                break
             sleep_time = min(0.1, end_time - time.time())
             if sleep_time > 0:
                 time.sleep(sleep_time)
@@ -446,7 +448,7 @@ class FishingWorker(QThread):
         """处理只记录模式"""
         self.status_updated.emit("只记录模式")
         self.log_updated.emit("[只记录模式] 正在监听渔获信息...")
-        
+
         # 持续监控渔获弹窗
         while self.running and not self.paused:
             if not cfg.global_settings.get("enable_record_only", False):
@@ -454,47 +456,45 @@ class FishingWorker(QThread):
                 break
             self.monitor_catch_popup()
             self.smart_sleep(1.0)  # 每秒检测一次
-    
+
     def monitor_catch_popup(self):
         """监控渔获弹窗并记录"""
         try:
             shangyu_region = cfg.get_rect("shangyu")
-            
+
             # 检测"收起"按钮判断是否有渔获弹窗
             shangyu_found = False
             for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
-                if self.vision.find_template(
-                    key, region=shangyu_region, threshold=0.8
-                ):
+                if self.vision.find_template(key, region=shangyu_region, threshold=0.8):
                     shangyu_found = True
                     break
-            
+
             if shangyu_found:
                 self.log_updated.emit("[只记录模式] 检测到渔获弹窗，正在识别...")
-                
+
                 # 调用 OCR 识别渔获信息
                 if cfg.global_settings.get("enable_fish_recognition", True):
                     success, catch_data = self.ocr_service.recognize_catch_info(
                         self.vision, lambda msg: None  # 不输出详细日志，避免刷屏
                     )
-                    
+
                     if success:
                         # 发送记录信号
                         self.record_added.emit(catch_data)
-                        
+
                         # 保存到 CSV
                         RecordService.save_catch_record(
                             catch_data["name"],
                             catch_data["quality"],
                             catch_data["weight"],
-                            catch_data["is_new_record"]
+                            catch_data["is_new_record"],
                         )
-                        
+
                         self.log_updated.emit(
                             f"[只记录模式] 已记录：{catch_data['name']} "
                             f"{catch_data['weight']}kg {catch_data['quality']}"
                         )
-                    
+
                     # 点击关闭弹窗
                     self.inputs.left_click()
                     self.smart_sleep(0.5)
@@ -504,7 +504,7 @@ class FishingWorker(QThread):
                     self.log_updated.emit("[只记录模式] 已关闭渔获弹窗（未识别）")
         except Exception as e:
             self.log_updated.emit(f"[只记录模式] 错误：{type(e).__name__}: {e}")
-    
+
     @Slot(bool)
     def update_record_only_mode(self, enabled: bool):
         """线程安全地更新只记录模式状态"""

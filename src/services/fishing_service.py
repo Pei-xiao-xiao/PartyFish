@@ -23,6 +23,7 @@ class FishingService:
         )
         self._async_futures = []
         self._async_futures_lock = threading.Lock()
+        # Use default OCR threading for faster background recognition throughput.
         self._async_ocr_service = OCRService()
 
     def _get_initial_bait_amount(self):
@@ -153,6 +154,7 @@ class FishingService:
             if cast_icon_gone and wait_icon_appeared:
                 self.worker._initial_bait_for_bite = initial_bait
                 self.worker.log_updated.emit("已抛竿, 进入等待咬钩状态。")
+                self.worker.status_updated.emit("等待咬钩")
                 return True, cast_icon_ever_gone
 
             self.worker.msleep(200)
@@ -467,7 +469,12 @@ class FishingService:
 
             return False
 
-        self.worker.status_updated.emit("记录渔获")
+        release_mode = cfg.global_settings.get("release_mode", "off")
+        if release_mode == "single":
+            # Single-release executes immediately after recognition, keep release status here.
+            self.worker.status_updated.emit("自动放生中")
+        else:
+            self.worker.status_updated.emit("记录渔获")
         self.worker.log_updated.emit("正在识别渔获信息...")
 
         self.worker.smart_sleep(0.5)
@@ -622,10 +629,11 @@ class FishingService:
         """Run OCR + record persistence in background thread."""
         logs = []
         success, catch_data = self._async_ocr_service.recognize_catch_info_from_images(
-            ocr_snapshots, log_callback=logs.append
+            ocr_snapshots, log_callback=None
         )
 
         if not success:
+            logs.append("后台渔获识别失败，本轮未写入记录。")
             return {"logs": logs, "catch_data": None}
 
         fish_name = catch_data["name"]

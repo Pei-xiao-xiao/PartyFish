@@ -14,9 +14,12 @@ from src.config import cfg
 class OCRService:
     """OCR 服务类"""
 
-    def __init__(self):
+    def __init__(self, intra_op_num_threads: int = 4, inter_op_num_threads: int = 4):
         """初始化 OCR 引擎"""
-        self.ocr = RapidOCR(intra_op_num_threads=4, inter_op_num_threads=4)
+        self.ocr = RapidOCR(
+            intra_op_num_threads=intra_op_num_threads,
+            inter_op_num_threads=inter_op_num_threads,
+        )
 
     def recognize_catch_info(self, vision, log_callback=None) -> tuple[bool, dict]:
         """
