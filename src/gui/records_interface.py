@@ -365,7 +365,7 @@ class RecordsInterface(QWidget):
     def _load_data(self):
         """Load data from CSV and populate table"""
         self.all_records = self.data_service.load_records()
-        self._update_stats_and_table()
+        self._update_stats_and_table(rebuild_table=True)
 
     def _populate_table(self, records_to_display):
         """Populate the table with a given list of records"""
@@ -440,7 +440,16 @@ class RecordsInterface(QWidget):
         if self.data_service.delete_record(timestamp, name, quality, weight):
             self._load_data()
 
-    def _update_stats_and_table(self):
+    def _normalize_record_date(self, date_text: str) -> str:
+        """Normalize date text to YYYY-MM-DD."""
+        normalized = date_text
+        if "/" in normalized:
+            parts = normalized.split("/")
+            if len(parts) == 3:
+                normalized = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+        return normalized
+
+    def _update_stats_and_table(self, rebuild_table: bool = False):
         """
         Central function to update stats and table based on the current view.
         """
@@ -476,8 +485,11 @@ class RecordsInterface(QWidget):
         self.legendary_card.value_label.setText(str(stats.legendary_count))
         self.unhook_rate_card.value_label.setText(str(stats.unhook_count))
 
-        # 更新表格和图表
-        self._populate_table(display_records)
+        # 仅在数据变化时重建整表，切换视图时只做筛选显示，避免卡顿
+        if rebuild_table:
+            self._populate_table(self.all_records)
+
+        # 更新图表
         self.chart_service.update_pie_chart(
             self.pie_series, stats.quality_counts, qconfig.theme.value == "Dark"
         )
@@ -497,15 +509,29 @@ class RecordsInterface(QWidget):
         """Filter rows based on fish name and quality"""
         filter_quality = self.filter_combo.currentText()
         search_text = self.search_input.text().strip().lower()
+        current_view_item = self.view_switcher.currentItem()
+        current_view = current_view_item.text() if current_view_item else "全部统计"
+        today_str = datetime.now().strftime("%Y-%m-%d")
 
         for row in range(self.table.rowCount()):
+            timestamp_item = self.table.item(row, 0)
             quality_item = self.table.item(row, 3)
             name_item = self.table.item(row, 1)
 
-            if not quality_item or not name_item:
+            if not timestamp_item or not quality_item or not name_item:
                 continue
 
             is_new_record = quality_item.data(QtCoreQt.ItemDataRole.UserRole)
+            record_date = self._normalize_record_date(
+                timestamp_item.text().strip().split(" ")[0]
+            )
+
+            # 检查视图筛选（全部/今日/日期）
+            view_match = True
+            if current_view == "今日统计":
+                view_match = record_date == today_str
+            elif current_view == "日期统计":
+                view_match = record_date == self.selected_date
 
             # 检查品质筛选
             quality_match = False
@@ -527,8 +553,8 @@ class RecordsInterface(QWidget):
                 fish_name = name_item.text().lower()
                 name_match = search_text in fish_name
 
-            # 同时满足两个条件才显示
-            should_show = quality_match and name_match
+            # 同时满足三个条件才显示
+            should_show = view_match and quality_match and name_match
             self.table.setRowHidden(row, not should_show)
 
     def add_record(self, record: dict):
@@ -550,7 +576,7 @@ class RecordsInterface(QWidget):
         self.all_records.insert(0, fish_record)
 
         # 刷新界面
-        self._update_stats_and_table()
+        self._update_stats_and_table(rebuild_table=True)
         self.table.scrollToTop()
 
     def refresh_table_colors(self):

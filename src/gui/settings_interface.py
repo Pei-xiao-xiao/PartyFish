@@ -23,6 +23,7 @@ from qfluentwidgets import (
     PrimaryPushButton,
     PushButton,
     LineEdit,
+    CheckBox,
     InfoBar,
     InfoBarPosition,
     MessageBox,
@@ -418,51 +419,71 @@ class SettingsInterface(ScrollArea):
         # 6. Release Group (合并自动放生和单条放生)
         self.releaseGroup = SettingCardGroup(self.tr("放生设置"), self.scrollWidget)
 
-        self.autoReleaseEnabledCard = SwitchSettingCard(
+        self.releaseModeCard = SettingCard(
             FluentIcon.DELETE,
-            self.tr("启用自动放生"),
-            self.tr("鱼桶满时自动放生指定品质的鱼"),
+            self.tr("放生模式"),
+            self.tr("勾选启用的放生行为"),
+            parent=self.releaseGroup,
         )
-        self.releaseGroup.addSettingCard(self.autoReleaseEnabledCard)
+        self.releaseModeWidget = QWidget(self.releaseModeCard)
+        self.releaseModeLayout = QHBoxLayout(self.releaseModeWidget)
+        self.releaseModeLayout.setContentsMargins(0, 0, 0, 0)
+        self.releaseModeLayout.setSpacing(12)
 
-        self.singleReleaseEnabledCard = SwitchSettingCard(
-            FluentIcon.DELETE,
-            self.tr("启用单条放生"),
-            self.tr("钓到鱼后自动放生指定品质的鱼"),
+        self.autoReleaseEnabledCard = CheckBox(
+            self.tr("自动放生"), self.releaseModeCard
         )
-        self.releaseGroup.addSettingCard(self.singleReleaseEnabledCard)
+        self.singleReleaseEnabledCard = CheckBox(
+            self.tr("单条放生"), self.releaseModeCard
+        )
+        self.enableFishNameProtectionCard = CheckBox(
+            self.tr("放生保护"), self.releaseModeCard
+        )
 
-        self.enableFishNameProtectionCard = SwitchSettingCard(
-            FluentIcon.CARE_UP_SOLID,
-            self.tr("启用放生保护"),
-            self.tr("保护配置文件中的鱼不被放生"),
+        self.releaseModeLayout.addWidget(self.autoReleaseEnabledCard)
+        self.releaseModeLayout.addWidget(self.singleReleaseEnabledCard)
+        self.releaseModeLayout.addWidget(self.enableFishNameProtectionCard)
+        self.releaseModeLayout.addStretch(1)
+        self.releaseModeCard.hBoxLayout.addWidget(
+            self.releaseModeWidget, 0, Qt.AlignRight
         )
-        self.releaseGroup.addSettingCard(self.enableFishNameProtectionCard)
+        margins = self.releaseModeCard.hBoxLayout.contentsMargins()
+        self.releaseModeCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
+        )
+        self.releaseGroup.addSettingCard(self.releaseModeCard)
 
-        self.releaseStandardCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生标准品质"), self.tr("白色")
+        self.releaseQualityCard = SettingCard(
+            FluentIcon.CANCEL,
+            self.tr("放生品质"),
+            self.tr("勾选后会自动放生对应品质"),
+            parent=self.releaseGroup,
         )
-        self.releaseGroup.addSettingCard(self.releaseStandardCard)
+        self.releaseQualityWidget = QWidget(self.releaseQualityCard)
+        self.releaseQualityLayout = QHBoxLayout(self.releaseQualityWidget)
+        self.releaseQualityLayout.setContentsMargins(0, 0, 0, 0)
+        self.releaseQualityLayout.setSpacing(12)
 
-        self.releaseUncommonCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生非凡品质"), self.tr("绿色")
-        )
-        self.releaseGroup.addSettingCard(self.releaseUncommonCard)
+        self.releaseStandardCard = CheckBox(self.tr("标准"), self.releaseQualityCard)
+        self.releaseUncommonCard = CheckBox(self.tr("非凡"), self.releaseQualityCard)
+        self.releaseRareCard = CheckBox(self.tr("稀有"), self.releaseQualityCard)
+        self.releaseEpicCard = CheckBox(self.tr("史诗"), self.releaseQualityCard)
+        self.releaseLegendaryCard = CheckBox(self.tr("传奇"), self.releaseQualityCard)
 
-        self.releaseRareCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生稀有品质"), self.tr("蓝色")
+        self.releaseQualityLayout.addWidget(self.releaseStandardCard)
+        self.releaseQualityLayout.addWidget(self.releaseUncommonCard)
+        self.releaseQualityLayout.addWidget(self.releaseRareCard)
+        self.releaseQualityLayout.addWidget(self.releaseEpicCard)
+        self.releaseQualityLayout.addWidget(self.releaseLegendaryCard)
+        self.releaseQualityLayout.addStretch(1)
+        self.releaseQualityCard.hBoxLayout.addWidget(
+            self.releaseQualityWidget, 0, Qt.AlignRight
         )
-        self.releaseGroup.addSettingCard(self.releaseRareCard)
-
-        self.releaseEpicCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生史诗品质"), self.tr("紫色")
+        margins = self.releaseQualityCard.hBoxLayout.contentsMargins()
+        self.releaseQualityCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
         )
-        self.releaseGroup.addSettingCard(self.releaseEpicCard)
-
-        self.releaseLegendaryCard = SwitchSettingCard(
-            FluentIcon.CANCEL, self.tr("放生传奇品质"), self.tr("黄色")
-        )
-        self.releaseGroup.addSettingCard(self.releaseLegendaryCard)
+        self.releaseGroup.addSettingCard(self.releaseQualityCard)
 
         self.vBoxLayout.addWidget(self.releaseGroup)
 
@@ -622,21 +643,15 @@ class SettingsInterface(ScrollArea):
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
-        self.autoReleaseEnabledCard.checkedChanged.connect(
-            self._on_auto_release_changed
-        )
-        self.enableFishNameProtectionCard.checkedChanged.connect(
-            self._save_global_settings
-        )
-        self.releaseStandardCard.checkedChanged.connect(self._save_global_settings)
-        self.releaseUncommonCard.checkedChanged.connect(self._save_global_settings)
-        self.releaseRareCard.checkedChanged.connect(self._save_global_settings)
-        self.releaseEpicCard.checkedChanged.connect(self._save_global_settings)
-        self.releaseLegendaryCard.checkedChanged.connect(self._save_global_settings)
+        self.autoReleaseEnabledCard.toggled.connect(self._on_auto_release_changed)
+        self.enableFishNameProtectionCard.toggled.connect(self._save_global_settings)
+        self.releaseStandardCard.toggled.connect(self._save_global_settings)
+        self.releaseUncommonCard.toggled.connect(self._save_global_settings)
+        self.releaseRareCard.toggled.connect(self._save_global_settings)
+        self.releaseEpicCard.toggled.connect(self._save_global_settings)
+        self.releaseLegendaryCard.toggled.connect(self._save_global_settings)
 
-        self.singleReleaseEnabledCard.checkedChanged.connect(
-            self._on_single_release_changed
-        )
+        self.singleReleaseEnabledCard.toggled.connect(self._on_single_release_changed)
 
         self.jitterSlider.valueChanged.connect(
             lambda v: self.jitterLabel.setText(f"{v}%")
