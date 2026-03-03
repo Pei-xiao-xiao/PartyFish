@@ -353,13 +353,18 @@ class HomeInterface(QWidget):
 
         self.controls_layout.addLayout(self.control_grid)
 
-        # 状态指示器 - 简洁竖向卡片
+        # 状态 + 运行时间（放在控制区右侧，信息层级清晰）
         self.status_container = QWidget(self.banner)
-        self.status_container.setFixedWidth(70)
+        self.status_container.setFixedWidth(130)
         status_layout = QVBoxLayout(self.status_container)
         status_layout.setContentsMargins(12, 8, 12, 8)
         status_layout.setSpacing(4)
         status_layout.setAlignment(Qt.AlignCenter)
+
+        status_header_layout = QHBoxLayout()
+        status_header_layout.setContentsMargins(0, 0, 0, 0)
+        status_header_layout.setSpacing(6)
+        status_header_layout.setAlignment(Qt.AlignCenter)
 
         # 状态圆点
         self.status_dot = QLabel(self.status_container)
@@ -379,8 +384,15 @@ class HomeInterface(QWidget):
             "color: #8a8a8a; font-size: 12px; font-weight: 500;"
         )
 
-        status_layout.addWidget(self.status_dot, 0, Qt.AlignCenter)
-        status_layout.addWidget(self.status_text, 0, Qt.AlignCenter)
+        self.run_time_label = CaptionLabel("运行时间 00:00:00", self.status_container)
+        self.run_time_label.setStyleSheet(
+            "color: #94a3b8; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
+        )
+
+        status_header_layout.addWidget(self.status_dot, 0, Qt.AlignVCenter)
+        status_header_layout.addWidget(self.status_text, 0, Qt.AlignVCenter)
+        status_layout.addLayout(status_header_layout)
+        status_layout.addWidget(self.run_time_label, 0, Qt.AlignCenter)
 
         self.controls_layout.addWidget(self.status_container)
         self.banner_layout.addWidget(self.controls_container)
@@ -1268,6 +1280,11 @@ class HomeInterface(QWidget):
                 self.total_catch = 0
                 self.run_time = QTime(0, 0, 0)
                 self.timer.start(1000)
+                self._refresh_run_time_label()
+
+            self.run_time_label.setStyleSheet(
+                "color: #52c41a; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
+            )
 
         elif status == "只记录模式":
             # 蓝色只记录模式状态
@@ -1285,6 +1302,9 @@ class HomeInterface(QWidget):
             )
             # 只记录模式不启动计时器
             self.timer.stop()
+            self.run_time_label.setStyleSheet(
+                "color: #1890ff; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
+            )
 
         elif "暂停" in status:
             # 橙色暂停状态
@@ -1301,6 +1321,9 @@ class HomeInterface(QWidget):
                 "color: #faad14; font-size: 12px; font-weight: 500;"
             )
             self.timer.stop()
+            self.run_time_label.setStyleSheet(
+                "color: #faad14; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
+            )
 
         elif "停止" in status:
             # 灰色停止状态
@@ -1317,10 +1340,18 @@ class HomeInterface(QWidget):
                 "color: #8a8a8a; font-size: 12px; font-weight: 500;"
             )
             self.timer.stop()
+            self.run_time_label.setStyleSheet(
+                "color: #94a3b8; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
+            )
 
     def update_run_time(self):
-        """更新运行时间（兼容旧代码，现在仅更新内部计时）"""
+        """更新运行时间并同步到界面"""
         self.run_time = self.run_time.addSecs(1)
+        self._refresh_run_time_label()
+
+    def _refresh_run_time_label(self):
+        """刷新运行时间文本。"""
+        self.run_time_label.setText(f"运行时间 {self.run_time.toString('hh:mm:ss')}")
 
     @Slot(dict)
     def update_catch_info(self, catch_data):
