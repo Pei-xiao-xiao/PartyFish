@@ -729,6 +729,7 @@ class HomeInterface(QWidget):
         fish_text_layout.setSpacing(2)
         fish_title = CaptionLabel("已解锁鱼种", self.pokedex_card)
         fish_title.setStyleSheet("color: #64748b")
+        self.fish_title_label = fish_title
         self.fish_total_label = CaptionLabel("总计 0", self.pokedex_card)
         self.fish_total_label.setStyleSheet("color: #94a3b8")
 
@@ -741,6 +742,7 @@ class HomeInterface(QWidget):
         line.setFrameShape(QFrame.VLine)
         line.setFixedSize(1, 30)
         line.setStyleSheet("background-color: #e2e8f0; border: none;")
+        self.pokedex_divider_line = line
 
         # === 右侧：全品质收集 ===
         crown_container = QWidget()
@@ -775,6 +777,7 @@ class HomeInterface(QWidget):
         crown_text_layout.setSpacing(2)
         crown_title = CaptionLabel("全品质收集", self.pokedex_card)
         crown_title.setStyleSheet("color: #64748b")
+        self.crown_title_label = crown_title
         self.crown_total_label = CaptionLabel("总计 0", self.pokedex_card)
         self.crown_total_label.setStyleSheet("color: #94a3b8")
 
@@ -1090,6 +1093,79 @@ class HomeInterface(QWidget):
         except Exception as e:
             print(f"[Home] 更新图鉴进度失败: {e}")
 
+    def _apply_theme_styles(self):
+        """Apply theme-aware styles for custom widgets."""
+        is_dark = qconfig.theme.value == "Dark"
+
+        # Dashboard progress area
+        if hasattr(self, "sales_progress_bar"):
+            track_color = "rgba(255, 255, 255, 0.16)" if is_dark else "#e5e7eb"
+            self.sales_progress_bar.setStyleSheet(
+                f"""
+                QWidget {{
+                    background-color: {track_color};
+                    border-radius: 6px;
+                }}
+            """
+            )
+
+        if hasattr(self, "sales_value_label"):
+            value_color = "#cbd5e1" if is_dark else "#6b7280"
+            self.sales_value_label.setStyleSheet(
+                f"color: {value_color}; font-weight: 500;"
+            )
+
+        # Pokedex progress labels/divider
+        title_color = "#94a3b8" if is_dark else "#64748b"
+        sub_color = "#cbd5e1" if is_dark else "#94a3b8"
+        divider_color = "rgba(255, 255, 255, 0.18)" if is_dark else "#e2e8f0"
+
+        if hasattr(self, "fish_title_label"):
+            self.fish_title_label.setStyleSheet(f"color: {title_color}")
+        if hasattr(self, "fish_collected_label"):
+            self.fish_collected_label.setStyleSheet(
+                "color: #0ea5e9; font-size: 15px; font-weight: bold;"
+            )
+        if hasattr(self, "fish_total_label"):
+            self.fish_total_label.setStyleSheet(f"color: {sub_color}")
+        if hasattr(self, "crown_title_label"):
+            self.crown_title_label.setStyleSheet(f"color: {title_color}")
+        if hasattr(self, "crown_collected_label"):
+            self.crown_collected_label.setStyleSheet(
+                "color: #8b5cf6; font-size: 15px; font-weight: bold;"
+            )
+        if hasattr(self, "crown_total_label"):
+            self.crown_total_label.setStyleSheet(f"color: {sub_color}")
+        if hasattr(self, "pokedex_divider_line"):
+            self.pokedex_divider_line.setStyleSheet(
+                f"background-color: {divider_color}; border: none;"
+            )
+
+        # Log panel
+        if hasattr(self, "log_output"):
+            bg = "#1f2937" if is_dark else "#f9fafb"
+            hover_bg = "#273244" if is_dark else "#f3f4f6"
+            border = "#374151" if is_dark else "#e5e7eb"
+            hover_border = "#4b5563" if is_dark else "#d1d5db"
+            text_color = "#e5e7eb" if is_dark else "#111827"
+            self.log_output.setStyleSheet(
+                f"""
+                TextEdit {{
+                    background-color: {bg};
+                    border: 1px solid {border};
+                    border-radius: 8px;
+                    font-family: 'Consolas', 'Monaco', monospace;
+                    font-size: 12px;
+                    color: {text_color};
+                    padding: 8px;
+                }}
+                TextEdit:hover {{
+                    background-color: {hover_bg};
+                    border: 1px solid {hover_border};
+                }}
+            """
+            )
+
     # 保留空方法以兼容旧代码调用
     def add_record_to_session_table(self, record):
         """兼容旧代码，现在不做任何事"""
@@ -1131,23 +1207,7 @@ class HomeInterface(QWidget):
         self.log_output.setReadOnly(True)
         self.log_output.setObjectName("LogOutput")
 
-        # 使用更现代、简洁的样式
-        self.log_output.setStyleSheet(
-            """
-            TextEdit {
-                background-color: #f9fafb;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 12px;
-                padding: 8px;
-            }
-            TextEdit:hover {
-                background-color: #f3f4f6;
-                border: 1px solid #d1d5db;
-            }
-        """
-        )
+        self._apply_theme_styles()
 
         self.log_layout.addWidget(self.log_output)
 
@@ -1272,5 +1332,5 @@ class HomeInterface(QWidget):
         self._refresh_fish_preview()
 
     def refresh_table_colors(self):
-        """兼容旧代码，现在不做任何事"""
-        pass
+        """主题切换时刷新自定义样式"""
+        self._apply_theme_styles()

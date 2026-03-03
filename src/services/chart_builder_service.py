@@ -16,7 +16,7 @@ from PySide6.QtCharts import (
     QBarCategoryAxis,
     QValueAxis,
 )
-from qfluentwidgets import qconfig
+from qfluentwidgets import isDarkTheme
 
 
 # 图表配色常量
@@ -325,13 +325,44 @@ class ChartBuilderService:
         Args:
             chart: QChart 对象
         """
-        is_dark = qconfig.theme.value == "Dark"
+        is_dark = isDarkTheme()
+        chart.setTheme(
+            QChart.ChartTheme.ChartThemeDark
+            if is_dark
+            else QChart.ChartTheme.ChartThemeLight
+        )
 
         chart.setBackgroundVisible(True)
 
         if is_dark:
-            chart.setBackgroundBrush(QBrush(QColor(45, 45, 50, 60)))
+            chart.setBackgroundBrush(QBrush(QColor(45, 45, 50, 80)))
+            chart.setPlotAreaBackgroundVisible(True)
+            chart.setPlotAreaBackgroundBrush(QBrush(QColor(35, 35, 40, 70)))
+            axis_label_color = QColor(222, 226, 232)
+            axis_line_color = QColor(180, 188, 199, 140)
+            grid_color = QColor(220, 226, 234, 70)
+            title_color = QColor(236, 240, 246)
         else:
             chart.setBackgroundBrush(QBrush(QColor(250, 248, 245, 180)))
+            chart.setPlotAreaBackgroundVisible(True)
+            chart.setPlotAreaBackgroundBrush(QBrush(QColor(255, 255, 255, 160)))
+            axis_label_color = QColor(51, 65, 85)
+            axis_line_color = QColor(100, 116, 139, 130)
+            grid_color = QColor(148, 163, 184, 90)
+            title_color = QColor(30, 41, 59)
 
         chart.setBackgroundRoundness(8)
+        chart.setTitleBrush(QBrush(title_color))
+        chart.legend().setLabelColor(title_color)
+
+        # Ensure axis labels/grid stay readable after theme switch
+        for axis in chart.axes():
+            axis.setLabelsColor(axis_label_color)
+
+            line_pen = axis.linePen()
+            line_pen.setColor(axis_line_color)
+            axis.setLinePen(line_pen)
+
+            grid_pen = axis.gridLinePen()
+            grid_pen.setColor(grid_color)
+            axis.setGridLinePen(grid_pen)

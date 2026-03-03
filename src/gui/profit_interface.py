@@ -36,6 +36,7 @@ from qfluentwidgets import (
     TransparentToolButton,
     FluentIcon,
     qconfig,
+    isDarkTheme,
 )
 
 from src.config import cfg
@@ -52,7 +53,10 @@ class ChartScrollContainer(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setFrameShape(QFrame.NoFrame)
-        self._fade_width = 30
+        self._fade_width = 14
+        self.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.viewport().setStyleSheet("background: transparent;")
+        self.viewport().setAutoFillBackground(False)
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
@@ -68,8 +72,23 @@ class ChartScrollContainer(QScrollArea):
         can_scroll_left = h_bar.value() > h_bar.minimum()
         can_scroll_right = h_bar.value() < h_bar.maximum()
 
-        is_dark = qconfig.theme.value == "Dark"
-        base_color = QColor(35, 35, 35) if is_dark else QColor(255, 255, 255)
+        theme_val = qconfig.theme.value
+        is_dark_by_value = (
+            str(theme_val.name).upper() == "DARK"
+            if hasattr(theme_val, "name")
+            else str(theme_val).lower() == "dark"
+        )
+        is_dark = isDarkTheme() or is_dark_by_value
+
+        # Prefer current viewport palette to match the real background,
+        # and guard against bright fallback colors in dark mode.
+        base_color = self.viewport().palette().color(self.viewport().backgroundRole())
+        if not base_color.isValid():
+            base_color = QColor(56, 61, 72) if is_dark else QColor(255, 255, 255)
+        if is_dark and base_color.lightness() > 140:
+            base_color = QColor(56, 61, 72)
+        elif (not is_dark) and base_color.lightness() < 120:
+            base_color = QColor(255, 255, 255)
 
         rect = self.viewport().rect()
 
@@ -363,6 +382,7 @@ class ProfitInterface(QWidget):
         self.line_chart.legend().setVisible(True)
         self.line_chart.legend().setAlignment(Qt.AlignBottom)
         self.line_chart_view = QChartView(self.line_chart)
+        self.line_chart_view.setStyleSheet("background: transparent; border: none;")
         self.line_chart_view.setRenderHint(QPainter.Antialiasing)
 
         self.line_scroll = ChartScrollContainer()
@@ -374,6 +394,7 @@ class ProfitInterface(QWidget):
         self.bar_chart.legend().setVisible(True)
         self.bar_chart.legend().setAlignment(Qt.AlignBottom)
         self.bar_chart_view = QChartView(self.bar_chart)
+        self.bar_chart_view.setStyleSheet("background: transparent; border: none;")
         self.bar_chart_view.setRenderHint(QPainter.Antialiasing)
 
         self.bar_scroll = ChartScrollContainer()
@@ -392,7 +413,7 @@ class ProfitInterface(QWidget):
         text_color = color if color else CHART_COLORS["sales"]
 
         widget = QFrame()
-        if qconfig.theme.value == "Dark":
+        if isDarkTheme():
             widget.setStyleSheet(
                 ".QFrame {background-color: rgba(60, 60, 65, 180); border-radius: 8px;}"
             )
@@ -416,8 +437,41 @@ class ProfitInterface(QWidget):
         widget.val_label = val_lbl
         return widget
 
+    def _apply_theme_styles(self):
+        """Apply theme-aware styles for mini stat cards and chart views."""
+        is_dark = isDarkTheme()
+        mini_card_bg = (
+            "rgba(60, 60, 65, 180)" if is_dark else "rgba(250, 248, 245, 220)"
+        )
+        mini_title_color = "#a3a3a3" if is_dark else "gray"
+
+        for widget in [
+            getattr(self, "hist_total_card", None),
+            getattr(self, "hist_avg_card", None),
+            getattr(self, "hist_max_card", None),
+            getattr(self, "hist_net_card", None),
+        ]:
+            if not widget:
+                continue
+            widget.setStyleSheet(
+                f".QFrame {{background-color: {mini_card_bg}; border-radius: 8px;}}"
+            )
+            for child in widget.findChildren(BodyLabel):
+                child.setStyleSheet(f"color: {mini_title_color}; font-size: 11px;")
+
+        # Keep chart views transparent to avoid bright borders after theme switch.
+        if hasattr(self, "line_chart_view"):
+            self.line_chart_view.setStyleSheet("background: transparent; border: none;")
+        if hasattr(self, "bar_chart_view"):
+            self.bar_chart_view.setStyleSheet("background: transparent; border: none;")
+
+    def refresh_theme(self):
+        """Public API for theme switch refresh."""
+        self.reload_data()
+
     def reload_data(self):
         """重新加载数据并刷新界面"""
+        self._apply_theme_styles()
         # 使用服务加载数据
         start_time = self.analysis_service.get_current_cycle_start_time()
         today_stats = self.analysis_service.load_today_stats(start_time)
@@ -449,12 +503,16 @@ class ProfitInterface(QWidget):
 
             time_item = QTableWidgetItem(row[0])
             time_item.setFlags(time_item.flags() & ~Qt.ItemIsEditable)
+            time_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(r, 0, time_item)
 
-            self.table.setItem(r, 1, QTableWidgetItem(row[1]))
+            amount_item = QTableWidgetItem(row[1])
+            amount_item.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(r, 1, amount_item)
 
             bait_item = QTableWidgetItem(row[2])
             bait_item.setFlags(bait_item.flags() & ~Qt.ItemIsEditable)
+            bait_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(r, 2, bait_item)
 
             self.table.add_delete_button(r)
@@ -477,10 +535,16 @@ class ProfitInterface(QWidget):
 
             r = self.history_table.rowCount()
             self.history_table.insertRow(r)
-            self.history_table.setItem(r, 0, QTableWidgetItem(date_str))
-            self.history_table.setItem(r, 1, QTableWidgetItem(str(sales)))
+            date_item = QTableWidgetItem(date_str)
+            date_item.setTextAlignment(Qt.AlignCenter)
+            self.history_table.setItem(r, 0, date_item)
+
+            sales_item = QTableWidgetItem(str(sales))
+            sales_item.setTextAlignment(Qt.AlignCenter)
+            self.history_table.setItem(r, 1, sales_item)
 
             net_item = QTableWidgetItem(str(net))
+            net_item.setTextAlignment(Qt.AlignCenter)
             if net > 0:
                 net_item.setForeground(QColor("#388e3c"))
             elif net < 0:

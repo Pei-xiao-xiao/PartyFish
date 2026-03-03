@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
 )
 from PySide6.QtGui import QColor, QBrush, Qt, QPainter, QCursor
-from PySide6.QtCore import Qt as QtCoreQt, QMargins, QDate
+from PySide6.QtCore import Qt as QtCoreQt, QMargins, QDate, Signal
 from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
 from qfluentwidgets import (
     TableWidget,
@@ -29,6 +29,7 @@ from qfluentwidgets import (
     Theme,
     PrimaryPushButton,
     SearchLineEdit,
+    TransparentToolButton,
 )
 from datetime import datetime
 from src.gui.components import QUALITY_COLORS
@@ -45,9 +46,42 @@ class NumericTableWidgetItem(QTableWidgetItem):
 
     def __lt__(self, other):
         try:
-            return float(self.text().replace(' kg', '')) < float(other.text().replace(' kg', ''))
+            return float(self.text().replace(" kg", "")) < float(
+                other.text().replace(" kg", "")
+            )
         except ValueError:
             return super().__lt__(other)
+
+
+class HoverDeleteTableWidget(TableWidget):
+    delete_row_signal = Signal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def _emit_delete_for_widget(self, widget: QWidget):
+        for row in range(self.rowCount()):
+            if self.cellWidget(row, 4) is widget:
+                self.delete_row_signal.emit(row)
+                return
+
+    def add_delete_button(self, row: int):
+        widget = QWidget(self)
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        btn = TransparentToolButton(FluentIcon.DELETE, widget)
+        btn.setFixedSize(24, 24)
+        btn.setToolTip("删除记录")
+        btn.clicked.connect(
+            lambda checked=False, w=widget: self._emit_delete_for_widget(w)
+        )
+
+        layout.addStretch(1)
+        layout.addWidget(btn, 0, QtCoreQt.AlignmentFlag.AlignVCenter)
+        layout.addStretch(1)
+        self.setCellWidget(row, 4, widget)
 
 
 class RecordsInterface(QWidget):
@@ -128,6 +162,7 @@ class RecordsInterface(QWidget):
         # --- Dashboard (Statistics) ---
         self.dashboard_layout_row1 = QHBoxLayout()
         self.dashboard_layout_row1.setSpacing(15)
+        self.dashboard_layout_row1.setContentsMargins(0, 0, 40, 0)
         self.total_card = self._create_stat_card("总数", "0", FluentIcon.CALENDAR)
         self.today_card = self._create_stat_card("今日捕获", "0", FluentIcon.FLAG)
         self.legendary_card = self._create_stat_card("传奇数量", "0", FluentIcon.TAG)
@@ -143,9 +178,9 @@ class RecordsInterface(QWidget):
         bottom_layout = QHBoxLayout()
 
         # Table
-        self.table = TableWidget(self)
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["时间", "名称", "重量", "品质"])
+        self.table = HoverDeleteTableWidget(self)
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["时间", "名称", "重量", "品质", "操作"])
         self.table.setBorderVisible(True)
         self.table.setBorderRadius(8)
         self.table.setWordWrap(False)
@@ -163,6 +198,11 @@ class RecordsInterface(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
         )
+        self.table.horizontalHeader().setSectionResizeMode(
+            4, QHeaderView.ResizeMode.Fixed
+        )
+        self.table.setColumnWidth(4, 56)
+        self.table.delete_row_signal.connect(self._on_delete_row)
         bottom_layout.addWidget(self.table, 3)
 
         # Pie Chart
@@ -189,6 +229,7 @@ class RecordsInterface(QWidget):
         self.chart_service.apply_theme(chart, is_dark_theme)
 
         self.chart_view = QChartView(chart)
+        self.chart_view.setStyleSheet("background: transparent; border: none;")
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
 
     def _on_view_changed(self, item):
@@ -379,6 +420,25 @@ class RecordsInterface(QWidget):
 
         for col_index, item in enumerate(items):
             self.table.setItem(row_count, col_index, item)
+
+        self.table.add_delete_button(row_count)
+
+    def _on_delete_row(self, row: int):
+        """Delete selected fishing record and refresh current table."""
+        ts_item = self.table.item(row, 0)
+        name_item = self.table.item(row, 1)
+        weight_item = self.table.item(row, 2)
+        quality_item = self.table.item(row, 3)
+        if not ts_item or not name_item or not weight_item or not quality_item:
+            return
+
+        timestamp = ts_item.text().strip()
+        name = name_item.text().strip()
+        quality = quality_item.text().strip()
+        weight = weight_item.text().strip().replace(" kg", "").replace("kg", "")
+
+        if self.data_service.delete_record(timestamp, name, quality, weight):
+            self._load_data()
 
     def _update_stats_and_table(self):
         """

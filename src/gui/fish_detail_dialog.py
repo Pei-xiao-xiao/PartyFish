@@ -49,6 +49,7 @@ class QualityDot(QFrame):
         )
         color_pair = QUALITY_COLORS.get(self.quality, (QColor("#666"), QColor("#999")))
         color = color_pair[1] if is_dark else color_pair[0]
+        idle_bg = "#2F3642" if is_dark else "#FFFFFF"
 
         if self.is_collected:
             self.setStyleSheet(
@@ -68,7 +69,7 @@ class QualityDot(QFrame):
             self.setStyleSheet(
                 f"""
                 QFrame {{
-                    background-color: #FFFFFF;
+                    background-color: {idle_bg};
                     border: 3px solid {color.name()};
                     border-radius: 15px;
                 }}
@@ -95,6 +96,12 @@ class FishDetailDialog(QDialog):
         super().__init__(parent)
         self.fish_data = fish_data
         self.fish_name = fish_data.get("name", "未知")
+        self._card_frames = []
+        self._badge_specs = []
+        self._meta_title_labels = []
+        self._meta_value_labels = []
+        self._separator_frames = []
+        self.empty_location_label = None
 
         self.setWindowTitle(self.fish_name)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -109,6 +116,77 @@ class FishDetailDialog(QDialog):
 
         self._init_ui()
         self._load_collection_status()
+        self._apply_theme_styles()
+
+    def _is_dark_theme(self) -> bool:
+        theme_val = qconfig.theme.value
+        if hasattr(theme_val, "name"):
+            return str(theme_val.name).upper() == "DARK"
+        return str(theme_val).lower() == "dark"
+
+    @staticmethod
+    def _rgba(color: QColor, alpha: int) -> str:
+        return f"rgba({color.red()}, {color.green()}, {color.blue()}, {alpha})"
+
+    def _theme_palette(self) -> dict:
+        if self._is_dark_theme():
+            return {
+                "overlay_alpha": 96,
+                "container_bg": "#2C333D",
+                "container_border": "#4A5564",
+                "title_text": "#E5E7EB",
+                "close_color": "#DAA164",
+                "close_hover_bg": "rgba(218, 161, 100, 0.20)",
+                "close_pressed_bg": "rgba(218, 161, 100, 0.30)",
+                "section_title": "#D8B38D",
+                "card_bg": "#363E49",
+                "card_border": "#4B5667",
+                "meta_title": "#AAB3C2",
+                "meta_value": "#E5E7EB",
+                "empty_text": "#98A1AF",
+                "action_bg": "#675A4A",
+                "action_hover": "#756754",
+                "action_pressed": "#564A3C",
+                "action_text": "#E7D8C4",
+                "input_bg": "#2A313B",
+                "input_border": "#5A6676",
+                "input_focus": "#7A879A",
+                "input_text": "#E5E7EB",
+                "unit_text": "#AAB3C2",
+                "separator": "rgba(229, 231, 235, 0.18)",
+                "rarity_text": "#F8D27A",
+                "rarity_bg": "rgba(226, 188, 105, 0.18)",
+                "rarity_border": "rgba(226, 188, 105, 0.60)",
+            }
+
+        return {
+            "overlay_alpha": 28,
+            "container_bg": "#EEF1F5",
+            "container_border": "#DCE2E8",
+            "title_text": "#8B6D4E",
+            "close_color": "#A56536",
+            "close_hover_bg": "#EFE2D4",
+            "close_pressed_bg": "#E5D4C0",
+            "section_title": "#8B6D4E",
+            "card_bg": "#F8F5F1",
+            "card_border": "#E3D4C1",
+            "meta_title": "#A0826D",
+            "meta_value": "#4E3E2D",
+            "empty_text": "#A0826D",
+            "action_bg": "#D8CCBA",
+            "action_hover": "#CABCA7",
+            "action_pressed": "#B9AB95",
+            "action_text": "#8B6D4E",
+            "input_bg": "#FBF4E8",
+            "input_border": "#D8C6AD",
+            "input_focus": "#C7B298",
+            "input_text": "#8B6D4E",
+            "unit_text": "#A0826D",
+            "separator": "#E3D4C1",
+            "rarity_text": "#D29421",
+            "rarity_bg": "#F8EBCF",
+            "rarity_border": "#E2BC69",
+        }
 
     def _init_ui(self):
         from src.config import cfg
@@ -151,6 +229,7 @@ class FishDetailDialog(QDialog):
         name_label.setStyleSheet(
             "color: #8B6D4E; background: transparent; border: none;"
         )
+        self.name_label = name_label
         top_bar_layout.addWidget(name_label)
         top_bar_layout.addStretch()
 
@@ -177,6 +256,7 @@ class FishDetailDialog(QDialog):
             }
         """
         )
+        self.close_btn = close_btn
         close_btn.clicked.connect(self.close)
         top_bar_layout.addWidget(close_btn)
         main_layout.addWidget(top_bar)
@@ -218,6 +298,7 @@ class FishDetailDialog(QDialog):
             tags_row.addWidget(rod_badge)
 
         rarity_badge = self._create_rarity_badge(self._build_rarity_label())
+        self.rarity_badge = rarity_badge
         tags_row.addWidget(rarity_badge)
 
         fish_layout.addLayout(tags_row)
@@ -248,6 +329,7 @@ class FishDetailDialog(QDialog):
         location_title.setStyleSheet(
             "color: #8B6D4E; font-size: 14px; font-weight: 700; background: transparent; border: none;"
         )
+        self.location_title_label = location_title
         location_layout.addWidget(location_title)
 
         chips_container = QVBoxLayout()
@@ -284,6 +366,7 @@ class FishDetailDialog(QDialog):
         else:
             empty_label = QLabel("-")
             empty_label.setStyleSheet("color: #A0826D; font-size: 13px;")
+            self.empty_location_label = empty_label
             chips_container.addWidget(empty_label)
 
         location_layout.addLayout(chips_container)
@@ -298,6 +381,7 @@ class FishDetailDialog(QDialog):
         quality_label.setStyleSheet(
             "color: #8B6D4E; font-size: 14px; background: transparent; border: none;"
         )
+        self.quality_label_widget = quality_label
         quality_layout.addWidget(quality_label)
         quality_layout.addSpacing(2)
 
@@ -344,6 +428,7 @@ class FishDetailDialog(QDialog):
         weight_label.setStyleSheet(
             "color: #8B6D4E; font-size: 14px; background: transparent; border: none;"
         )
+        self.weight_label_widget = weight_label
         weight_layout.addWidget(weight_label)
         weight_layout.addStretch()
 
@@ -372,6 +457,7 @@ class FishDetailDialog(QDialog):
         kg_label.setStyleSheet(
             "color: #A0826D; font-size: 14px; background: transparent; border: none;"
         )
+        self.kg_label = kg_label
         weight_layout.addWidget(kg_label)
         main_layout.addWidget(weight_frame)
         main_layout.addStretch(1)
@@ -379,6 +465,7 @@ class FishDetailDialog(QDialog):
     def _create_card_frame(self, fixed_height=None, with_shadow=False) -> QFrame:
         frame = QFrame()
         frame.setObjectName("detailCard")
+        frame.setProperty("with_shadow", with_shadow)
         if fixed_height is not None:
             frame.setFixedHeight(fixed_height)
         frame.setStyleSheet(
@@ -398,6 +485,7 @@ class FishDetailDialog(QDialog):
             shadow.setOffset(0, 2)
             frame.setGraphicsEffect(shadow)
 
+        self._card_frames.append(frame)
         return frame
 
     def _collect_location_names(self):
@@ -521,6 +609,7 @@ class FishDetailDialog(QDialog):
         badge.setStyleSheet(
             f"background-color: {bg_color}; border-radius: 15px; border: none;"
         )
+        self._badge_specs.append((badge, label, text_color, bg_color))
         return badge
 
     def _create_cell(self, title: str, value: str) -> QWidget:
@@ -534,6 +623,7 @@ class FishDetailDialog(QDialog):
         title_label.setStyleSheet(
             "color: #A0826D; font-size: 12px; background: transparent; border: none;"
         )
+        self._meta_title_labels.append(title_label)
         layout.addWidget(title_label)
 
         value_label = StrongBodyLabel(value)
@@ -541,6 +631,7 @@ class FishDetailDialog(QDialog):
         value_label.setStyleSheet(
             "color: #4E3E2D; font-size: 14px; font-weight: 700; background: transparent; border: none;"
         )
+        self._meta_value_labels.append(value_label)
         layout.addWidget(value_label)
 
         return cell
@@ -556,6 +647,7 @@ class FishDetailDialog(QDialog):
         title_label.setStyleSheet(
             "color: #A0826D; font-size: 12px; background: transparent; border: none;"
         )
+        self._meta_title_labels.append(title_label)
         layout.addWidget(title_label)
 
         icon_row = QHBoxLayout()
@@ -584,12 +676,14 @@ class FishDetailDialog(QDialog):
                     fallback.setStyleSheet(
                         "color: #4E3E2D; font-size: 13px; font-weight: 700; background: transparent; border: none;"
                     )
+                    self._meta_value_labels.append(fallback)
                     icon_row.addWidget(fallback)
         else:
             empty = QLabel("-")
             empty.setStyleSheet(
                 "color: #4E3E2D; font-size: 14px; font-weight: 700; background: transparent; border: none;"
             )
+            self._meta_value_labels.append(empty)
             icon_row.addWidget(empty)
 
         layout.addLayout(icon_row)
@@ -600,7 +694,171 @@ class FishDetailDialog(QDialog):
         separator.setFixedWidth(1)
         separator.setFixedHeight(44)
         separator.setStyleSheet("background-color: #E3D4C1;")
+        self._separator_frames.append(separator)
         return separator
+
+    def _apply_theme_styles(self):
+        palette = self._theme_palette()
+        is_dark = self._is_dark_theme()
+
+        self.container.setStyleSheet(
+            f"""
+            QFrame#dialogContainer {{
+                background-color: {palette["container_bg"]};
+                border-radius: 28px;
+                border: 1px solid {palette["container_border"]};
+            }}
+        """
+        )
+
+        container_shadow = self.container.graphicsEffect()
+        if isinstance(container_shadow, QGraphicsDropShadowEffect):
+            container_shadow.setColor(QColor(0, 0, 0, 86 if is_dark else 42))
+
+        if hasattr(self, "name_label"):
+            self.name_label.setStyleSheet(
+                f"color: {palette['title_text']}; background: transparent; border: none;"
+            )
+
+        if hasattr(self, "close_btn"):
+            self.close_btn.setStyleSheet(
+                f"""
+                PushButton {{
+                    color: {palette["close_color"]};
+                    background-color: transparent;
+                    border: none;
+                    border-radius: 14px;
+                    padding-bottom: 2px;
+                }}
+                PushButton:hover {{
+                    background-color: {palette["close_hover_bg"]};
+                }}
+                PushButton:pressed {{
+                    background-color: {palette["close_pressed_bg"]};
+                }}
+            """
+            )
+
+        for frame in self._card_frames:
+            frame.setStyleSheet(
+                f"""
+                QFrame#detailCard {{
+                    background-color: {palette["card_bg"]};
+                    border-radius: 20px;
+                    border: 2px solid {palette["card_border"]};
+                }}
+            """
+            )
+            shadow = frame.graphicsEffect()
+            if isinstance(shadow, QGraphicsDropShadowEffect):
+                shadow.setColor(QColor(0, 0, 0, 82 if is_dark else 28))
+
+        for badge, label, light_text, light_bg in self._badge_specs:
+            base_color = QColor(light_text)
+            if is_dark:
+                text_color = base_color.lighter(175).name()
+                bg_color = self._rgba(base_color, 48)
+                border_color = self._rgba(base_color, 90)
+            else:
+                text_color = light_text
+                bg_color = light_bg
+                border_color = "transparent"
+
+            label.setStyleSheet(
+                f"color: {text_color}; font-size: 13px; font-weight: 600; background: transparent; border: none;"
+            )
+            badge.setStyleSheet(
+                f"background-color: {bg_color}; border-radius: 15px; border: 1px solid {border_color};"
+            )
+
+        if hasattr(self, "rarity_badge"):
+            self.rarity_badge.setStyleSheet(
+                f"""
+                QLabel {{
+                    color: {palette["rarity_text"]};
+                    font-size: 14px;
+                    font-weight: 700;
+                    background-color: {palette["rarity_bg"]};
+                    border: 1px solid {palette["rarity_border"]};
+                    border-radius: 15px;
+                    padding: 5px 14px;
+                }}
+            """
+            )
+
+        if hasattr(self, "location_title_label"):
+            self.location_title_label.setStyleSheet(
+                f"color: {palette['section_title']}; font-size: 14px; font-weight: 700; background: transparent; border: none;"
+            )
+        if hasattr(self, "quality_label_widget"):
+            self.quality_label_widget.setStyleSheet(
+                f"color: {palette['section_title']}; font-size: 14px; background: transparent; border: none;"
+            )
+        if hasattr(self, "weight_label_widget"):
+            self.weight_label_widget.setStyleSheet(
+                f"color: {palette['section_title']}; font-size: 14px; background: transparent; border: none;"
+            )
+        if hasattr(self, "kg_label"):
+            self.kg_label.setStyleSheet(
+                f"color: {palette['unit_text']}; font-size: 14px; background: transparent; border: none;"
+            )
+        if self.empty_location_label:
+            self.empty_location_label.setStyleSheet(
+                f"color: {palette['empty_text']}; font-size: 13px;"
+            )
+
+        for title_label in self._meta_title_labels:
+            title_label.setStyleSheet(
+                f"color: {palette['meta_title']}; font-size: 12px; background: transparent; border: none;"
+            )
+        for value_label in self._meta_value_labels:
+            value_label.setStyleSheet(
+                f"color: {palette['meta_value']}; font-size: 14px; font-weight: 700; background: transparent; border: none;"
+            )
+        for separator in self._separator_frames:
+            separator.setStyleSheet(f"background-color: {palette['separator']};")
+
+        if hasattr(self, "action_btn"):
+            self.action_btn.setStyleSheet(
+                f"""
+                PushButton {{
+                    background-color: {palette["action_bg"]};
+                    color: {palette["action_text"]};
+                    border: none;
+                    border-radius: 16px;
+                    font-size: 13px;
+                    font-weight: 700;
+                }}
+                PushButton:hover {{
+                    background-color: {palette["action_hover"]};
+                }}
+                PushButton:pressed {{
+                    background-color: {palette["action_pressed"]};
+                }}
+            """
+            )
+
+        if hasattr(self, "weight_input"):
+            self.weight_input.setStyleSheet(
+                f"""
+                LineEdit {{
+                    background-color: {palette["input_bg"]};
+                    border: 2px solid {palette["input_border"]};
+                    border-radius: 13px;
+                    padding: 6px 10px;
+                    font-size: 14px;
+                    color: {palette["input_text"]};
+                }}
+                LineEdit:focus {{
+                    border: 2px solid {palette["input_focus"]};
+                }}
+            """
+            )
+
+        for dot in self.quality_dots.values():
+            dot._update_style()
+
+        self.update()
 
     def _load_collection_status(self):
         status = pokedex.get_collection_status(self.fish_name)
@@ -652,12 +910,18 @@ class FishDetailDialog(QDialog):
             self.setGeometry(geo)
 
         if hasattr(self, "container"):
+            self._apply_theme_styles()
             self.resizeEvent(None)
 
+    def refresh_theme(self):
+        """Refresh dialog styles after app theme changes."""
+        self._apply_theme_styles()
+
     def paintEvent(self, event):
+        palette = self._theme_palette()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor(0, 0, 0, 28))
+        painter.setBrush(QColor(0, 0, 0, palette["overlay_alpha"]))
         painter.setPen(Qt.NoPen)
         painter.drawRect(self.rect())
 

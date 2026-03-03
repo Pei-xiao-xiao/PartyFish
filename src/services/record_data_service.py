@@ -122,3 +122,65 @@ class RecordDataService:
                     date_str = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
             dates.add(date_str)
         return dates
+
+    def delete_record(
+        self, timestamp: str, name: str, quality: str, weight: str
+    ) -> bool:
+        """
+        删除一条钓鱼记录（按时间+名称+品质+重量精确匹配首条）。
+
+        Returns:
+            bool: 删除成功返回 True，否则 False
+        """
+        data_path = cfg.records_file
+        if not data_path.exists():
+            return False
+
+        try:
+            with open(data_path, "r", encoding="utf-8-sig", newline="") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+
+            target_ts = str(timestamp).strip()
+            target_name = str(name).strip()
+            target_quality = str(quality).strip()
+            target_weight = str(weight).strip().replace(" kg", "").replace("kg", "")
+
+            deleted = False
+            kept_rows = []
+            for row in rows:
+                row_ts = str(row.get("Timestamp", "")).strip()
+                row_name = str(row.get("Name", "")).strip()
+                row_quality = str(row.get("Quality", "")).strip()
+                row_weight = (
+                    str(row.get("Weight", ""))
+                    .strip()
+                    .replace(" kg", "")
+                    .replace("kg", "")
+                )
+
+                is_match = (
+                    row_ts == target_ts
+                    and row_name == target_name
+                    and row_quality == target_quality
+                    and row_weight == target_weight
+                )
+                if not deleted and is_match:
+                    deleted = True
+                    continue
+
+                kept_rows.append(row)
+
+            if not deleted:
+                return False
+
+            with open(data_path, "w", encoding="utf-8-sig", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(kept_rows)
+
+            return True
+        except Exception as e:
+            print(f"Error deleting record: {e}")
+            return False

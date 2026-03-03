@@ -214,12 +214,39 @@ class MainWindow(FluentWindow):
         else:
             setTheme(Theme.DARK)
 
-        # 主题切换后刷新记录和主页，以更新颜色
+        # 主题切换后刷新各页面自定义样式
         if hasattr(self.records_interface, "refresh_table_colors"):
             self.records_interface.refresh_table_colors()
 
         if hasattr(self.home_interface, "refresh_table_colors"):
             self.home_interface.refresh_table_colors()
+
+        if hasattr(self.profit_interface, "refresh_theme"):
+            self.profit_interface.refresh_theme()
+        elif hasattr(self.profit_interface, "reload_data"):
+            self.profit_interface.reload_data()
+
+        if hasattr(self.pokedex_interface, "reload_data"):
+            self.pokedex_interface.reload_data()
+
+        # 刷新已打开的鱼类详情弹窗
+        try:
+            from src.gui.fish_detail_dialog import FishDetailDialog
+
+            for widget in QApplication.topLevelWidgets():
+                if isinstance(widget, FishDetailDialog):
+                    widget.refresh_theme()
+        except Exception:
+            pass
+
+        # 刷新已打开的筛选抽屉
+        try:
+            from src.gui.components.filter_drawer import FilterDrawer
+
+            for drawer in self.findChildren(FilterDrawer):
+                drawer.refresh_theme()
+        except Exception:
+            pass
 
     def append_log(self, message):
         """在日志窗口追加日志"""

@@ -4,6 +4,7 @@
 """
 
 import time
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from src.config import cfg
 from src.services.ocr_service import OCRService
@@ -21,6 +22,7 @@ class FishingService:
             max_workers=1, thread_name_prefix="catch-recorder"
         )
         self._async_futures = []
+        self._async_futures_lock = threading.Lock()
         self._async_ocr_service = OCRService()
 
     def _get_initial_bait_amount(self):
@@ -675,52 +677,56 @@ class FishingService:
             },
         }
 
+    def _dispatch_async_result(self, result):
+        """Emit async catch result signals immediately from completion callback."""
+        for message in result.get("logs", []):
+            self.worker.log_updated.emit(message)
+
+        catch_data = result.get("catch_data")
+        if catch_data:
+            self.worker.record_added.emit(catch_data)
+
+    def _on_async_catch_done(self, future):
+        """Handle one finished async catch task."""
+        try:
+            result = future.result()
+        except Exception as e:
+            self.worker.log_updated.emit(f"后台渔获处理异常: {type(e).__name__}: {e}")
+        else:
+            self._dispatch_async_result(result)
+        finally:
+            with self._async_futures_lock:
+                if future in self._async_futures:
+                    self._async_futures.remove(future)
+
     def _submit_async_catch_processing(self, ocr_snapshots) -> bool:
         try:
             future = self._async_executor.submit(
                 self._process_catch_in_background, ocr_snapshots
             )
-            self._async_futures.append(future)
+            with self._async_futures_lock:
+                self._async_futures.append(future)
+            future.add_done_callback(self._on_async_catch_done)
             return True
         except Exception as e:
             self.worker.log_updated.emit(f"后台任务提交失败: {type(e).__name__}: {e}")
             return False
 
     def drain_async_results(self):
-        """Poll completed async catch tasks and emit signals from worker thread."""
-        if not self._async_futures:
-            return
-
-        pending = []
-        for future in self._async_futures:
-            if not future.done():
-                pending.append(future)
-                continue
-
-            try:
-                result = future.result()
-            except Exception as e:
-                self.worker.log_updated.emit(
-                    f"后台渔获处理异常: {type(e).__name__}: {e}"
-                )
-                continue
-
-            for message in result.get("logs", []):
-                self.worker.log_updated.emit(message)
-
-            catch_data = result.get("catch_data")
-            if catch_data:
-                self.worker.record_added.emit(catch_data)
-
-        self._async_futures = pending
+        """Lightweight cleanup; actual result dispatch is callback-driven."""
+        with self._async_futures_lock:
+            self._async_futures = [f for f in self._async_futures if not f.done()]
 
     def shutdown_async_processing(self, wait: bool = False):
         """Shutdown async executor to avoid lingering threads on app exit."""
         try:
-            for future in self._async_futures:
+            with self._async_futures_lock:
+                futures = list(self._async_futures)
+                self._async_futures.clear()
+
+            for future in futures:
                 if not future.done():
                     future.cancel()
-            self._async_futures.clear()
             self._async_executor.shutdown(wait=wait, cancel_futures=True)
         except Exception:
             pass
