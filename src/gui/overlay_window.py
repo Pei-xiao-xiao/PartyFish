@@ -472,6 +472,10 @@ class OverlayWindow(QWidget):
             current_time = pokedex.get_current_game_time()
             current_weather = pokedex.detect_current_weather()
 
+            # 游戏窗口不存在或最小化时，暂停刷新并保留上次状态
+            if cfg.game_hwnd is None or cfg.screen_width <= 0 or cfg.screen_height <= 0:
+                return
+
             if current_time != self._last_time or current_weather != self._last_weather:
                 self._last_time = current_time
                 self._last_weather = current_weather

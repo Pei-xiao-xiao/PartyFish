@@ -295,6 +295,16 @@ class Pokedex(QObject):
             from src.vision import vision
             import cv2
 
+            # 无有效游戏窗口时暂停天气检测，避免在最小化/丢失窗口时做无意义识别
+            has_game_window = cfg.update_game_window()
+            if (
+                not has_game_window
+                or cfg.game_hwnd is None
+                or cfg.screen_width <= 0
+                or cfg.screen_height <= 0
+            ):
+                return None
+
             weather_types = ["晴天", "雾天", "小雨", "大雨"]
             region = cfg.get_rect("weather_icon")
 
