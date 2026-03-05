@@ -1288,26 +1288,6 @@ class HomeInterface(QWidget):
                 "color: #52c41a; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
             )
 
-        elif status == "只记录模式":
-            # 蓝色只记录模式状态
-            self.status_dot.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #1890ff;
-                    border-radius: 6px;
-                }
-            """
-            )
-            self.status_text.setText("只记录模式")
-            self.status_text.setStyleSheet(
-                "color: #1890ff; font-size: 12px; font-weight: 500;"
-            )
-            # 只记录模式不启动计时器
-            self.timer.stop()
-            self.run_time_label.setStyleSheet(
-                "color: #1890ff; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
-            )
-
         elif "暂停" in status:
             # 橙色暂停状态
             self.status_dot.setStyleSheet(
