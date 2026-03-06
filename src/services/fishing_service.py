@@ -26,6 +26,61 @@ class FishingService:
         # Use default OCR threading for faster background recognition throughput.
         self._async_ocr_service = OCRService()
 
+    def _try_switch_bait(self):
+        """
+        尝试切换到下一个鱼饵
+
+        Returns:
+            bool: 是否成功切换
+        """
+        if not hasattr(self.worker, "bait_manager") or not self.worker.bait_manager:
+            return False
+
+        if not self.worker.bait_manager.has_more_baits():
+            self.worker.log_updated.emit("所有选择的鱼饵都用完了。")
+            return False
+
+        # 检测当前鱼饵
+        current_bait = self.worker.vision.detect_current_bait()
+        next_bait = self.worker.bait_manager.get_next_bait()
+
+        if not next_bait:
+            return False
+
+        self.worker.log_updated.emit(f"正在切换鱼饵：{current_bait} -> {next_bait}")
+
+        # 计算滚动次数
+        if current_bait:
+            scroll_count = self.worker.bait_manager.calculate_scroll_count(
+                current_bait, next_bait
+            )
+        else:
+            # 如果无法检测当前鱼饵，使用默认滚动次数
+            scroll_count = 1
+
+        # 执行鱼饵切换
+        self.worker.inputs.switch_bait(scroll_count)
+        self.worker.bait_manager.switch_to_next_bait()
+
+        # 等待切换完成
+        time.sleep(0.5)
+
+        # 验证切换是否成功
+        new_bait = self.worker.vision.detect_current_bait()
+        if new_bait == next_bait:
+            self.worker.log_updated.emit(f"鱼饵切换成功：{new_bait}")
+            # 更新配置中的当前鱼饵，确保收益计算正确
+            cfg.current_bait = new_bait
+            self.worker.bait_detected.emit(new_bait)
+            return True
+        else:
+            self.worker.log_updated.emit(f"鱼饵切换可能失败，检测到：{new_bait}")
+            # 即使检测不准确，也更新为预期的鱼饵
+            if next_bait:
+                cfg.current_bait = next_bait
+                self.worker.bait_detected.emit(next_bait)
+            return True  # 仍然返回True继续尝试
+
     def _get_initial_bait_amount(self):
         """
         获取抛竿前的鱼饵数量
@@ -79,6 +134,10 @@ class FishingService:
             bait_amount = self.worker.vision.get_bait_amount()
             if bait_amount == 0:
                 self.worker.log_updated.emit("鱼饵用完了。")
+                # 尝试切换到下一个鱼饵
+                if self._try_switch_bait():
+                    return False
+                # 没有更多鱼饵，暂停
                 if cfg.global_settings.get("enable_sound_alert", False):
                     self.worker.sound_alert_requested.emit("no_bait")
                 self.worker.pause(reason="没有鱼饵了")

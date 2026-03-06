@@ -20,6 +20,7 @@ class FishingWorker(QThread):
     record_added = Signal(dict)
     sale_recorded = Signal(int)  # Signal emitting the amount sold
     sound_alert_requested = Signal(str)
+    bait_detected = Signal(str)  # Signal emitting detected bait name
 
     def __init__(self):
         super().__init__()
@@ -31,10 +32,23 @@ class FishingWorker(QThread):
         self.paused = True  # Start in a paused state
         self.inputs = InputController()
         self.vision = vision
+        # 初始化鱼饵管理器
+        self.bait_manager = None
+        self._init_bait_manager()
         # 确保截图目录存在
         screenshots_dir = cfg._get_application_path() / "screenshots"
         if not screenshots_dir.exists():
             screenshots_dir.mkdir(parents=True)
+
+    def _init_bait_manager(self):
+        """初始化鱼饵管理器"""
+        from src.managers.bait_manager import BaitManager
+
+        selected_baits = cfg.global_settings.get("selected_baits", [])
+        if selected_baits:
+            self.bait_manager = BaitManager(selected_baits)
+        else:
+            self.bait_manager = None
 
     def run(self):
         """
@@ -81,6 +95,81 @@ class FishingWorker(QThread):
         self.log_updated.emit("开始自动化钓鱼...")
         if cfg.activate_game_window():
             self.log_updated.emit("已激活游戏窗口")
+
+        # 检测当前鱼饵
+        try:
+            detected_bait = self.vision.detect_current_bait()
+            if detected_bait:
+                cfg.current_bait = detected_bait
+                self.log_updated.emit(f"检测到当前鱼饵: {detected_bait}")
+                self.bait_detected.emit(detected_bait)
+
+                # 如果有鱼饵管理器，切换到优先级最高的鱼饵
+                if self.bait_manager and self.bait_manager.sorted_baits:
+                    target_bait = self.bait_manager.sorted_baits[0]
+
+                    if detected_bait != target_bait:
+                        self.log_updated.emit(
+                            f"切换鱼饵: {detected_bait} -> {target_bait}"
+                        )
+
+                        # 第一次尝试：按索引计算滚动
+                        scroll_count = self.bait_manager.calculate_scroll_count(
+                            detected_bait, target_bait
+                        )
+                        self.inputs.switch_bait(scroll_count)
+                        time.sleep(0.8)
+
+                        new_bait = self.vision.detect_current_bait()
+                        if new_bait == target_bait:
+                            cfg.current_bait = target_bait
+                            self.bait_detected.emit(target_bait)
+                            self.log_updated.emit(f"已切换到 {target_bait}")
+                        else:
+                            # 如果没滚动到正确鱼饵，改用逐个滚动检测
+                            self.log_updated.emit(
+                                f"未滚动到目标，当前: {new_bait}，开始逐个滚动检测"
+                            )
+                            max_scrolls = 4
+                            found_bait = False
+
+                            for scroll_attempt in range(max_scrolls):
+                                self.inputs.switch_bait(-1)
+                                time.sleep(0.8)
+
+                                current_bait = self.vision.detect_current_bait()
+                                if current_bait:
+                                    self.log_updated.emit(f"检测到: {current_bait}")
+                                    if current_bait == target_bait:
+                                        cfg.current_bait = target_bait
+                                        self.bait_detected.emit(target_bait)
+                                        self.log_updated.emit(f"已切换到 {target_bait}")
+                                        found_bait = True
+                                        break
+
+                            # 如果找不到优先级最高的鱼饵，检查其他勾选的鱼饵
+                            if not found_bait:
+                                self.log_updated.emit(
+                                    f"找不到 {target_bait}，检查其他勾选的鱼饵"
+                                )
+                                final_bait = self.vision.detect_current_bait()
+
+                                if (
+                                    final_bait
+                                    and final_bait in self.bait_manager.sorted_baits
+                                ):
+                                    cfg.current_bait = final_bait
+                                    self.bait_detected.emit(final_bait)
+                                    self.log_updated.emit(f"使用当前鱼饵: {final_bait}")
+                                else:
+                                    self.log_updated.emit(
+                                        f"所有勾选的鱼饵都找不到，暂停脚本"
+                                    )
+                                    self.pause(reason="找不到勾选的鱼饵")
+
+                    self.bait_manager.set_current_bait(cfg.current_bait)
+        except Exception:
+            pass
 
         while self.running:
             while self.paused:

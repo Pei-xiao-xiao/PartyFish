@@ -17,6 +17,7 @@ class RegionConfig:
             "shangyu": {"coords": (1143, 1313, 25, 28), "anchor": "bottom_center"},
             "reel_in_star": {"coords": (1167, 160, 44, 44), "anchor": "top_center"},
             "bait_count": {"coords": (2316, 1294, 32, 26), "anchor": "bottom_right"},
+            "bait_icon": {"coords": (2252, 1291, 91, 90), "anchor": "bottom_right"},
             "jiashi_popup": {"coords": (1237, 669, 40, 40), "anchor": "center"},
             "afk_popup": {"coords": (1147, 678, 40, 40), "anchor": "center"},
             "popup_exclamation": {"coords": (1250, 420, 60, 110), "anchor": "center"},

@@ -13,6 +13,22 @@ class RecordService:
     """记录服务类"""
 
     @staticmethod
+    def _get_inventory_baits(sale_amount: int) -> str:
+        """
+        获取用户选择的鱼饵组合
+
+        Args:
+            sale_amount: 本次卖出的鱼干数量（未使用，保留参数兼容性）
+
+        Returns:
+            鱼饵组合字符串，如 "蜂蜜+蘑菇"
+        """
+        selected_baits = cfg.global_settings.get("selected_baits", [])
+        if selected_baits:
+            return "+".join(selected_baits)
+        return cfg.current_bait
+
+    @staticmethod
     def save_catch_record(
         fish_name: str, quality: str, weight: float, is_new_record: bool
     ) -> bool:
@@ -102,7 +118,9 @@ class RecordService:
         """
         try:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            bait_used = cfg.current_bait
+
+            # 统计本次卖出的鱼使用的鱼饵
+            bait_used = RecordService._get_inventory_baits(amount)
 
             sales_path = cfg.sales_file
 

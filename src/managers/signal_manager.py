@@ -50,6 +50,9 @@ class SignalManager:
         self.window.worker.sound_alert_requested.connect(
             self.window.audio_manager.play_sound_alert
         )
+        self.window.worker.bait_detected.connect(
+            self.window.profit_interface.update_current_bait_display
+        )
 
     def _connect_popup_worker_signals(self):
         """连接 popup worker 相关信号"""

@@ -15,7 +15,7 @@ class GameConfig:
         self.game_hwnd = None
 
         # 鱼饵价格
-        self.BAIT_PRICES = {"蔓越莓": 1, "蓝莓": 2, "橡果": 3, "蘑菇": 4, "蜂巢蜜": 5}
+        self.BAIT_PRICES = {"蔓越莓": 1, "蓝莓": 2, "橡果": 3, "蘑菇": 4, "蜂蜜": 5}
 
         # 当前鱼饵（运行时设置）
         self.current_bait = "蔓越莓"

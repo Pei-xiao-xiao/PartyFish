@@ -333,6 +333,37 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.globalGroup)
 
+        # 4.5 鱼饵选择设置组
+        self.baitGroup = SettingCardGroup(self.tr("鱼饵设置"), self.scrollWidget)
+
+        self.baitSelectionCard = SettingCard(
+            FluentIcon.CALORIES,
+            self.tr("鱼饵选择"),
+            self.tr("勾选要使用的鱼饵，用完自动切换"),
+            parent=self.baitGroup,
+        )
+        self.baitSelectionWidget = QWidget(self.baitSelectionCard)
+        self.baitSelectionLayout = QHBoxLayout(self.baitSelectionWidget)
+        self.baitSelectionLayout.setContentsMargins(0, 0, 0, 0)
+        self.baitSelectionLayout.setSpacing(12)
+
+        self.baitCheckBoxes = {}
+        for bait_name in ["蔓越莓", "蓝莓", "橡果", "蘑菇", "蜂蜜"]:
+            checkbox = CheckBox(self.tr(bait_name), self.baitSelectionCard)
+            self.baitCheckBoxes[bait_name] = checkbox
+            self.baitSelectionLayout.addWidget(checkbox)
+
+        self.baitSelectionCard.hBoxLayout.addWidget(
+            self.baitSelectionWidget, 0, Qt.AlignRight
+        )
+        margins = self.baitSelectionCard.hBoxLayout.contentsMargins()
+        self.baitSelectionCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
+        )
+        self.baitGroup.addSettingCard(self.baitSelectionCard)
+
+        self.vBoxLayout.addWidget(self.baitGroup)
+
         # 5. UNO Function Group
         self.unoGroup = SettingCardGroup(self.tr("UNO 功能"), self.scrollWidget)
 
@@ -388,7 +419,7 @@ class SettingsInterface(ScrollArea):
         self.releaseModeLayout.setSpacing(12)
 
         self.autoReleaseEnabledCard = CheckBox(
-            self.tr("自动放生"), self.releaseModeCard
+            self.tr("桶满放生"), self.releaseModeCard
         )
         self.singleReleaseEnabledCard = CheckBox(
             self.tr("单条放生"), self.releaseModeCard
@@ -597,6 +628,10 @@ class SettingsInterface(ScrollArea):
         self.releaseEpicCard.toggled.connect(self._save_global_settings)
         self.releaseLegendaryCard.toggled.connect(self._save_global_settings)
 
+        # 鱼饵复选框信号
+        for checkbox in self.baitCheckBoxes.values():
+            checkbox.stateChanged.connect(self._save_global_settings)
+
         self.singleReleaseEnabledCard.toggled.connect(self._on_single_release_changed)
 
         self.jitterSlider.valueChanged.connect(
@@ -709,6 +744,11 @@ class SettingsInterface(ScrollArea):
         self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
         self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
 
+        # 加载鱼饵选择
+        selected_baits = cfg.global_settings.get("selected_baits", [])
+        for bait_name, checkbox in self.baitCheckBoxes.items():
+            checkbox.setChecked(bait_name in selected_baits)
+
         self._update_release_cards_state()
 
         # Unblock signals
@@ -789,6 +829,14 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["enable_fish_name_protection"] = (
             self.enableFishNameProtectionCard.isChecked()
         )
+
+        # 保存鱼饵选择
+        selected_baits = [
+            bait_name
+            for bait_name, checkbox in self.baitCheckBoxes.items()
+            if checkbox.isChecked()
+        ]
+        cfg.global_settings["selected_baits"] = selected_baits
         cfg.global_settings["release_standard"] = self.releaseStandardCard.isChecked()
         cfg.global_settings["release_uncommon"] = self.releaseUncommonCard.isChecked()
         cfg.global_settings["release_rare"] = self.releaseRareCard.isChecked()

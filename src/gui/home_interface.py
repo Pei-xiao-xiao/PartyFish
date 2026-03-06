@@ -322,7 +322,7 @@ class HomeInterface(QWidget):
         self.release_mode_segment = SegmentedWidget(self.banner)
         self.release_mode_segment.addItem("off", "关")
         self.release_mode_segment.addItem("single", "单条")
-        self.release_mode_segment.addItem("auto", "自动")
+        self.release_mode_segment.addItem("auto", "桶满")
         # 根据配置设置当前选项
         release_mode = cfg.global_settings.get("release_mode", "off")
         self.release_mode_segment.setCurrentItem(release_mode)
@@ -565,7 +565,7 @@ class HomeInterface(QWidget):
         self._notify_settings_interface_update(mode)
 
         # 更新设置页面的开关状态
-        mode_text_map = {"off": "关", "single": "单条", "auto": "自动"}
+        mode_text_map = {"off": "关", "single": "单条", "auto": "桶满"}
         self.update_log(f"[系统] 放生模式已切换为: {mode_text_map.get(mode, mode)}")
 
     def _on_screenshot_mode_changed(self, mode):

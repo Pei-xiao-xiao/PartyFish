@@ -82,6 +82,20 @@ class TemplateService:
                     template_name = "wg_" + os.path.splitext(filename)[0]
                     self.raw_templates[template_name] = img
 
+        # 加载鱼饵模板（resources/bait/ 子目录）
+        bait_path = resources_path / "bait"
+        if bait_path.exists():
+            for filename in os.listdir(bait_path):
+                if filename.endswith(".png"):
+                    file_path = os.path.join(bait_path, filename)
+                    img = cv2.imdecode(
+                        np.fromfile(file_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED
+                    )
+                    if img is None:
+                        continue
+                    template_name = "bait_" + os.path.splitext(filename)[0]
+                    self.raw_templates[template_name] = img
+
         self._rescale_templates()
 
     def _rescale_templates(self):
@@ -389,3 +403,61 @@ class TemplateService:
 
         print(f"[锁定检测] 匹配分数: {best_score:.3f}")
         return best_score >= 0.8
+
+    def detect_current_bait(self, region=None):
+        """
+        检测当前使用的鱼饵类型
+
+        Returns:
+            str: 鱼饵名称（蔓越莓、蓝莓、橡果、蘑菇、蜂蜜）或 None
+        """
+        self._ensure_loaded()
+
+        if region is None:
+            region = cfg.get_rect("bait_icon")
+
+        screenshot = self.screenshot_service.screenshot(region)
+        if screenshot is None:
+            return None
+
+        bait_types = ["蔓越莓", "蓝莓", "橡果", "蘑菇", "蜂蜜"]
+        best_match = None
+        best_score = 0.7
+
+        for bait_name in bait_types:
+            template_name = f"bait_{bait_name}"
+            raw_template = self.raw_templates.get(template_name)
+            if raw_template is None:
+                continue
+
+            template = cv2.resize(
+                raw_template,
+                (
+                    int(raw_template.shape[1] * cfg.scale),
+                    int(raw_template.shape[0] * cfg.scale),
+                ),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
+            if (
+                template.shape[0] > screenshot.shape[0]
+                or template.shape[1] > screenshot.shape[1]
+            ):
+                continue
+
+            if len(template.shape) == 3 and template.shape[2] == 4:
+                mask = template[:, :, 3]
+                template = template[:, :, :3]
+                result = cv2.matchTemplate(
+                    screenshot, template, cv2.TM_CCORR_NORMED, mask=mask
+                )
+            else:
+                result = cv2.matchTemplate(screenshot, template, cv2.TM_CCOEFF_NORMED)
+
+            _, max_val, _, _ = cv2.minMaxLoc(result)
+
+            if max_val > best_score:
+                best_score = max_val
+                best_match = bait_name
+
+        return best_match

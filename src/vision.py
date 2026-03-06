@@ -106,6 +106,10 @@ class Vision:
     def draw_debug_rects(self, image, config, recognition_results=None):
         return self.utils_service.draw_debug_rects(image, config, recognition_results)
 
+    def detect_current_bait(self, region=None):
+        """检测当前使用的鱼饵类型"""
+        return self.template_service.detect_current_bait(region)
+
 
 # Instantiate the vision class to be used by other modules
 vision = Vision()

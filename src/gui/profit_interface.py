@@ -313,10 +313,9 @@ class ProfitInterface(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeToContents
         )
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeToContents
-        )
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.table.setColumnWidth(1, 80)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
         self.table.setColumnWidth(3, 40)
         self.table.setBorderVisible(True)
@@ -704,6 +703,10 @@ class ProfitInterface(QWidget):
     def add_sale_record(self, amount):
         """添加销售记录（由 worker 调用）"""
         self.request_reload(delay_ms=0)
+
+    def update_current_bait_display(self, bait_name):
+        """更新当前鱼饵显示"""
+        self.bait_combo.setCurrentText(bait_name)
 
     def _on_line_hover(self, point, state, name, history_stats):
         """趋势图悬停提示"""

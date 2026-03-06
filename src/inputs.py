@@ -499,3 +499,26 @@ class InputController(QObject):
             delta = WHEEL_DELTA if clicks > 0 else -WHEEL_DELTA
             ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
             time.sleep(0.1)
+
+    @staticmethod
+    def switch_bait(scroll_count):
+        """
+        切换鱼饵：按住B键，滚动鼠标滚轮，然后松开B键
+
+        Args:
+            scroll_count: 滚动次数，正数向上滚动，负数向下滚动
+        """
+        VK_B = 0x42
+        # 按住B键
+        ctypes.windll.user32.keybd_event(VK_B, 0, 0, 0)
+        time.sleep(0.8)
+
+        # 滚动鼠标滚轮
+        for _ in range(abs(scroll_count)):
+            delta = WHEEL_DELTA if scroll_count > 0 else -WHEEL_DELTA
+            ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+            time.sleep(0.5)
+
+        time.sleep(0.8)
+        # 松开B键
+        ctypes.windll.user32.keybd_event(VK_B, 0, 2, 0)
