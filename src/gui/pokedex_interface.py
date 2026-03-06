@@ -28,6 +28,7 @@ from qfluentwidgets import (
     FluentIcon,
     InfoBar,
     InfoBarPosition,
+    MessageBox,
     qconfig,
     FlowLayout,
 )
@@ -722,6 +723,20 @@ class PokedexInterface(QWidget):
         self.sync_btn.clicked.connect(self._on_sync_clicked)
         toolbar.addWidget(self.sync_btn)
 
+        # 一键全图鉴按钮
+        self.fill_all_btn = PushButton("一键全图鉴", self)
+        self.fill_all_btn.setIcon(FluentIcon.COMPLETED)
+        self.fill_all_btn.setToolTip("将图鉴全部点满")
+        self.fill_all_btn.clicked.connect(self._on_fill_all_clicked)
+        toolbar.addWidget(self.fill_all_btn)
+
+        # 清空全图鉴按钮
+        self.clear_all_btn = PushButton("清空全图鉴", self)
+        self.clear_all_btn.setIcon(FluentIcon.DELETE)
+        self.clear_all_btn.setToolTip("清空图鉴全部收集状态")
+        self.clear_all_btn.clicked.connect(self._on_clear_all_clicked)
+        toolbar.addWidget(self.clear_all_btn)
+
         # 生成进度图按钮 (图标化)
         self.generate_image_btn = TransparentToolButton(FluentIcon.CAMERA, self)
         self.generate_image_btn.setToolTip("生成进度图")
@@ -1009,6 +1024,80 @@ class PokedexInterface(QWidget):
             InfoBar.info(
                 title="同步完成",
                 content="没有发现新的收集记录",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=2000,
+                parent=self,
+            )
+
+    def _on_fill_all_clicked(self):
+        """一键点满图鉴"""
+        w = MessageBox(
+            "确认一键全图鉴",
+            "将把当前账号图鉴全部标记为已收集（重量记为 0），是否继续？",
+            self.window(),
+        )
+        w.yesButton.setText("确认点满")
+        w.cancelButton.setText("取消")
+
+        if not w.exec():
+            return
+
+        changed_count = pokedex.mark_all_pokedex_caught()
+        self._on_collection_changed()
+
+        if changed_count > 0:
+            InfoBar.success(
+                title="操作成功",
+                content=f"已点满 {changed_count} 个鱼种的图鉴",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self,
+            )
+        else:
+            InfoBar.info(
+                title="无需操作",
+                content="当前图鉴已经全部点满",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=2000,
+                parent=self,
+            )
+
+    def _on_clear_all_clicked(self):
+        """一键清空图鉴"""
+        w = MessageBox(
+            "确认清空全图鉴",
+            "将清空当前账号图鉴全部收集状态，此操作不可恢复，是否继续？",
+            self.window(),
+        )
+        w.yesButton.setText("确认清空")
+        w.cancelButton.setText("取消")
+
+        if not w.exec():
+            return
+
+        changed_count = pokedex.clear_all_pokedex()
+        self._on_collection_changed()
+
+        if changed_count > 0:
+            InfoBar.success(
+                title="操作成功",
+                content=f"已清空 {changed_count} 个鱼种的图鉴状态",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self,
+            )
+        else:
+            InfoBar.info(
+                title="无需操作",
+                content="当前图鉴已经是清空状态",
                 orient=Qt.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,

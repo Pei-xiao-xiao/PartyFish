@@ -163,6 +163,50 @@ class Pokedex(QObject):
         self._save_collection()
         self.data_changed.emit()
 
+    def mark_all_pokedex_caught(self) -> int:
+        """将当前图鉴中可显示的鱼全部标记为全品质已收集（重量设为 0）"""
+        changed_count = 0
+
+        for fish in self.get_all_fish():
+            fish_name = fish.get("name", "")
+            if not fish_name:
+                continue
+
+            current = self._collection.get(fish_name, {})
+            if all(current.get(q) is not None for q in QUALITIES):
+                continue
+
+            self._collection[fish_name] = {q: 0 for q in QUALITIES}
+            changed_count += 1
+
+        if changed_count > 0:
+            self._save_collection()
+            self.data_changed.emit()
+
+        return changed_count
+
+    def clear_all_pokedex(self) -> int:
+        """清空当前图鉴中可显示鱼的全部收集状态"""
+        changed_count = 0
+
+        for fish in self.get_all_fish():
+            fish_name = fish.get("name", "")
+            if not fish_name:
+                continue
+
+            current = self._collection.get(fish_name)
+            if current is None or current == {}:
+                continue
+
+            self._collection[fish_name] = {}
+            changed_count += 1
+
+        if changed_count > 0:
+            self._save_collection()
+            self.data_changed.emit()
+
+        return changed_count
+
     def clear_all(self, fish_name: str):
         """清空某鱼的所有收集状态"""
         if fish_name in self._collection:
