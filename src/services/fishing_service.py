@@ -8,6 +8,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from src.config import cfg
 from src.services.ocr_service import OCRService
+from src.services.record_schema import infer_time_period_from_timestamp
 from src.services.record_service import RecordService
 from src.services.screenshot_service import ScreenshotService
 
@@ -25,6 +26,38 @@ class FishingService:
         self._async_futures_lock = threading.Lock()
         # Use default OCR threading for faster background recognition throughput.
         self._async_ocr_service = OCRService()
+
+    def _build_signal_record(
+        self,
+        name: str,
+        quality: str,
+        weight,
+        is_new_record: bool,
+        saved_record: dict | None = None,
+    ) -> dict:
+        """Build the UI payload for one saved or fallback record."""
+        timestamp = (
+            saved_record.get("Timestamp")
+            if saved_record and saved_record.get("Timestamp")
+            else time.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        return {
+            "timestamp": timestamp,
+            "time_period": (
+                saved_record.get("TimePeriod")
+                if saved_record and saved_record.get("TimePeriod") is not None
+                else infer_time_period_from_timestamp(timestamp)
+            ),
+            "weather": (
+                saved_record.get("Weather")
+                if saved_record and saved_record.get("Weather") is not None
+                else ""
+            ),
+            "name": name,
+            "weight": weight,
+            "quality": quality,
+            "is_new_record": is_new_record,
+        }
 
     def _try_switch_bait(self):
         """
@@ -572,18 +605,16 @@ class FishingService:
             f"钓到鱼: {fish_name}, 重量: {weight}kg, 品质: {quality}"
         )
 
-        catch_data = {
-            "name": fish_name,
-            "weight": weight,
-            "quality": quality,
-            "is_new_record": is_new_record,
-        }
-        self.worker.record_added.emit(catch_data)
-
-        if not RecordService.save_catch_record(
+        saved_record = RecordService.save_catch_record(
             fish_name, quality, weight, is_new_record
-        ):
+        )
+        if not saved_record:
             self.worker.log_updated.emit("写入记录文件失败")
+
+        catch_data = self._build_signal_record(
+            fish_name, quality, weight, is_new_record, saved_record
+        )
+        self.worker.record_added.emit(catch_data)
 
         # 使用统一的放生品质配置
         release_map = {
@@ -712,9 +743,10 @@ class FishingService:
 
         logs.append(f"钓到鱼: {fish_name}, 重量: {weight}kg, 品质: {quality}")
 
-        if not RecordService.save_catch_record(
+        saved_record = RecordService.save_catch_record(
             fish_name, quality, weight, is_new_record
-        ):
+        )
+        if not saved_record:
             logs.append("写入记录文件失败")
 
         screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
@@ -722,12 +754,9 @@ class FishingService:
             # Steam F12 must be triggered early in foreground, skip delayed background trigger.
             return {
                 "logs": logs,
-                "catch_data": {
-                    "name": fish_name,
-                    "weight": weight,
-                    "quality": quality,
-                    "is_new_record": is_new_record,
-                },
+                "catch_data": self._build_signal_record(
+                    fish_name, quality, weight, is_new_record, saved_record
+                ),
             }
 
         if is_new_record and cfg.global_settings.get(
@@ -746,12 +775,9 @@ class FishingService:
 
         return {
             "logs": logs,
-            "catch_data": {
-                "name": fish_name,
-                "weight": weight,
-                "quality": quality,
-                "is_new_record": is_new_record,
-            },
+            "catch_data": self._build_signal_record(
+                fish_name, quality, weight, is_new_record, saved_record
+            ),
         }
 
     def _dispatch_async_result(self, result):
@@ -842,13 +868,15 @@ class FishingService:
 
     def _record_event(self, event_type: str):
         """记录事件到CSV"""
-        if not RecordService.save_event_record(event_type):
+        saved_record = RecordService.save_event_record(event_type)
+        if not saved_record:
             self.worker.log_updated.emit("写入记录文件失败")
 
-        event_data = {
-            "name": event_type,
-            "weight": "",
-            "quality": "",
-            "is_new_record": False,
-        }
+        event_data = self._build_signal_record(
+            event_type,
+            "",
+            "",
+            False,
+            saved_record if saved_record and "Timestamp" in saved_record else None,
+        )
         self.worker.record_added.emit(event_data)

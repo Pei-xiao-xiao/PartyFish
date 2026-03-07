@@ -32,7 +32,7 @@ from qfluentwidgets import (
 )
 from src.config import cfg
 from src.gui.components import KeyBindingWidget
-from src.record_manager import record_manager
+from src.services.record_manager import record_manager
 
 
 class ImportWorker(QThread):

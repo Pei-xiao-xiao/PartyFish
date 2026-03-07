@@ -5,12 +5,50 @@
 
 import time
 import csv
-from pathlib import Path
 from src.config import cfg
+from src.services.record_schema import (
+    RECORD_FIELDNAMES,
+    build_record_row,
+    ensure_record_schema,
+)
 
 
 class RecordService:
     """记录服务类"""
+
+    @staticmethod
+    def _detect_weather() -> str:
+        """Best-effort weather capture for the current record."""
+        try:
+            from src.pokedex import pokedex
+
+            return pokedex.detect_current_weather() or ""
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _append_record_row(record_row: dict) -> dict | None:
+        """Append one normalized record row to records.csv."""
+        try:
+            csv_file = cfg.records_file
+            file_exists = csv_file.is_file()
+
+            if not csv_file.parent.exists():
+                csv_file.parent.mkdir(parents=True)
+
+            if file_exists:
+                ensure_record_schema(csv_file)
+
+            encoding = "utf-8" if file_exists else "utf-8-sig"
+            with open(csv_file, "a", encoding=encoding, newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=RECORD_FIELDNAMES)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(record_row)
+
+            return record_row
+        except Exception:
+            return None
 
     @staticmethod
     def _get_inventory_baits(sale_amount: int) -> str:
@@ -31,7 +69,7 @@ class RecordService:
     @staticmethod
     def save_catch_record(
         fish_name: str, quality: str, weight: float, is_new_record: bool
-    ) -> bool:
+    ) -> dict | None:
         """
         保存渔获记录到 CSV
 
@@ -42,36 +80,28 @@ class RecordService:
             is_new_record: 是否新记录
 
         Returns:
-            成功返回 True，失败返回 False
+            成功返回记录字典，失败返回 None
         """
         try:
-            csv_file = cfg.records_file
-            file_exists = csv_file.is_file()
-
-            if not csv_file.parent.exists():
-                csv_file.parent.mkdir(parents=True)
-
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             bait_name = cfg.current_bait
             bait_cost = cfg.BAIT_PRICES.get(bait_name, 0)
-
-            encoding = "utf-8-sig" if not file_exists else "utf-8"
-            with open(csv_file, "a", encoding=encoding) as f:
-                if not file_exists:
-                    f.write("Timestamp,Name,Quality,Weight,IsNewRecord,Bait,BaitCost\n")
-
-                is_new_record_str = "Yes" if is_new_record else "No"
-                f.write(
-                    f"{timestamp},{fish_name},{quality},{weight},"
-                    f"{is_new_record_str},{bait_name},{bait_cost}\n"
-                )
-
-            return True
-        except Exception as e:
-            return False
+            record_row = build_record_row(
+                timestamp=timestamp,
+                name=fish_name,
+                quality=quality,
+                weight=str(weight),
+                is_new_record="Yes" if is_new_record else "No",
+                bait=bait_name,
+                bait_cost=str(bait_cost),
+                weather=RecordService._detect_weather(),
+            )
+            return RecordService._append_record_row(record_row)
+        except Exception:
+            return None
 
     @staticmethod
-    def save_event_record(event_type: str) -> bool:
+    def save_event_record(event_type: str) -> dict | None:
         """
         保存事件记录到 CSV（例如"鱼跑了"）
 
@@ -79,31 +109,28 @@ class RecordService:
             event_type: 事件类型
 
         Returns:
-            成功返回 True，失败返回 False
+            成功返回记录字典，失败返回 None
         """
         if not cfg.global_settings.get("enable_fish_recognition", True):
-            return True
+            return {"skipped": True}
 
         try:
-            csv_file = cfg.records_file
-            file_exists = csv_file.is_file()
-
-            if not csv_file.parent.exists():
-                csv_file.parent.mkdir(parents=True)
-
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             bait_name = cfg.current_bait
             bait_cost = cfg.BAIT_PRICES.get(bait_name, 0)
-
-            encoding = "utf-8-sig" if not file_exists else "utf-8"
-            with open(csv_file, "a", encoding=encoding) as f:
-                if not file_exists:
-                    f.write("Timestamp,Name,Quality,Weight,IsNewRecord,Bait,BaitCost\n")
-                f.write(f"{timestamp},{event_type},,,No,{bait_name},{bait_cost}\n")
-
-            return True
-        except Exception as e:
-            return False
+            record_row = build_record_row(
+                timestamp=timestamp,
+                name=event_type,
+                quality="",
+                weight="",
+                is_new_record="No",
+                bait=bait_name,
+                bait_cost=str(bait_cost),
+                weather=RecordService._detect_weather(),
+            )
+            return RecordService._append_record_row(record_row)
+        except Exception:
+            return None
 
     @staticmethod
     def save_sale_record(amount: int) -> bool:

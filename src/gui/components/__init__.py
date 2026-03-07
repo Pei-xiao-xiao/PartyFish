@@ -5,11 +5,12 @@ from qfluentwidgets import Theme, qconfig
 
 # 定义品质颜色 (亮色主题, 暗色主题)
 QUALITY_COLORS = {
-    "标准": (QColor("#606060"), QColor("#D0D0D0")),      # Standard: Grey
-    "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),      # Uncommon: Green
-    "稀有": (QColor("#007ACC"), QColor("#3498DB")),      # Rare: Blue
-    "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),      # Epic: Purple
-    "传奇": (QColor("#FF8C00"), QColor("#F39C12"))       # Legendary: Orange
+    "标准": (QColor("#606060"), QColor("#D0D0D0")),  # Standard: Grey
+    "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),  # Uncommon: Green
+    "稀有": (QColor("#007ACC"), QColor("#3498DB")),  # Rare: Blue
+    "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),  # Epic: Purple
+    "传奇": (QColor("#FF8C00"), QColor("#F39C12")),  # Legendary: Orange
+    "传说": (QColor("#FF8C00"), QColor("#F39C12")),  # Legacy alias for legendary
 }
 
 
@@ -88,41 +89,48 @@ class KeyBindingWidget(QLineEdit):
             return
         try:
             from src.gamepad_controller import gamepad_controller
-            
+
             # 确保 pygame 已初始化
             if not gamepad_controller._pygame_initialized:
                 if not gamepad_controller._init_pygame():
                     print("[KeyBindingWidget] Failed to initialize pygame")
                     return
-            
+
             # 确保手柄控制器正在监听
             if not gamepad_controller._running:
                 gamepad_controller.start_listening()
                 print("[KeyBindingWidget] Started gamepad listening")
-            
+
             # 连接信号（使用 UniqueConnection 避免重复连接）
             try:
-                gamepad_controller.gamepad_button_pressed.disconnect(self._on_gamepad_button)
+                gamepad_controller.gamepad_button_pressed.disconnect(
+                    self._on_gamepad_button
+                )
             except (TypeError, RuntimeError):
                 pass  # 信号未连接，忽略
-            
+
             gamepad_controller.gamepad_button_pressed.connect(
-                self._on_gamepad_button,
-                Qt.UniqueConnection
+                self._on_gamepad_button, Qt.UniqueConnection
             )
             self._gamepad_connection = True
             print(f"[KeyBindingWidget] Gamepad connected for {self.placeholderText()}")
         except Exception as e:
             print(f"[KeyBindingWidget] Failed to connect gamepad: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _disconnect_gamepad(self):
         if self._gamepad_connection:
             try:
                 from src.gamepad_controller import gamepad_controller
-                gamepad_controller.gamepad_button_pressed.disconnect(self._on_gamepad_button)
-                print(f"[KeyBindingWidget] Gamepad disconnected for {self.placeholderText()}")
+
+                gamepad_controller.gamepad_button_pressed.disconnect(
+                    self._on_gamepad_button
+                )
+                print(
+                    f"[KeyBindingWidget] Gamepad disconnected for {self.placeholderText()}"
+                )
             except Exception:
                 pass
             finally:
@@ -138,7 +146,9 @@ class KeyBindingWidget(QLineEdit):
     def update_style(self):
         color = qconfig.themeColor.name
         if self.property("isCapturing"):
-            self.setStyleSheet(f"border: 2px solid {color}; background-color: rgba(0, 159, 227, 0.1);")
+            self.setStyleSheet(
+                f"border: 2px solid {color}; background-color: rgba(0, 159, 227, 0.1);"
+            )
         else:
             self.setStyleSheet("")
         self.style().unpolish(self)
@@ -155,7 +165,7 @@ class KeyBindingWidget(QLineEdit):
             return
 
         key = event.key()
-        
+
         if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
             return
 
@@ -168,7 +178,7 @@ class KeyBindingWidget(QLineEdit):
             parts.append("Alt")
         if modifiers & Qt.ShiftModifier:
             parts.append("Shift")
-        
+
         key_name = self.get_key_name(key)
         if key_name:
             parts.append(key_name)
@@ -189,7 +199,7 @@ class KeyBindingWidget(QLineEdit):
     def get_key_name(self, key):
         if Qt.Key_F1 <= key <= Qt.Key_F12:
             return f"F{key - Qt.Key_F1 + 1}"
-        
+
         key_map = {
             Qt.Key_Space: "Space",
             Qt.Key_Tab: "Tab",
@@ -204,14 +214,15 @@ class KeyBindingWidget(QLineEdit):
             Qt.Key_PageUp: "PgUp",
             Qt.Key_PageDown: "PgDn",
         }
-        
+
         if key in key_map:
             return key_map[key]
-        
+
         if Qt.Key_0 <= key <= Qt.Key_9 or Qt.Key_A <= key <= Qt.Key_Z:
             return chr(key).upper()
-            
+
         return None
+
 
 from src.gui.components.filter_panel import FilterPanel
 from src.gui.components.filter_drawer import FilterDrawer

@@ -7,8 +7,12 @@ import csv
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Set
-from pathlib import Path
 from src.config import cfg
+from src.services.record_schema import (
+    RECORD_FIELDNAMES,
+    ensure_record_schema,
+    read_record_rows,
+)
 
 
 @dataclass
@@ -16,6 +20,8 @@ class FishRecord:
     """鱼类记录数据"""
 
     timestamp: str
+    time_period: str
+    weather: str
     name: str
     quality: str
     weight: str
@@ -39,24 +45,17 @@ class RecordDataService:
             return records
 
         try:
-            with open(data_path, "r", encoding="utf-8-sig") as f:
-                reader = csv.reader(f)
-                next(reader, None)  # 跳过表头
-
-                for row in reader:
-                    if len(row) >= 4:
-                        is_new = False
-                        if len(row) >= 5:
-                            is_new = row[4] == "Yes"
-
-                        record = FishRecord(
-                            timestamp=row[0],
-                            name=row[1],
-                            quality=row[2],
-                            weight=row[3],
-                            is_new_record=is_new,
-                        )
-                        records.append(record)
+            for row in read_record_rows(data_path):
+                record = FishRecord(
+                    timestamp=row["Timestamp"],
+                    time_period=row["TimePeriod"],
+                    weather=row["Weather"],
+                    name=row["Name"],
+                    quality=row["Quality"],
+                    weight=row["Weight"],
+                    is_new_record=row["IsNewRecord"] == "Yes",
+                )
+                records.append(record)
         except Exception as e:
             print(f"Error loading records: {e}")
 
@@ -137,9 +136,10 @@ class RecordDataService:
             return False
 
         try:
+            ensure_record_schema(data_path)
+
             with open(data_path, "r", encoding="utf-8-sig", newline="") as f:
                 reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames or []
                 rows = list(reader)
 
             target_ts = str(timestamp).strip()
@@ -176,7 +176,7 @@ class RecordDataService:
                 return False
 
             with open(data_path, "w", encoding="utf-8-sig", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer = csv.DictWriter(f, fieldnames=RECORD_FIELDNAMES)
                 writer.writeheader()
                 writer.writerows(kept_rows)
 

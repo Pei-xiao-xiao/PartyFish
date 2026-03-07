@@ -108,26 +108,18 @@ class ProfitAnalysisService:
         if records_path.exists():
             try:
                 with open(records_path, "r", encoding="utf-8-sig") as f:
-                    reader = csv.reader(f)
-                    header = next(reader, None)
-
-                    bait_cost_idx = -1
-                    if header and "BaitCost" in header:
-                        bait_cost_idx = header.index("BaitCost")
-
+                    reader = csv.DictReader(f)
                     for row in reader:
                         if not row:
                             continue
-                        ts_str = row[0]
+                        ts_str = row.get("Timestamp", "")
                         try:
                             row_dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
                             if row_dt >= start_time:
-                                if bait_cost_idx != -1 and len(row) > bait_cost_idx:
-                                    try:
-                                        cost = int(row[bait_cost_idx])
-                                        total_cost += cost
-                                    except ValueError:
-                                        pass
+                                try:
+                                    total_cost += int(row.get("BaitCost", "0") or 0)
+                                except ValueError:
+                                    pass
                         except ValueError:
                             pass
             except Exception as e:
@@ -186,27 +178,20 @@ class ProfitAnalysisService:
         if records_path.exists():
             try:
                 with open(records_path, "r", encoding="utf-8-sig") as f:
-                    reader = csv.reader(f)
-                    header = next(reader, None)
-                    bait_cost_idx = (
-                        header.index("BaitCost")
-                        if header and "BaitCost" in header
-                        else -1
-                    )
-
-                    if bait_cost_idx != -1:
-                        for row in reader:
-                            if not row:
-                                continue
-                            ts_str = row[0]
-                            try:
-                                dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                                if dt >= cutoff_date:
-                                    date_str = dt.strftime("%Y-%m-%d")
-                                    if len(row) > bait_cost_idx:
-                                        daily_cost[date_str] += int(row[bait_cost_idx])
-                            except ValueError:
-                                pass
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if not row:
+                            continue
+                        ts_str = row.get("Timestamp", "")
+                        try:
+                            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                            if dt >= cutoff_date:
+                                date_str = dt.strftime("%Y-%m-%d")
+                                daily_cost[date_str] += int(
+                                    row.get("BaitCost", "0") or 0
+                                )
+                        except ValueError:
+                            pass
             except Exception:
                 pass
 
