@@ -133,7 +133,12 @@ class ConfigManager:
             "enable_first_catch_screenshot": True,
             "enable_season_filter": True,
             "enable_gamepad": False,
-            "gamepad_mappings": {},
+            "gamepad_mappings": {
+                "toggle": "LS",
+                "debug": "DpadRight",
+                "sell": "RS",
+                "uno": "DpadLeft",
+            },
         }
 
     def save(self):
