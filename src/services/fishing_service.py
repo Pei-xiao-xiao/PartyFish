@@ -69,50 +69,31 @@ class FishingService:
         if not hasattr(self.worker, "bait_manager") or not self.worker.bait_manager:
             return False
 
+        # 检测当前鱼饵
+        current_bait = self.worker.vision.detect_current_bait() or cfg.current_bait
+        if current_bait:
+            self.worker.bait_manager.set_current_bait(current_bait)
+
         if not self.worker.bait_manager.has_more_baits():
             self.worker.log_updated.emit("所有选择的鱼饵都用完了。")
             return False
 
-        # 检测当前鱼饵
-        current_bait = self.worker.vision.detect_current_bait()
         next_bait = self.worker.bait_manager.get_next_bait()
 
         if not next_bait:
             return False
 
         self.worker.log_updated.emit(f"正在切换鱼饵：{current_bait} -> {next_bait}")
+        success = self.worker._switch_to_target_bait(current_bait, next_bait)
+        if not success:
+            self.worker.log_updated.emit("弹窗已处理，重新切换鱼饵...")
+            time.sleep(0.5)
+            success = self.worker._switch_to_target_bait(current_bait, next_bait)
 
-        # 计算滚动次数
-        if current_bait:
-            scroll_count = self.worker.bait_manager.calculate_scroll_count(
-                current_bait, next_bait
-            )
-        else:
-            # 如果无法检测当前鱼饵，使用默认滚动次数
-            scroll_count = 1
+        if success and cfg.current_bait:
+            self.worker.bait_manager.set_current_bait(cfg.current_bait)
 
-        # 执行鱼饵切换
-        self.worker.inputs.switch_bait(scroll_count)
-        self.worker.bait_manager.switch_to_next_bait()
-
-        # 等待切换完成
-        time.sleep(0.5)
-
-        # 验证切换是否成功
-        new_bait = self.worker.vision.detect_current_bait()
-        if new_bait == next_bait:
-            self.worker.log_updated.emit(f"鱼饵切换成功：{new_bait}")
-            # 更新配置中的当前鱼饵，确保收益计算正确
-            cfg.current_bait = new_bait
-            self.worker.bait_detected.emit(new_bait)
-            return True
-        else:
-            self.worker.log_updated.emit(f"鱼饵切换可能失败，检测到：{new_bait}")
-            # 即使检测不准确，也更新为预期的鱼饵
-            if next_bait:
-                cfg.current_bait = next_bait
-                self.worker.bait_detected.emit(next_bait)
-            return True  # 仍然返回True继续尝试
+        return success
 
     def _get_initial_bait_amount(self):
         """

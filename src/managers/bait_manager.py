@@ -24,26 +24,72 @@ class BaitManager:
             key=lambda x: self.BAIT_ORDER.index(x) if x in self.BAIT_ORDER else -1,
             reverse=True,
         )
-        self.current_bait_index = 0
+        self.runtime_baits = list(self.sorted_baits)
+        self.current_bait_index = 0 if self.runtime_baits else -1
+
+    def configure_runtime_sequence(self, current_bait):
+        """
+        根据当前实际鱼饵生成运行时切换序列。
+
+        规则:
+        1. 当前鱼饵未勾选: 先用完当前鱼饵，再切到勾选列表。
+        2. 当前鱼饵已勾选: 先继续用当前鱼饵，再按优先级切换剩余勾选鱼饵。
+        """
+        if not self.sorted_baits:
+            self.runtime_baits = []
+            self.current_bait_index = -1
+            return []
+
+        current_bait = current_bait if current_bait else None
+
+        if current_bait and current_bait in self.sorted_baits:
+            remaining = [bait for bait in self.sorted_baits if bait != current_bait]
+            self.runtime_baits = [current_bait] + remaining
+        elif current_bait:
+            self.runtime_baits = [current_bait] + list(self.sorted_baits)
+        else:
+            self.runtime_baits = list(self.sorted_baits)
+
+        self.current_bait_index = 0 if self.runtime_baits else -1
+        return list(self.runtime_baits)
+
+    def get_runtime_sequence(self):
+        """获取当前运行时切换序列。"""
+        return list(self.runtime_baits)
+
+    def is_selected_bait(self, bait_name):
+        """判断鱼饵是否在勾选列表中。"""
+        return bait_name in self.sorted_baits
+
+    def get_remaining_baits(self):
+        """获取当前鱼饵之后待切换的鱼饵序列。"""
+        if not self.runtime_baits or self.current_bait_index < 0:
+            return []
+        return self.runtime_baits[self.current_bait_index + 1 :]
 
     def get_current_bait(self):
         """获取当前应该使用的鱼饵"""
-        if not self.sorted_baits:
+        if (
+            not self.runtime_baits
+            or self.current_bait_index < 0
+            or self.current_bait_index >= len(self.runtime_baits)
+        ):
             return None
-        return self.sorted_baits[self.current_bait_index]
+        return self.runtime_baits[self.current_bait_index]
 
     def get_next_bait(self):
         """获取下一个鱼饵"""
         if (
-            not self.sorted_baits
-            or self.current_bait_index >= len(self.sorted_baits) - 1
+            not self.runtime_baits
+            or self.current_bait_index < 0
+            or self.current_bait_index >= len(self.runtime_baits) - 1
         ):
             return None
-        return self.sorted_baits[self.current_bait_index + 1]
+        return self.runtime_baits[self.current_bait_index + 1]
 
     def switch_to_next_bait(self):
         """切换到下一个鱼饵"""
-        if self.current_bait_index < len(self.sorted_baits) - 1:
+        if self.get_next_bait() is not None:
             self.current_bait_index += 1
             return True
         return False
@@ -70,7 +116,7 @@ class BaitManager:
 
     def has_more_baits(self):
         """是否还有更多鱼饵可以切换"""
-        return self.current_bait_index < len(self.sorted_baits) - 1
+        return self.get_next_bait() is not None
 
     def set_current_bait(self, bait_name):
         """
@@ -79,7 +125,12 @@ class BaitManager:
         Args:
             bait_name: 当前鱼饵名称
         """
-        if bait_name in self.sorted_baits:
-            self.current_bait_index = self.sorted_baits.index(bait_name)
+        if bait_name in self.runtime_baits:
+            self.current_bait_index = self.runtime_baits.index(bait_name)
             return True
+
+        if bait_name:
+            self.configure_runtime_sequence(bait_name)
+            return bait_name in self.runtime_baits
+
         return False

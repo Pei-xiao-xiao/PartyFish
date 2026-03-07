@@ -34,6 +34,7 @@ class FishingWorker(QThread):
         self.vision = vision
         # 初始化鱼饵管理器
         self.bait_manager = None
+        self._pending_bait_sync = False
         self._init_bait_manager()
         # 确保截图目录存在
         screenshots_dir = cfg._get_application_path() / "screenshots"
@@ -49,6 +50,51 @@ class FishingWorker(QThread):
             self.bait_manager = BaitManager(selected_baits)
         else:
             self.bait_manager = None
+
+    def _sync_current_bait_state(self):
+        """
+        检测并同步当前鱼饵。
+        无论是否启用自动切换，脚本开始运行时都先校准一次当前鱼饵，
+        保证收益统计使用的是实际鱼饵。
+        """
+        self._init_bait_manager()
+        self.log_updated.emit("正在检测当前鱼饵...")
+
+        try:
+            detected_bait = self.vision.detect_current_bait()
+        except Exception as e:
+            self.log_updated.emit(f"检测当前鱼饵失败: {type(e).__name__}: {e}")
+            return None
+
+        if not detected_bait:
+            self.log_updated.emit(f"未能识别当前鱼饵，沿用当前设置: {cfg.current_bait}")
+            return None
+
+        cfg.current_bait = detected_bait
+        self.log_updated.emit(f"检测到当前鱼饵: {detected_bait}")
+        self.bait_detected.emit(detected_bait)
+
+        if self.bait_manager and self.bait_manager.sorted_baits:
+            runtime_baits = self.bait_manager.configure_runtime_sequence(detected_bait)
+            remaining_baits = self.bait_manager.get_remaining_baits()
+
+            if self.bait_manager.is_selected_bait(detected_bait):
+                if remaining_baits:
+                    self.log_updated.emit(
+                        "当前鱼饵已在勾选列表中，先用完当前鱼饵，再按优先级切换: "
+                        + " -> ".join(remaining_baits)
+                    )
+                else:
+                    self.log_updated.emit(
+                        "当前鱼饵已在勾选列表中，本轮没有其他待切换鱼饵。"
+                    )
+            elif runtime_baits:
+                self.log_updated.emit(
+                    "当前鱼饵未勾选，先用完当前鱼饵，再按优先级切换: "
+                    + " -> ".join(runtime_baits[1:])
+                )
+
+        return cfg.current_bait
 
     def run(self):
         """
@@ -96,30 +142,7 @@ class FishingWorker(QThread):
         if cfg.activate_game_window():
             self.log_updated.emit("已激活游戏窗口")
 
-        # 检测当前鱼饵
-        try:
-            detected_bait = self.vision.detect_current_bait()
-            if detected_bait:
-                cfg.current_bait = detected_bait
-                self.log_updated.emit(f"检测到当前鱼饵: {detected_bait}")
-                self.bait_detected.emit(detected_bait)
-
-                # 如果有鱼饵管理器，切换到优先级最高的鱼饵
-                if self.bait_manager and self.bait_manager.sorted_baits:
-                    target_bait = self.bait_manager.sorted_baits[0]
-
-                    if detected_bait != target_bait:
-                        success = self._switch_to_target_bait(
-                            detected_bait, target_bait
-                        )
-                        if not success:
-                            self.log_updated.emit("弹窗已处理，重新切换鱼饵...")
-                            time.sleep(0.5)
-                            self._switch_to_target_bait(detected_bait, target_bait)
-
-                    self.bait_manager.set_current_bait(cfg.current_bait)
-        except Exception:
-            pass
+        self._sync_current_bait_state()
 
         while self.running:
             while self.paused:
@@ -131,6 +154,10 @@ class FishingWorker(QThread):
 
             if not self.running:
                 break
+
+            if self._pending_bait_sync:
+                self._pending_bait_sync = False
+                self._sync_current_bait_state()
 
             self.fishing_service.drain_async_results()
 
@@ -265,6 +292,7 @@ class FishingWorker(QThread):
         恢复线程
         """
         self.paused = False
+        self._pending_bait_sync = True
         self.status_updated.emit("运行中")
         self.log_updated.emit("自动化已恢复。")
 
@@ -478,6 +506,8 @@ class FishingWorker(QThread):
         new_bait = self.vision.detect_current_bait()
         if new_bait == target_bait:
             cfg.current_bait = target_bait
+            if self.bait_manager:
+                self.bait_manager.set_current_bait(target_bait)
             self.bait_detected.emit(target_bait)
             self.log_updated.emit(f"已切换到 {target_bait}")
             return True
@@ -499,6 +529,8 @@ class FishingWorker(QThread):
                 self.log_updated.emit(f"检测到: {current_bait}")
                 if current_bait == target_bait:
                     cfg.current_bait = target_bait
+                    if self.bait_manager:
+                        self.bait_manager.set_current_bait(target_bait)
                     self.bait_detected.emit(target_bait)
                     self.log_updated.emit(f"已切换到 {target_bait}")
                     found_bait = True
@@ -511,6 +543,7 @@ class FishingWorker(QThread):
 
             if final_bait and final_bait in self.bait_manager.sorted_baits:
                 cfg.current_bait = final_bait
+                self.bait_manager.set_current_bait(final_bait)
                 self.bait_detected.emit(final_bait)
                 self.log_updated.emit(f"使用当前鱼饵: {final_bait}")
             else:

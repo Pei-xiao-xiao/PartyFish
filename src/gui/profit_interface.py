@@ -24,6 +24,7 @@ from PySide6.QtCharts import QChart, QChartView
 from qfluentwidgets import (
     CardWidget,
     BodyLabel,
+    CaptionLabel,
     StrongBodyLabel,
     TitleLabel,
     ComboBox,
@@ -148,7 +149,6 @@ class HoverDeleteTableWidget(TableWidget):
 class ProfitInterface(QWidget):
     """收益统计与鱼饵管理界面"""
 
-    bait_changed_signal = Signal(str)
     test_recognition_signal = Signal()
     data_changed_signal = Signal()
     server_changed_signal = Signal(str)
@@ -188,18 +188,16 @@ class ProfitInterface(QWidget):
         top_layout = QHBoxLayout()
         top_layout.setSpacing(20)
 
-        # 鱼饵选择卡片
+        # 当前鱼饵卡片
         bait_card = CardWidget(self)
         bait_layout = QVBoxLayout(bait_card)
+        self.current_bait_label = StrongBodyLabel("当前使用鱼饵：未知", bait_card)
+        self.current_bait_label.setAlignment(Qt.AlignCenter)
+        bait_hint = CaptionLabel("脚本启动实时更新", bait_card)
+        bait_hint.setAlignment(Qt.AlignCenter)
 
-        bait_title = BodyLabel("当前使用鱼饵", bait_card)
-        self.bait_combo = ComboBox(bait_card)
-        self.bait_combo.addItems(list(cfg.BAIT_PRICES.keys()))
-        self.bait_combo.setCurrentText(cfg.current_bait)
-        self.bait_combo.currentTextChanged.connect(self._on_bait_changed)
-
-        bait_layout.addWidget(bait_title)
-        bait_layout.addWidget(self.bait_combo)
+        bait_layout.addWidget(self.current_bait_label)
+        bait_layout.addWidget(bait_hint)
         bait_layout.addStretch(1)
 
         top_layout.addWidget(bait_card, 1)
@@ -685,12 +683,6 @@ class ProfitInterface(QWidget):
         else:
             self.reload_data()
 
-    def _on_bait_changed(self, text):
-        """鱼饵变更"""
-        cfg.current_bait = text
-        cfg.save()
-        self.bait_changed_signal.emit(text)
-
     def _on_server_changed(self, text):
         """区服变更"""
         new_region = "Global" if "亚服" in text else "CN"
@@ -706,7 +698,10 @@ class ProfitInterface(QWidget):
 
     def update_current_bait_display(self, bait_name):
         """更新当前鱼饵显示"""
-        self.bait_combo.setCurrentText(bait_name)
+        display_text = bait_name or "未知"
+        if bait_name:
+            cfg.current_bait = bait_name
+        self.current_bait_label.setText(f"当前使用鱼饵：{display_text}")
 
     def _on_line_hover(self, point, state, name, history_stats):
         """趋势图悬停提示"""
