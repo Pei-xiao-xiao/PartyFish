@@ -58,7 +58,7 @@ DETAIL_COLUMN_WIDTH = 72
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
-    """Ensure numeric ordering works for the weight column."""
+    """确保重量列的数字排序正常工作。"""
 
     def __lt__(self, other):
         try:
@@ -70,7 +70,7 @@ class NumericTableWidgetItem(QTableWidgetItem):
 
 
 class DeleteButtonDelegate(QStyledItemDelegate):
-    """Paint the delete action without creating a widget per row."""
+    """绘制删除操作而不为每行创建控件。"""
 
     BUTTON_SIZE = 24
     ICON_SIZE = 14
@@ -348,7 +348,7 @@ class RecordsInterface(QWidget):
         self._load_data()
 
     def _init_pie_chart(self):
-        """Initializes the pie chart component."""
+        """初始化饼图组件。"""
         self.pie_series = QPieSeries()
         self.pie_series.setHoleSize(0.35)
 
@@ -365,7 +365,7 @@ class RecordsInterface(QWidget):
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
 
     def _on_view_changed(self, item):
-        """Handle switching between total, today, and date views."""
+        """处理总计、今日和日期视图之间的切换。"""
         self._current_view_key = item
         self._toggle_date_selector(item == "date")
         self._reset_and_reload()
@@ -409,7 +409,7 @@ class RecordsInterface(QWidget):
         self._reset_and_reload()
 
     def _show_date_dialog(self):
-        """Show a popup dialog for date selection."""
+        """显示日期选择弹窗。"""
         from PySide6.QtGui import QTextCharFormat
 
         dialog = QDialog(self)
@@ -490,7 +490,7 @@ class RecordsInterface(QWidget):
             self._reset_and_reload()
 
     def _open_data_directory(self):
-        """Open the Partyfish app data directory in the system file manager."""
+        """在系统文件管理器中打开 Partyfish 应用数据目录。"""
         data_dir = cfg.user_data_dir
         data_dir.mkdir(parents=True, exist_ok=True)
         if hasattr(os, "startfile"):
@@ -499,7 +499,7 @@ class RecordsInterface(QWidget):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(data_dir)))
 
     def _create_stat_card(self, title: str, value: str, icon):
-        """Helper to create a more appealing stat card."""
+        """辅助函数，创建更美观的统计卡片。"""
         card = CardWidget(self)
         layout = QHBoxLayout(card)
         layout.setContentsMargins(15, 10, 15, 10)
@@ -528,7 +528,7 @@ class RecordsInterface(QWidget):
         self._update_stats_and_table(rebuild_table=True)
 
     def _load_data(self):
-        """Load data from CSV and rebuild the current view."""
+        """从 CSV 加载数据并重建当前视图。"""
         self._flush_timer.stop()
         self._search_refresh_timer.stop()
         self._load_more_timer.stop()
@@ -660,7 +660,7 @@ class RecordsInterface(QWidget):
         return sorted(records, key=key_func, reverse=reverse)
 
     def _update_stats_and_table(self, rebuild_table: bool = False):
-        """Update stats/cards/chart from the full filtered dataset."""
+        """从完整的过滤数据集更新统计/卡片/图表。"""
         filtered_records = self._sort_records(self._get_filtered_records())
         self.cached_filtered_records = filtered_records
 
@@ -813,7 +813,7 @@ class RecordsInterface(QWidget):
         return False
 
     def _on_delete_row(self, row: int):
-        """Delete the selected record and refresh the current lazy-loaded view."""
+        """删除选定的记录并刷新当前的延迟加载视图。"""
         ts_item = self.table.item(row, 0)
         if not ts_item:
             return
@@ -828,7 +828,7 @@ class RecordsInterface(QWidget):
             self._update_stats_and_table(rebuild_table=True)
 
     def add_record(self, record: dict):
-        """Queue a UI refresh after a new record arrives from the worker."""
+        """在新记录从 worker 到达后排队 UI 刷新。"""
         timestamp = record.get(
             "timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
@@ -862,7 +862,7 @@ class RecordsInterface(QWidget):
             self._flush_timer.start(10)
 
     def refresh_table_colors(self):
-        """Rebuild visible rows and chart using the current theme colors."""
+        """使用当前主题颜色重建可见行和图表。"""
         self.chart_service.apply_theme(
             self.chart_view.chart(), qconfig.theme.value == "Dark"
         )

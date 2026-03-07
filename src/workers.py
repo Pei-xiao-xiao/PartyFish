@@ -18,9 +18,9 @@ class FishingWorker(QThread):
     log_updated = Signal(str)
     status_updated = Signal(str)
     record_added = Signal(dict)
-    sale_recorded = Signal(int)  # Signal emitting the amount sold
+    sale_recorded = Signal(int)  # 发出已售出金额的信号
     sound_alert_requested = Signal(str)
-    bait_detected = Signal(str)  # Signal emitting detected bait name
+    bait_detected = Signal(str)  # 发出检测到的鱼饵名称的信号
 
     def __init__(self):
         super().__init__()
@@ -29,7 +29,7 @@ class FishingWorker(QThread):
         self.release_service = ReleaseService(self)
         self.fishing_service = FishingService(self)
         self.running = False
-        self.paused = True  # Start in a paused state
+        self.paused = True  # 以暂停状态启动
         self.inputs = InputController()
         self.vision = vision
         # 初始化鱼饵管理器
@@ -307,12 +307,12 @@ class FishingWorker(QThread):
         """
         self.running = False
         self.fishing_service.shutdown_async_processing(wait=False)
-        # Remove self.wait() to prevent GUI freezing.
-        # The main thread should wait for us, not us blocking inside our own stop method called from main thread.
-        # But actually, stop() is called from main thread. If we wait() here, we block main thread until run() finishes.
-        # This IS the correct way usually, but if run() is blocked, we freeze.
-        # We already improved run() loop responsiveness.
-        # However, if 'wait' causes issues, we can remove it and let closeEvent handle the wait with timeout.
+        # 移除 self.wait() 以防止 GUI 冻结。
+        # 主线程应该等待我们，而不是我们在从主线程调用的 stop 方法内部阻塞。
+        # 实际上，stop() 是从主线程调用的。如果我们在这里 wait()，会阻塞主线程直到 run() 完成。
+        # 这通常是正确的方式，但如果 run() 被阻塞，我们就会冻结。
+        # 我们已经改进了 run() 循环的响应性。
+        # 但是，如果 'wait' 导致问题，我们可以移除它，让 closeEvent 处理带超时的等待。
         final_status = reason if reason else "已停止"
         self.status_updated.emit(f"{final_status}")
         self.log_updated.emit(f"收到停止信号, 原因: {final_status}")
@@ -344,8 +344,8 @@ class FishingWorker(QThread):
 
     def _write_sale_record(self, amount):
         """
-        Write sale record to CSV.
-        Returns True if successful, False otherwise.
+        将销售记录写入 CSV。
+        成功返回 True，否则返回 False。
         """
         if not RecordService.save_sale_record(amount):
             self.log_updated.emit("写入销售记录失败")
@@ -426,19 +426,19 @@ class FishingWorker(QThread):
                 else:
                     self.log_updated.emit("用户确认继续卖鱼")
 
-            # Attempt to write record BEFORE clicking
+            # 在尝试点击之前写入记录
             if self._write_sale_record(amount):
                 self.log_updated.emit("销售记录保存成功。")
 
-                # Emit signal to update UI
+                # 发出信号更新 UI
                 self.sale_recorded.emit(amount)
 
                 if cfg.global_settings.get("auto_click_sell", True):
-                    # Click center of the area (加上窗口偏移转换为屏幕绝对坐标)
+                    # 点击区域中心（加上窗口偏移转换为屏幕绝对坐标）
                     cx = rect[0] + rect[2] // 2 + cfg.window_offset_x
                     cy = rect[1] + rect[3] // 2 + cfg.window_offset_y
 
-                    # Perform click
+                    # 执行点击
                     self.inputs.click(cx, cy)
                     self.log_updated.emit("已自动点击卖出。")
                 else:
@@ -449,7 +449,7 @@ class FishingWorker(QThread):
                 )
                 self.status_updated.emit("记录失败，未出售")
                 if cfg.global_settings.get("enable_sound_alert", False):
-                    # Optionally play an error sound here if available, or just log
+                    # 如果有错误音效可以在这里播放，或者仅记录日志
                     pass
 
         except Exception as e:
@@ -688,5 +688,5 @@ class PopupWorker(QThread):
         安全地停止线程.
         """
         self.running = False
-        # Remove wait() here too
+        # 这里也移除 wait()
         self.log_updated.emit("收到停止弹窗处理服务的信号。")

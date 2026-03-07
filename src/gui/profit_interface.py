@@ -81,8 +81,8 @@ class ChartScrollContainer(QScrollArea):
         )
         is_dark = isDarkTheme() or is_dark_by_value
 
-        # Prefer current viewport palette to match the real background,
-        # and guard against bright fallback colors in dark mode.
+        # 优先使用当前视口调色板以匹配真实背景，
+        # 并防止深色模式下出现明亮的后备颜色。
         base_color = self.viewport().palette().color(self.viewport().backgroundRole())
         if not base_color.isValid():
             base_color = QColor(56, 61, 72) if is_dark else QColor(255, 255, 255)
@@ -439,7 +439,7 @@ class ProfitInterface(QWidget):
         return widget
 
     def _apply_theme_styles(self):
-        """Apply theme-aware styles for mini stat cards and chart views."""
+        """为迷你统计卡片和图表视图应用主题感知样式。"""
         is_dark = isDarkTheme()
         mini_card_bg = (
             "rgba(60, 60, 65, 180)" if is_dark else "rgba(250, 248, 245, 220)"
@@ -460,20 +460,20 @@ class ProfitInterface(QWidget):
             for child in widget.findChildren(BodyLabel):
                 child.setStyleSheet(f"color: {mini_title_color}; font-size: 11px;")
 
-        # Keep chart views transparent to avoid bright borders after theme switch.
+        # 保持图表视图透明，避免主题切换后出现明亮边框。
         if hasattr(self, "line_chart_view"):
             self.line_chart_view.setStyleSheet("background: transparent; border: none;")
         if hasattr(self, "bar_chart_view"):
             self.bar_chart_view.setStyleSheet("background: transparent; border: none;")
 
     def refresh_theme(self):
-        """Public API for theme switch refresh."""
+        """主题切换刷新的公共 API。"""
         self.reload_data()
 
     def request_reload(self, delay_ms: int = 250):
         """
-        Request a deferred data reload.
-        When interface is hidden, mark dirty and reload on next show.
+        请求延迟数据重载。
+        当界面隐藏时，标记为脏数据并在下次显示时重载。
         """
         self._pending_reload = True
         if not self.isVisible():

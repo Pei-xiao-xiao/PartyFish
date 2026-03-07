@@ -38,7 +38,7 @@ class RecordManager:
 
     @staticmethod
     def _update_pokedex_from_record(record: dict) -> tuple[int, bool]:
-        """Update collection status in memory from one imported record."""
+        """从一条导入的记录更新内存中的收集状态。"""
         name = record.get("Name", "").strip()
         quality = record.get("Quality", "").strip()
         weight = record.get("Weight", "").strip()

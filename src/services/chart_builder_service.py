@@ -355,7 +355,7 @@ class ChartBuilderService:
         chart.setTitleBrush(QBrush(title_color))
         chart.legend().setLabelColor(title_color)
 
-        # Ensure axis labels/grid stay readable after theme switch
+        # 确保坐标轴标签和网格在主题切换后保持可读
         for axis in chart.axes():
             axis.setLabelsColor(axis_label_color)
 

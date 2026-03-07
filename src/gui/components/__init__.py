@@ -5,12 +5,12 @@ from qfluentwidgets import Theme, qconfig
 
 # 定义品质颜色 (亮色主题, 暗色主题)
 QUALITY_COLORS = {
-    "标准": (QColor("#606060"), QColor("#D0D0D0")),  # Standard: Grey
-    "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),  # Uncommon: Green
-    "稀有": (QColor("#007ACC"), QColor("#3498DB")),  # Rare: Blue
-    "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),  # Epic: Purple
-    "传奇": (QColor("#FF8C00"), QColor("#F39C12")),  # Legendary: Orange
-    "传说": (QColor("#FF8C00"), QColor("#F39C12")),  # Legacy alias for legendary
+    "标准": (QColor("#606060"), QColor("#D0D0D0")),  # 灰色
+    "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),  # 绿色
+    "稀有": (QColor("#007ACC"), QColor("#3498DB")),  # 蓝色
+    "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),  # 紫色
+    "传奇": (QColor("#FF8C00"), QColor("#F39C12")),  # 橙色
+    "传说": (QColor("#FF8C00"), QColor("#F39C12")),  # 传奇的别名
 }
 
 
@@ -19,7 +19,7 @@ class KeyBindingWidget(QLineEdit):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setPlaceholderText("Click and press keys")
+        self.setPlaceholderText("点击后按下按键")
         self.setAlignment(Qt.AlignCenter)
         self.setReadOnly(True)
         self.is_capturing = False
@@ -32,7 +32,7 @@ class KeyBindingWidget(QLineEdit):
         if enabled:
             self.setPlaceholderText("点击后按手柄按键")
         else:
-            self.setPlaceholderText("Click and press keys")
+            self.setPlaceholderText("点击后按下按键")
 
     def mousePressEvent(self, event):
         if not self.is_capturing:

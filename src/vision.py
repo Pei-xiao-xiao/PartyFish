@@ -111,5 +111,5 @@ class Vision:
         return self.template_service.detect_current_bait(region)
 
 
-# Instantiate the vision class to be used by other modules
+# 实例化 vision 类供其他模块使用
 vision = Vision()

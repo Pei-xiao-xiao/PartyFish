@@ -82,14 +82,6 @@ class FilterGroup(QWidget):
         light_bg = c.name()
         is_dark = isDarkTheme()
 
-        # 定义样式表
-        # Normal: 浅灰背景, 黑字
-        # Checked: 主题色背景, 白字
-        # Hover: 稍深灰 或 稍浅主题色
-
-        # 注意：QSS 中无法直接引用变量，我们用 f-string
-        # 为了美观，未选中态用 #f0f0f0 (亮色模式)
-
         if is_dark:
             normal_bg = "#3A424D"
             normal_text = "#E5E7EB"

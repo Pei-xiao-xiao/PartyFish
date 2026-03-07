@@ -58,7 +58,6 @@ class FilterDrawer(QWidget):
 
     def _title_bar_height(self):
         """获取标题栏高度"""
-        # FluentWindow 的 titleBar 属性
         if self.parent_widget and hasattr(self.parent_widget, "titleBar"):
             return self.parent_widget.titleBar.height()
         return 0

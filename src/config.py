@@ -61,7 +61,7 @@ class Config(metaclass=SingletonMeta):
 
         self.coordinate_service = CoordinateService(self)
 
-        # Calculate scaling factors
+        # 计算缩放因子
         self.coordinate_service.recalculate_scale()
 
         # 初始化账号服务
@@ -79,7 +79,7 @@ class Config(metaclass=SingletonMeta):
 
         self.config_manager = ConfigManager(self)
 
-        # Configuration storage
+        # 配置存储
         self.current_preset_name = "路亚轻杆"
         self.presets = {}
         self.global_settings = {}
@@ -88,37 +88,37 @@ class Config(metaclass=SingletonMeta):
         # 多账号支持
         self.current_account = "默认账号"
 
-        # Fish names list
+        # 鱼类名称列表
         self.fish_names_list = []
         self.protected_fish_list = []
 
         # 启动时的错误信息，将在 GUI 中显示
         self.startup_errors = []
 
-        # This will be set by main.py at startup, but init it here to avoid AttributeError
+        # 这将在启动时由 main.py 设置，但在此初始化以避免 AttributeError
         self._base_path = None
         self._application_path = None
 
-        # User Data Directory (APPDATA/Partyfish)
+        # 用户数据目录 (APPDATA/Partyfish)
         self.user_data_dir = Path(os.environ.get("APPDATA")) / "Partyfish"
         self._ensure_user_data()
 
         self.config_manager.load_config_from_json()
 
     def set_base_path(self, resources_path, application_path):
-        """Sets the base paths for the application. Should be called once at startup."""
+        """设置应用程序的基础路径。应在启动时调用一次。"""
         self._base_path = resources_path
         self._application_path = application_path
-        # 路径设置后重新加载配置 (Config might be in user dir, but fish.json relies on base path)
+        # 路径设置后重新加载配置 (配置可能在用户目录，但 fish.json 依赖基础路径)
         self.config_manager.load_config_from_json()
         self._load_fish_data()
-        # Re-run migration check in case base path was crucial for finding old data?
-        # Typically __init__ found it via fallback, but let's be safe.
+        # 重新运行迁移检查，以防基础路径对查找旧数据至关重要？
+        # 通常 __init__ 通过回退找到它，但为了安全起见。
         self._ensure_user_data()
 
     def _ensure_user_data(self):
         """
-        Ensures the user data directory exists and migrates data if necessary.
+        确保用户数据目录存在并在必要时迁移数据。
         """
         if not self.user_data_dir.exists():
             try:
@@ -129,7 +129,7 @@ class Config(metaclass=SingletonMeta):
         # 1. Config Migration
         target_config = self.user_data_dir / "config.json"
         if not target_config.exists():
-            # Try to find local config to migrate
+            # 尝试查找本地配置以进行迁移
             local_config = self._get_application_path() / "config" / "config.json"
             if local_config.exists():
                 try:
@@ -193,9 +193,9 @@ class Config(metaclass=SingletonMeta):
         return self.account_service.delete_account(account_name)
 
     def _get_base_path(self):
-        """Gets the base path for the application. It's set by main.py."""
+        """获取应用程序的基础路径。由 main.py 设置。"""
         if self._base_path is None:
-            # Fallback for cases where set_base_path was not called (e.g., testing)
+            # 在未调用 set_base_path 的情况下的回退方案（例如测试）
             if getattr(sys, "frozen", False):
                 return Path(sys._MEIPASS)
             else:
@@ -203,9 +203,9 @@ class Config(metaclass=SingletonMeta):
         return self._base_path
 
     def _get_application_path(self):
-        """Gets the application path (executable directory) for user data."""
+        """获取应用程序路径（可执行文件目录）用于用户数据。"""
         if self._application_path is None:
-            # Fallback for cases where set_base_path was not called (e.g., testing)
+            # 在未调用 set_base_path 的情况下的回退方案（例如测试）
             if getattr(sys, "frozen", False):
                 return Path(sys.executable).parent
             else:
@@ -241,29 +241,29 @@ class Config(metaclass=SingletonMeta):
 
     def __getattr__(self, name):
         """
-        Dynamically get attributes from the current preset or global settings.
-        This ensures backward compatibility with code that uses cfg.attribute.
+        动态从当前预设或全局设置获取属性。
+        这确保了与使用 cfg.attribute 的代码的向后兼容性。
         """
-        # First, try to get from the current preset's settings
+        # 首先，尝试从当前预设的设置中获取
         current_preset = self.get_current_preset()
         if current_preset and name in current_preset:
             return current_preset[name]
 
-        # If not in preset, try to get from global settings
+        # 如果不在预设中，尝试从全局设置中获取
         if name in self.global_settings:
             return self.global_settings[name]
 
-        # If still not found, raise an AttributeError
+        # 如果仍未找到，抛出 AttributeError
         raise AttributeError(f"'Config' object has no attribute '{name}'")
 
     def __setattr__(self, name, value):
         """
-        Allows setting attributes.
-        If the attribute exists in the current preset, update it there.
-        If it exists in global_settings, update it there.
-        Otherwise, set it as a normal instance attribute.
+        允许设置属性。
+        如果属性存在于当前预设中，则在那里更新它。
+        如果它存在于 global_settings 中，则在那里更新它。
+        否则，将其设置为普通实例属性。
         """
-        # Avoid recursion for instance attributes defined in __init__
+        # 避免对 __init__ 中定义的实例属性进行递归
         if name in [
             "_display_config",
             "_game_config",
@@ -305,18 +305,18 @@ class Config(metaclass=SingletonMeta):
             super().__setattr__(name, value)
             return
 
-        # Check if it's a preset setting
+        # 检查是否为预设设置
         current_preset = self.get_current_preset()
         if current_preset and name in current_preset:
             current_preset[name] = value
             return
 
-        # Check if it's a global setting
+        # 检查是否为全局设置
         if hasattr(self, "global_settings") and name in self.global_settings:
             self.global_settings[name] = value
             return
 
-        # Default behavior for other attributes
+        # 其他属性的默认行为
         super().__setattr__(name, value)
 
     def _get_default_presets(self):

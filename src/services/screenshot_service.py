@@ -14,7 +14,7 @@ from src.config import cfg
 
 
 class ScreenshotService:
-    # Merge duplicate Steam F12 triggers fired in the same catch cycle.
+    # 合并同一捕获周期内触发的重复 Steam F12 截图
     _steam_f12_lock = threading.Lock()
     _last_steam_f12_monotonic = 0.0
     _steam_f12_cooldown_sec = 0.7

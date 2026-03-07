@@ -5,7 +5,7 @@ from pynput import keyboard, mouse
 from PySide6.QtCore import QObject, Signal
 from src.config import cfg
 
-# Constants for mouse_event
+# 鼠标事件常量
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 MOUSEEVENTF_WHEEL = 0x0800
@@ -42,7 +42,7 @@ class InputController(QObject):
         self._init_gamepad()
 
     def _parse_hotkey_string(self, hotkey_string):
-        """Helper function to parse a hotkey string into pynput format."""
+        """辅助函数，将热键字符串解析为 pynput 格式。"""
         raw = hotkey_string.lower()
         parts = raw.split("+")
         formatted_parts = []
@@ -108,11 +108,11 @@ class InputController(QObject):
 
     def _update_hotkey_handler(self):
         """
-        Parses the main hotkey from config and creates a pynput HotKey handler.
+        从配置解析主热键并创建 pynput HotKey 处理器。
         """
         self._main_hotkey_str = cfg.hotkey
 
-        # Skip keyboard.HotKey for mouse buttons
+        # 鼠标按钮跳过 keyboard.HotKey
         if self._main_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._hotkey_handler = None
             return
@@ -128,11 +128,11 @@ class InputController(QObject):
 
     def _update_debug_hotkey_handler(self):
         """
-        Parses the debug hotkey from config and creates a pynput HotKey handler.
+        从配置解析调试热键并创建 pynput HotKey 处理器。
         """
         self._debug_hotkey_str = cfg.global_settings.get("debug_hotkey", "F10")
 
-        # Skip keyboard.HotKey for mouse buttons
+        # 鼠标按钮跳过 keyboard.HotKey
         if self._debug_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._debug_hotkey_handler = None
             return
@@ -149,11 +149,11 @@ class InputController(QObject):
 
     def _update_sell_hotkey_handler(self):
         """
-        Parses the sell hotkey from config and creates a pynput HotKey handler.
+        从配置解析卖鱼热键并创建 pynput HotKey 处理器。
         """
         self._sell_hotkey_str = cfg.global_settings.get("sell_hotkey", "F4")
 
-        # Skip keyboard.HotKey for mouse buttons
+        # 鼠标按钮跳过 keyboard.HotKey
         if self._sell_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._sell_hotkey_handler = None
             return
@@ -169,7 +169,7 @@ class InputController(QObject):
 
     def _update_uno_hotkey_handler(self):
         """
-        Parses the uno hotkey from config and creates a pynput HotKey handler.
+        从配置解析 UNO 热键并创建 pynput HotKey 处理器。
         """
         self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
 
@@ -188,7 +188,7 @@ class InputController(QObject):
 
     def _init_gamepad(self):
         """
-        Initialize gamepad controller if enabled.
+        如果启用，初始化手柄控制器。
         """
         if not cfg.global_settings.get("enable_gamepad", False):
             return
@@ -211,7 +211,7 @@ class InputController(QObject):
 
     def _reinit_gamepad(self):
         """
-        Reinitialize gamepad controller (called when gamepad settings change).
+        重新初始化手柄控制器（当手柄设置更改时调用）。
         """
         if self._gamepad_controller:
             self._gamepad_controller.stop_listening()
@@ -227,7 +227,7 @@ class InputController(QObject):
 
     def _on_gamepad_button(self, button_name):
         """
-        Handle gamepad button press events.
+        处理手柄按钮按下事件。
         """
         gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
 
@@ -253,10 +253,10 @@ class InputController(QObject):
     @staticmethod
     def press_key(key_name):
         """
-        Simulates pressing and releasing a key using virtual key codes.
+        使用虚拟键码模拟按下和释放按键。
         """
         key_name = key_name.upper()
-        # Common virtual key codes and scan codes
+        # 常用虚拟键码和扫描码
         vk_map = {
             "F1": (0x70, 0x3B),
             "F2": (0x71, 0x3C),
@@ -271,16 +271,16 @@ class InputController(QObject):
         key_info = vk_map.get(key_name)
         if key_info:
             vk, scan = key_info
-            ctypes.windll.user32.keybd_event(vk, scan, 0, 0)  # Key Down
+            ctypes.windll.user32.keybd_event(vk, scan, 0, 0)  # 按下
             time.sleep(random.uniform(0.05, 0.1))
-            ctypes.windll.user32.keybd_event(vk, scan, 2, 0)  # Key Up
+            ctypes.windll.user32.keybd_event(vk, scan, 2, 0)  # 释放
         else:
             print(f"Unknown key for simulation: {key_name}")
 
     @staticmethod
     def jitter_click(x, y):
         """
-        Simulates a more human-like mouse click with random delay.
+        模拟更像人类的鼠标点击，带有随机延迟。
         """
         ctypes.windll.user32.SetCursorPos(x, y)
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
@@ -289,14 +289,14 @@ class InputController(QObject):
 
     def click(self, x, y):
         """
-        Simulates a left mouse click at the given coordinates.
+        在给定坐标模拟鼠标左键点击。
         """
         self.jitter_click(x, y)
 
     @staticmethod
     def double_click(x, y):
         """
-        Simulates a double click at the given coordinates.
+        在给定坐标模拟双击。
         """
         ctypes.windll.user32.SetCursorPos(x, y)
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
@@ -308,18 +308,18 @@ class InputController(QObject):
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
     def press_mouse_button(self):
-        """Simulates pressing the left mouse button down without releasing."""
+        """模拟按下鼠标左键但不释放。"""
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         self.is_mouse_down = True
 
     def release_mouse_button(self):
-        """Simulates releasing the left mouse button."""
+        """模拟释放鼠标左键。"""
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         self.is_mouse_down = False
 
     def hold_mouse(self, duration):
         """
-        Simulates holding the left mouse button for a specified duration.
+        模拟按住鼠标左键指定时长。
         """
         actual_duration = self.add_jitter(duration)
         self.press_mouse_button()
@@ -328,7 +328,7 @@ class InputController(QObject):
 
     def left_click(self):
         """
-        Simulates a left mouse click.
+        模拟鼠标左键点击。
         """
         ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         self.is_mouse_down = True
@@ -338,7 +338,7 @@ class InputController(QObject):
 
     def ensure_mouse_up(self):
         """
-        Ensures the left mouse button is released if it's currently held down.
+        确保鼠标左键已释放（如果当前按下）。
         """
         if self.is_mouse_down:
             ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
@@ -346,7 +346,7 @@ class InputController(QObject):
 
     def _on_press(self, key):
         """
-        Callback for keyboard press events.
+        键盘按下事件回调。
         """
         if self._hotkey_handler:
             try:
@@ -374,7 +374,7 @@ class InputController(QObject):
 
     def _on_release(self, key):
         """
-        Callback for keyboard release events.
+        键盘释放事件回调。
         """
         if self._hotkey_handler:
             try:
@@ -404,7 +404,7 @@ class InputController(QObject):
 
     def start_listening(self):
         """
-        Starts the keyboard listener.
+        启动键盘监听器。
         """
         if self.running:
             return
@@ -428,7 +428,7 @@ class InputController(QObject):
 
     def stop_listening(self):
         """
-        Stops the keyboard and mouse listeners.
+        停止键盘和鼠标监听器。
         """
         if not self.running:
             return

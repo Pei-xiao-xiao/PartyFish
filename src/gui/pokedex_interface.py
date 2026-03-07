@@ -51,7 +51,7 @@ class SortOption(QLabel):
 
         self.setAlignment(Qt.AlignCenter)
         self.setCursor(Qt.PointingHandCursor)
-        self.setProperty("is_active", False)  # For styling
+        self.setProperty("is_active", False)  # 用于样式控制
 
         # 字体设置
         font = self.font()
@@ -73,7 +73,7 @@ class SortOption(QLabel):
         else:
             self.setText(base_text)
 
-        self.setStyle(self.style())  # Force re-polish
+        self.setStyle(self.style())  # 强制重新应用样式
         self.update()
 
     def mousePressEvent(self, event):
@@ -374,16 +374,12 @@ class FishCard(CardWidget):
                 if icon_path.exists():
                     icon_lbl = QLabel()
                     pix = QPixmap(str(icon_path))
-                    # HiDPI 优化: 以 2x 尺寸缩放并设置 devicePixelRatio 使图标清晰锐利
                     scaled_icon = pix.scaled(
                         36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation
                     )
                     scaled_icon.setDevicePixelRatio(2.0)
                     icon_lbl.setPixmap(scaled_icon)
                     icon_lbl.setFixedSize(18, 18)
-
-                    # Dark模式下可能需要反转图标颜色或者加个滤镜？
-                    # 目前图标是彩色PNG，暂时保持原样，背景变深后应该显示还可以
 
                     tag_layout.addWidget(icon_lbl)
 
@@ -543,7 +539,7 @@ class FishCard(CardWidget):
 
         for i, w in enumerate(sorted_weathers):
             if i > 4:
-                break  # Limit icons to avoid overflow
+                break  # 限制图标数量避免溢出
 
             icon_path = cfg._get_base_path() / "resources" / "weather" / f"{w}.png"
             if icon_path.exists():

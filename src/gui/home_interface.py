@@ -75,13 +75,13 @@ class HomeInterface(QWidget):
         # 1. Banner Area
         self.init_banner()
 
-        # Create a splitter to divide the main area
+        # 创建分割器来划分主区域
         self.main_splitter = QSplitter(Qt.Horizontal, self)
 
-        # Left side widget
+        # 左侧控件
         self.left_widget = QWidget(self)
         self.left_layout = QVBoxLayout(self.left_widget)
-        self.left_layout.setContentsMargins(0, 0, 20, 0)  # Add right margin
+        self.left_layout.setContentsMargins(0, 0, 20, 0)  # 添加右边距
         self.left_layout.setSpacing(24)
 
         # 2. Real-time data panel

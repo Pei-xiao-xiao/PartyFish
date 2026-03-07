@@ -67,12 +67,12 @@ class SettingsInterface(ScrollArea):
         super().__init__(parent)
         self.setObjectName("settingsInterface")
 
-        # Init Scroll Widget
+        # 初始化滚动控件
         self.scrollWidget = QWidget()
         self.setWidget(self.scrollWidget)
         self.setWidgetResizable(True)
 
-        # Init Layout
+        # 初始化布局
         self.vBoxLayout = QVBoxLayout(self.scrollWidget)
         self.vBoxLayout.setContentsMargins(36, 10, 36, 10)
         self.vBoxLayout.setSpacing(12)
@@ -528,7 +528,7 @@ class SettingsInterface(ScrollArea):
         # 6. Account Management Group
         self.accountGroup = SettingCardGroup(self.tr("账号管理"), self.scrollWidget)
 
-        # Create Account Card
+        # 创建账号卡片
         self.createAccountCard = SettingCard(
             FluentIcon.ADD,
             self.tr("创建新账号"),
@@ -553,7 +553,7 @@ class SettingsInterface(ScrollArea):
         )
         self.accountGroup.addSettingCard(self.createAccountCard)
 
-        # Delete Account Card
+        # 删除账号卡片
         self.deleteAccountCard = SettingCard(
             FluentIcon.DELETE,
             self.tr("删除账号"),
@@ -580,7 +580,7 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.accountGroup)
 
-        # Keep section groups compact and push spare space to the bottom.
+        # 保持各组紧凑并将多余空间推到底部。
         for group in (
             self.presetGroup,
             self.fishingGroup,
@@ -615,7 +615,7 @@ class SettingsInterface(ScrollArea):
         # 初始显示钓鱼设置
         self._onSegmentChanged("fishing")
 
-        # Style
+        # 样式
         self.setStyleSheet("QScrollArea {background-color: transparent; border: none;}")
         self.scrollWidget.setStyleSheet("QWidget {background-color: transparent;}")
 
@@ -630,7 +630,7 @@ class SettingsInterface(ScrollArea):
             margins.left(), margins.top(), 16, margins.bottom()
         )
 
-        # Convert snake_case to camelCase for attribute name
+        # 将 snake_case 转换为 camelCase 作为属性名
         parts = config_key.split("_")
         attr_name = parts[0] + "".join(x.title() for x in parts[1:]) + "SpinBox"
         setattr(self, attr_name, spinbox)
@@ -640,7 +640,7 @@ class SettingsInterface(ScrollArea):
         self.presetComboBox.currentTextChanged.connect(self._load_settings_to_ui)
         self.savePresetButton.clicked.connect(self._save_preset_settings)
 
-        # Global settings auto-save
+        # 全局设置自动保存
         self.hotkeyLineEdit.editingFinished.connect(self._save_global_settings)
         self.debugHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
         self.sellHotkeyLineEdit.editingFinished.connect(self._save_global_settings)
@@ -703,22 +703,22 @@ class SettingsInterface(ScrollArea):
         self.season_filter_changed_signal.emit()
 
     def _load_settings_to_ui(self, preset_name_to_load=None):
-        # Block signals to prevent recursive calls while updating the UI
+        # 阻止信号以防止更新 UI 时递归调用
         self.presetComboBox.blockSignals(True)
 
-        # Determine which preset to load
+        # 确定要加载的预设
         preset_name = (
             preset_name_to_load
             if preset_name_to_load
             else self.presetComboBox.currentText()
         )
         if not preset_name:
-            preset_name = cfg.current_preset_name  # Fallback to global current
+            preset_name = cfg.current_preset_name  # 回退到全局当前预设
 
-        # Update the ComboBox to ensure it reflects the state
+        # 更新 ComboBox 以确保它反映状态
         self.presetComboBox.setCurrentText(preset_name)
 
-        # Load preset-specific settings
+        # 加载预设特定设置
         current_preset = cfg.presets.get(preset_name, {})
 
         self.castTimeSpinBox.setValue(current_preset.get("cast_time", 2.0))
@@ -727,7 +727,7 @@ class SettingsInterface(ScrollArea):
         self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
         self.maxPullsSpinBox.setValue(current_preset.get("max_pulls", 20))
 
-        # Load global settings
+        # 加载全局设置
         self.hotkeyLineEdit.setText(cfg.global_settings.get("hotkey", "F2"))
         self.debugHotkeyLineEdit.setText(cfg.global_settings.get("debug_hotkey", "F10"))
         self.unoHotkeyLineEdit.setText(cfg.global_settings.get("uno_hotkey", "F3"))
@@ -793,11 +793,11 @@ class SettingsInterface(ScrollArea):
 
         self._update_release_cards_state()
 
-        # Unblock signals
+        # 解除信号阻止
         self.presetComboBox.blockSignals(False)
 
     def _save_preset_settings(self):
-        """Save only the fishing preset settings."""
+        """仅保存钓鱼预设设置。"""
         preset_name = self.presetComboBox.currentText()
         if preset_name in cfg.presets:
             cfg.presets[preset_name]["cast_time"] = self.castTimeSpinBox.value()
@@ -808,7 +808,7 @@ class SettingsInterface(ScrollArea):
             ] = self.cycleIntervalSpinBox.value()
             cfg.presets[preset_name]["max_pulls"] = self.maxPullsSpinBox.value()
 
-        # Update current preset in config to match the one being edited
+        # 更新配置中的当前预设以匹配正在编辑的预设
         cfg.load_preset(preset_name)
 
         cfg.save()
@@ -822,7 +822,7 @@ class SettingsInterface(ScrollArea):
         )
 
     def _save_global_settings(self):
-        """Save global settings immediately."""
+        """立即保存全局设置。"""
         new_hotkey = self.hotkeyLineEdit.text()
         if cfg.global_settings.get("hotkey") != new_hotkey:
             cfg.global_settings["hotkey"] = new_hotkey
@@ -893,7 +893,7 @@ class SettingsInterface(ScrollArea):
         cfg.save()
 
     def _save_gamepad_mappings(self):
-        """Save gamepad button mappings."""
+        """保存手柄按钮映射。"""
         if "gamepad_mappings" not in cfg.global_settings:
             cfg.global_settings["gamepad_mappings"] = {}
 

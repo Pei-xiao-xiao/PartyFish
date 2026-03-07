@@ -18,13 +18,13 @@ class FishingService:
 
     def __init__(self, worker):
         self.worker = worker
-        # Keep async catch tasks serial to avoid concurrent record writes.
+        # 保持异步捕获任务串行执行，避免并发记录写入。
         self._async_executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="catch-recorder"
         )
         self._async_futures = []
         self._async_futures_lock = threading.Lock()
-        # Use default OCR threading for faster background recognition throughput.
+        # 使用默认 OCR 线程以提高后台识别吞吐量。
         self._async_ocr_service = OCRService()
 
     def _build_signal_record(
@@ -35,7 +35,7 @@ class FishingService:
         is_new_record: bool,
         saved_record: dict | None = None,
     ) -> dict:
-        """Build the UI payload for one saved or fallback record."""
+        """构建一条已保存或回退记录的 UI 数据。"""
         timestamp = (
             saved_record.get("Timestamp")
             if saved_record and saved_record.get("Timestamp")
@@ -554,7 +554,7 @@ class FishingService:
 
         release_mode = cfg.global_settings.get("release_mode", "off")
         if release_mode == "single":
-            # Single-release executes immediately after recognition, keep release status here.
+            # 单条放生模式在识别后立即执行，此处保留放生状态。
             self.worker.status_updated.emit("自动放生中")
         else:
             self.worker.status_updated.emit("记录渔获")
@@ -633,17 +633,17 @@ class FishingService:
         return should_release
 
     def _should_run_async_catch_processing(self) -> bool:
-        """Return True when catch recognition can run asynchronously."""
+        """当渔获识别可以异步运行时返回 True。"""
         release_mode = cfg.global_settings.get("release_mode", "off")
         if release_mode == "single":
-            # Single-release mode depends on the current catch result.
+            # 单条放生模式依赖当前渔获结果。
             self.worker.log_updated.emit("单条放生模式已开启，渔获识别保持同步执行。")
             return False
 
         return True
 
     def _capture_catch_snapshots(self):
-        """Capture OCR frames quickly before the popup gets closed."""
+        """在弹窗关闭前快速捕获 OCR 帧。"""
         ocr_area = cfg.get_rect("ocr_area")
         if not ocr_area:
             return []
@@ -662,8 +662,8 @@ class FishingService:
 
     def _maybe_trigger_steam_screenshot_early(self, ocr_snapshots):
         """
-        Steam mode screenshots must be triggered immediately.
-        Use cached OCR frames to decide whether to press F12 before popup closes.
+        Steam 模式截图必须立即触发。
+        使用缓存的 OCR 帧来决定是否在弹窗关闭前按 F12。
         """
         screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
         if screenshot_mode != "steam":
@@ -707,7 +707,7 @@ class FishingService:
             )
 
     def _process_catch_in_background(self, ocr_snapshots):
-        """Run OCR + record persistence in background thread."""
+        """在后台线程中运行 OCR + 记录持久化。"""
         logs = []
         success, catch_data = self._async_ocr_service.recognize_catch_info_from_images(
             ocr_snapshots, log_callback=None
@@ -732,7 +732,7 @@ class FishingService:
 
         screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
         if screenshot_mode == "steam":
-            # Steam F12 must be triggered early in foreground, skip delayed background trigger.
+            # Steam F12 必须在前台提前触发，跳过延迟的后台触发。
             return {
                 "logs": logs,
                 "catch_data": self._build_signal_record(
@@ -762,7 +762,7 @@ class FishingService:
         }
 
     def _dispatch_async_result(self, result):
-        """Emit async catch result signals immediately from completion callback."""
+        """立即从完成回调中发出异步捕获结果信号。"""
         for message in result.get("logs", []):
             self.worker.log_updated.emit(message)
 
@@ -771,7 +771,7 @@ class FishingService:
             self.worker.record_added.emit(catch_data)
 
     def _on_async_catch_done(self, future):
-        """Handle one finished async catch task."""
+        """处理一个已完成的异步捕获任务。"""
         try:
             result = future.result()
         except Exception as e:
@@ -797,12 +797,12 @@ class FishingService:
             return False
 
     def drain_async_results(self):
-        """Lightweight cleanup; actual result dispatch is callback-driven."""
+        """轻量级清理；实际结果分发由回调驱动。"""
         with self._async_futures_lock:
             self._async_futures = [f for f in self._async_futures if not f.done()]
 
     def shutdown_async_processing(self, wait: bool = False):
-        """Shutdown async executor to avoid lingering threads on app exit."""
+        """关闭异步执行器以避免应用退出时残留线程。"""
         try:
             with self._async_futures_lock:
                 futures = list(self._async_futures)
@@ -817,9 +817,9 @@ class FishingService:
 
     def record_catch_non_blocking(self):
         """
-        Non-blocking catch entry:
-        - Async path: quickly capture OCR frames and return immediately.
-        - Fallback path: run existing synchronous record_catch().
+        非阻塞捕获入口：
+        - 异步路径：快速捕获 OCR 帧并立即返回。
+        - 回退路径：运行现有的同步 record_catch()。
         """
         if not self.worker.running:
             return False

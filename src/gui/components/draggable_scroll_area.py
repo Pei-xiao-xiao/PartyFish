@@ -3,29 +3,27 @@ from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from qfluentwidgets import SmoothScrollArea
 
+
 class DraggableScrollArea(SmoothScrollArea):
     """
     支持鼠标拖拽和滚轮横向滚动的滚动区域
     同时隐藏了水平和垂直滚动条
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         # 隐藏滚动条
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        
+
         # 允许鼠标追踪
         self.setMouseTracking(True)
-        
+
         # 拖拽相关变量
         self._is_dragging = False
         self._last_pos = None
-        
-        # 设置平滑滚动属性 (继承自 SmoothScrollArea)
-        # SmoothScrollArea 默认开启平滑滚动，无需手动设置
-        # self.setSmoothMode(True)
-        
+
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
             self._is_dragging = True
@@ -47,11 +45,11 @@ class DraggableScrollArea(SmoothScrollArea):
         if self._is_dragging and self._last_pos:
             delta = event.pos() - self._last_pos
             self._last_pos = event.pos()
-            
+
             # 水平拖拽
             h_bar = self.horizontalScrollBar()
             h_bar.setValue(h_bar.value() - delta.x())
-            
+
             event.accept()
         else:
             super().mouseMoveEvent(event)

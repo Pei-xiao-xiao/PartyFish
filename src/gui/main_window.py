@@ -40,15 +40,10 @@ class MainWindow(FluentWindow):
         with the Qt event loop.
         """
         try:
-            # Pass the event to the parent class's handler
             return super().nativeEvent(event_type, message)
         except KeyboardInterrupt:
-            # This is a workaround for an issue where pynput's listener can
-            # cause a KeyboardInterrupt in the main thread when a hotkey is pressed.
-            # We catch it here to prevent it from crashing the application or printing
-            # an error to the console, and simply ignore it.
             print("DEBUG: Caught and ignored KeyboardInterrupt in nativeEvent.")
-            return True, 0  # Indicate that the event has been handled
+            return True, 0
 
     def __init__(self):
         super().__init__()
@@ -56,7 +51,7 @@ class MainWindow(FluentWindow):
         self.setObjectName("MainWindow")
         self.setWindowTitle("PartyFish")
 
-        # Set window icon
+        # 设置窗口图标
         from src.config import cfg
 
         icon_path = cfg._get_base_path() / "resources" / "favicon.ico"
@@ -81,14 +76,14 @@ class MainWindow(FluentWindow):
         self.popup_worker = PopupWorker()
         self.input_controller = InputController()
 
-        # Initialize managers
+        # 初始化管理器
         self.audio_manager = AudioManager(self)
         self.signal_manager = SignalManager(self)
         self.cycle_reset_manager = CycleResetManager(self)
         self.sales_limit_manager = SalesLimitManager(self)
 
         print("Setting up navigation...")
-        # Reduce navigation panel width since labels are short (2 chars)
+        # 缩小导航面板宽度
         self.navigationInterface.setExpandWidth(150)
 
         # 添加导航
@@ -119,14 +114,14 @@ class MainWindow(FluentWindow):
             lambda: self.home_interface._refresh_fish_preview()
         )
 
-        # Start the worker thread, but it will be initially paused
+        # 启动工作线程（初始为暂停状态）
         self.worker.start()
         self.popup_worker.start()
 
-        # Start listening for hotkeys
+        # 开始监听热键
         self.input_controller.start_listening()
 
-        # Initialize overlay limit
+        # 初始化悬浮窗额度
         self._update_overlay_limit()
 
         # 恢复悬浮窗状态和位置
@@ -138,7 +133,7 @@ class MainWindow(FluentWindow):
         # 启动周期重置管理器
         self.cycle_reset_manager.start()
 
-        # Watermark cache to avoid rebuilding text grid on every repaint.
+        # 水印缓存
         self._watermark_cache = None
         self._watermark_cache_size = QSize(0, 0)
 
@@ -365,7 +360,7 @@ class MainWindow(FluentWindow):
         self.worker.stop()
         self.popup_worker.stop()
 
-        # Wait for threads to finish with a timeout to avoid freezing
+        # 等待线程结束（设置超时避免冻结）
         if not self.worker.wait(2000):
             print("Worker thread did not stop in time, terminating...")
             self.worker.terminate()

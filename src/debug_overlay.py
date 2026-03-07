@@ -16,11 +16,11 @@ def generate_debug_screenshot(show_image=True):
     print("Capturing screenshot...")
     screenshot = vision.screenshot()
 
-    # CRITICAL FIX: Build the config dict with SCALED coordinates from cfg.get_rect()
+    # 关键修复：使用 cfg.get_rect() 构建包含缩放坐标的配置字典
     debug_config = {}
     for name in cfg.REGIONS.keys():
         try:
-            # This gets the correctly scaled rectangle for the current screen resolution
+            # 获取当前屏幕分辨率的正确缩放矩形
             debug_config[name] = list(cfg.get_rect(name))
         except Exception as e:
             print(f"Error calculating rect for {name}: {e}")
@@ -103,15 +103,15 @@ def generate_debug_screenshot(show_image=True):
         pass
 
     print("Drawing debug overlay...")
-    # Modify the screenshot in-place using the new vision method
+    # 使用新的 vision 方法就地修改截图
     # 传递识别结果给绘图函数
     vision.draw_debug_rects(screenshot, debug_config, recognition_results)
 
-    # Draw fish inventory Zone1 with grid cells, stars, and locks
+    # 绘制鱼桶 Zone1 的网格单元格、星星和锁定区域
     fish_inv = cfg.REGIONS.get("fish_inventory", {})
     zones = fish_inv.get("zones", [])
     if zones:
-        zone = zones[0]  # Only Zone1
+        zone = zones[0]  # 仅 Zone1
         x, y, w, h = zone["coords"]
         sx, sy = int(x * cfg.scale_x), int(y * cfg.scale_y)
         sw, sh = int(w * cfg.scale_x), int(h * cfg.scale_y)
@@ -136,7 +136,7 @@ def generate_debug_screenshot(show_image=True):
         scaled_cell_h = int(cell_h * cfg.scale_y)
 
         # 只绘制第一格 (row=0, col=0)
-        # Star region (cyan)
+        # 星星区域 (青色)
         star_x = sx + int(star_ox * cfg.scale_x)
         star_y = sy + int(star_oy * cfg.scale_y)
         star_sw = int(star_w * cfg.scale_x)
@@ -149,7 +149,7 @@ def generate_debug_screenshot(show_image=True):
             1,
         )
 
-        # Lock region (red)
+        # 锁定区域 (红色)
         lock_size = int(60 * cfg.scale_x)
         lock_x = sx + (scaled_cell_w - lock_size) // 2
         lock_y = sy + (scaled_cell_h - lock_size) // 2
@@ -164,7 +164,7 @@ def generate_debug_screenshot(show_image=True):
             1,
         )
 
-    # Draw circles for Jiashi buttons
+    # 绘制加时按钮圆圈
     jiashi_yes_pos = cfg.get_center_anchored_pos(cfg.BTN_JIASHI_YES)
     jiashi_no_pos = cfg.get_center_anchored_pos(cfg.BTN_JIASHI_NO)
 
@@ -190,7 +190,7 @@ def generate_debug_screenshot(show_image=True):
         2,
     )
 
-    # Draw fish name tooltip region (for auto-release)
+    # 绘制鱼名提示区域（用于自动放生）
     try:
         fish_name_region = cfg.get_rect("fish_name_tooltip")
         x, y, w, h = fish_name_region
@@ -207,7 +207,7 @@ def generate_debug_screenshot(show_image=True):
     except:
         pass
 
-    # Draw UNO卡牌 detection region
+    # 绘制 UNO卡牌检测区域
     try:
         uno_region = cfg.get_rect("UNO卡牌")
         x, y, w, h = uno_region
@@ -215,9 +215,9 @@ def generate_debug_screenshot(show_image=True):
     except:
         pass
 
-    # Save the debug image
+    # 保存调试图像
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Use the centralized config to get the correct base path
+    # 使用集中配置获取正确的基础路径
     save_dir = cfg._get_application_path() / "debug_screenshots"
 
     if not os.path.exists(save_dir):
@@ -226,7 +226,7 @@ def generate_debug_screenshot(show_image=True):
     filename = f"visual_debug_{timestamp}.png"
     filepath = os.path.join(save_dir, filename)
 
-    # Use cv2.imencode to handle potential non-ASCII paths gracefully
+    # 使用 cv2.imencode 优雅地处理潜在的非 ASCII 路径
     is_success, buffer = cv2.imencode(".png", screenshot)
     if is_success:
         with open(filepath, "wb") as f:
@@ -238,10 +238,10 @@ def generate_debug_screenshot(show_image=True):
 
     if show_image:
         try:
-            # Use os.startfile for Windows, which uses the default viewer
+            # Windows 使用 os.startfile，使用默认查看器
             os.startfile(filepath)
         except AttributeError:
-            # For non-Windows/Fallback
+            # 非 Windows 系统的回退方案
             import subprocess
 
             try:
@@ -250,7 +250,7 @@ def generate_debug_screenshot(show_image=True):
                 try:
                     subprocess.call(["open", filepath])  # MacOS
                 except:
-                    # Fallback to OpenCV window if system viewer fails
+                    # 如果系统查看器失败，回退到 OpenCV 窗口
                     print("Could not open default image viewer. Using OpenCV.")
                     cv2.imshow("Debug Overlay", screenshot)
                     cv2.waitKey(0)

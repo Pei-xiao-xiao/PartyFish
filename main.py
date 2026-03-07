@@ -8,22 +8,18 @@ from src.gui.welcome_dialog import show_welcome_dialog
 from src.gui.single_instance import SingleInstance
 from src.config import cfg
 
-# --- Path Fix ---
-# Determine the base path in a way that is robust for both script and bundled app
+# 路径修复：处理打包后的应用和脚本运行两种情况
 if getattr(sys, "frozen", False):
-    # If the application is run as a bundle, the PyInstaller bootloader
-    # creates a temp folder and stores path in _MEIPASS
-    # Resources are extracted to _MEIPASS, user data is in executable directory
+    # 打包后的应用：资源在 _MEIPASS，用户数据在可执行文件目录
     resources_path = Path(sys._MEIPASS)
     application_path = Path(sys.executable).parent
 else:
     resources_path = Path(__file__).parent
     application_path = Path(__file__).parent
-# --- End Path Fix ---
 
 if __name__ == "__main__":
     try:
-        # Set this path in the config object EARLY, before any other part of the app uses it
+        # 在应用启动早期设置路径
         cfg.set_base_path(resources_path, application_path)
 
         # 创建单例管理器
@@ -33,7 +29,7 @@ if __name__ == "__main__":
         if single_instance.is_running():
             # 输出日志
             print("[单例检测] 检测到 PartyFish 已在运行，阻止双开")
-            # 直接调用show_running_message，它会处理QApplication的创建
+            # 直接调用显示消息方法
             single_instance.show_running_message()
             sys.exit(0)
 
@@ -76,7 +72,7 @@ if __name__ == "__main__":
             cfg.global_settings["welcome_dialog_shown"] = True
             cfg.save()
 
-        # Set theme based on config
+        # 根据配置设置主题
         if cfg.theme == "Light":
             setTheme(Theme.LIGHT)
         else:
