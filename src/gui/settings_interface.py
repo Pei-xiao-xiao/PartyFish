@@ -35,6 +35,23 @@ from src.gui.components import KeyBindingWidget
 from src.services.record_manager import record_manager
 
 
+class SmartDoubleSpinBox(DoubleSpinBox):
+    """智能格式化 DoubleSpinBox，自动去除末尾多余的 0"""
+
+    def textFromValue(self, value):
+        """格式化显示值，去除末尾多余的 0，但保留至少 2 位小数"""
+        # 先格式化为 3 位小数
+        text = f"{value:.3f}"
+        # 去除末尾的 0
+        text = text.rstrip("0")
+        # 确保至少保留 2 位小数（如果是 x.0 则变成 x.00）
+        if "." in text:
+            integer_part, decimal_part = text.split(".")
+            if len(decimal_part) < 2:
+                text = f"{integer_part}.{decimal_part.ljust(2, '0')}"
+        return text
+
+
 class ImportWorker(QThread):
     progress = Signal(int, int)
     finished = Signal(bool, str)
@@ -155,11 +172,25 @@ class SettingsInterface(ScrollArea):
             margins.left(), margins.top(), 16, margins.bottom()
         )
         self.fishingGroup.addSettingCard(self.maxPullsCard)
+        
         self.vBoxLayout.addWidget(self.fishingGroup)
 
-        # 3. Save Button
-        self.savePresetButton = PrimaryPushButton(self.tr("保存钓鱼配置"), self)
-        self.vBoxLayout.addWidget(self.savePresetButton, 0, Qt.AlignRight)
+        # 3. Save and Reset Buttons
+        self.saveResetButtonWidget = QWidget(self)
+        self.saveResetButtonLayout = QHBoxLayout(self.saveResetButtonWidget)
+        self.saveResetButtonLayout.setContentsMargins(0, 0, 0, 0)
+        self.saveResetButtonLayout.setSpacing(10)
+        self.saveResetButtonLayout.addStretch(1)
+        
+        self.resetFishingConfigButton2 = PushButton(self.tr("恢复默认"), self.saveResetButtonWidget)
+        self.resetFishingConfigButton2.setFixedWidth(100)
+        self.savePresetButton = PrimaryPushButton(self.tr("保存钓鱼配置"), self.saveResetButtonWidget)
+        self.savePresetButton.setFixedWidth(120)
+        
+        self.saveResetButtonLayout.addWidget(self.resetFishingConfigButton2)
+        self.saveResetButtonLayout.addWidget(self.savePresetButton)
+        
+        self.vBoxLayout.addWidget(self.saveResetButtonWidget, 0, Qt.AlignRight)
 
         # 4. Global Settings Group
         self.globalGroup = SettingCardGroup(self.tr("全局配置"), self.scrollWidget)
@@ -342,6 +373,24 @@ class SettingsInterface(ScrollArea):
         )
         self.globalGroup.addSettingCard(self.resetOverlayCard)
 
+        # 恢复默认热键按钮
+        self.resetHotkeyConfigCard = SettingCard(
+            FluentIcon.UPDATE,
+            self.tr("恢复默认热键"),
+            self.tr("将所有快捷键恢复为默认值"),
+            parent=self.globalGroup,
+        )
+        self.resetHotkeyConfigButton = PushButton(self.tr("恢复"), self.resetHotkeyConfigCard)
+        self.resetHotkeyConfigButton.setFixedWidth(80)
+        self.resetHotkeyConfigCard.hBoxLayout.addWidget(
+            self.resetHotkeyConfigButton, 0, Qt.AlignRight
+        )
+        margins = self.resetHotkeyConfigCard.hBoxLayout.contentsMargins()
+        self.resetHotkeyConfigCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
+        )
+        self.globalGroup.addSettingCard(self.resetHotkeyConfigCard)
+
         self.vBoxLayout.addWidget(self.globalGroup)
 
         # 4.5 鱼饵选择设置组
@@ -388,6 +437,16 @@ class SettingsInterface(ScrollArea):
         self.unoHotkeyLineEdit.setText(cfg.global_settings.get("uno_hotkey", "F3"))
         self.unoHotkeyCard.hBoxLayout.addWidget(
             self.unoHotkeyLineEdit, 0, Qt.AlignRight
+        )
+        self.unoHotkeyCard.hBoxLayout.addSpacing(5)
+        self.unoGamepadLineEdit = KeyBindingWidget(self.unoHotkeyCard)
+        self.unoGamepadLineEdit.set_gamepad_mode(True)
+        self.unoGamepadLineEdit.setFixedWidth(80)
+        self.unoGamepadLineEdit.setPlaceholderText("手柄")
+        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
+        self.unoGamepadLineEdit.setText(gamepad_mappings.get("uno", ""))
+        self.unoHotkeyCard.hBoxLayout.addWidget(
+            self.unoGamepadLineEdit, 0, Qt.AlignRight
         )
         margins = self.unoHotkeyCard.hBoxLayout.contentsMargins()
         self.unoHotkeyCard.hBoxLayout.setContentsMargins(
@@ -604,7 +663,7 @@ class SettingsInterface(ScrollArea):
             "fishing": [
                 self.presetGroup,
                 self.fishingGroup,
-                self.savePresetButton,
+                self.saveResetButtonWidget,
                 self.baitGroup,
                 self.releaseGroup,
             ],
@@ -621,9 +680,10 @@ class SettingsInterface(ScrollArea):
 
     def _create_double_spinbox_card(self, icon, title, content, config_key):
         card = SettingCard(icon, title, content, parent=self.fishingGroup)
-        spinbox = DoubleSpinBox(card)
-        spinbox.setRange(0.01, 10.0)
-        spinbox.setSingleStep(0.1)
+        spinbox = SmartDoubleSpinBox(card)
+        spinbox.setRange(0.001, 10.0)
+        spinbox.setSingleStep(0.001)
+        spinbox.setDecimals(3)
         card.hBoxLayout.addWidget(spinbox, 0, Qt.AlignRight)
         margins = card.hBoxLayout.contentsMargins()
         card.hBoxLayout.setContentsMargins(
@@ -659,6 +719,7 @@ class SettingsInterface(ScrollArea):
         self.hotkeyGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
         self.debugGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
         self.sellGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
+        self.unoGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
@@ -693,6 +754,11 @@ class SettingsInterface(ScrollArea):
 
         # 重置悬浮窗位置信号
         self.resetOverlayButton.clicked.connect(self._on_reset_overlay_position)
+
+        # 恢复默认配置信号
+        self.resetFishingConfigButton2.clicked.connect(self._on_reset_fishing_config)
+        self.savePresetButton.clicked.connect(self._save_preset_settings)
+        self.resetHotkeyConfigButton.clicked.connect(self._on_reset_hotkey_config)
 
     def _on_theme_changed(self, theme):
         self.theme_changed_signal.emit(theme)
@@ -785,6 +851,7 @@ class SettingsInterface(ScrollArea):
         self.hotkeyGamepadLineEdit.setText(gamepad_mappings.get("toggle", ""))
         self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
         self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
+        self.unoGamepadLineEdit.setText(gamepad_mappings.get("uno", ""))
 
         # 加载鱼饵选择
         selected_baits = cfg.global_settings.get("selected_baits", [])
@@ -906,6 +973,9 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["gamepad_mappings"][
             "sell"
         ] = self.sellGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"][
+            "uno"
+        ] = self.unoGamepadLineEdit.text()
 
         cfg.save()
         self.gamepad_mapping_changed_signal.emit()
@@ -1200,6 +1270,75 @@ class SettingsInterface(ScrollArea):
         InfoBar.success(
             title=self.tr("重置成功"),
             content=self.tr("悬浮窗位置已重置到屏幕中心"),
+            duration=2000,
+            position=InfoBarPosition.TOP,
+            parent=self.window(),
+        )
+
+    def _on_reset_fishing_config(self):
+        """恢复默认钓鱼参数配置"""
+        preset_name = self.presetComboBox.currentText()
+        default_presets = cfg._get_default_presets()
+        
+        if preset_name in default_presets:
+            default_config = default_presets[preset_name]
+            self.castTimeSpinBox.setValue(default_config["cast_time"])
+            self.reelInTimeSpinBox.setValue(default_config["reel_in_time"])
+            self.releaseTimeSpinBox.setValue(default_config["release_time"])
+            self.cycleIntervalSpinBox.setValue(default_config["cycle_interval"])
+            self.maxPullsSpinBox.setValue(default_config["max_pulls"])
+            
+            InfoBar.success(
+                title=self.tr("恢复成功"),
+                content=self.tr(f"已恢复预设 '{preset_name}' 的默认钓鱼参数"),
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
+        else:
+            InfoBar.warning(
+                title=self.tr("恢复失败"),
+                content=self.tr(f"预设 '{preset_name}' 无默认配置"),
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
+
+    def _on_reset_hotkey_config(self):
+        """恢复默认热键配置"""
+        default_hotkeys = {
+            "hotkey": "F2",
+            "debug_hotkey": "F10",
+            "sell_hotkey": "F4",
+            "uno_hotkey": "F3",
+        }
+        
+        default_gamepad_mappings = {
+            "toggle": "LS",
+            "debug": "DpadRight",
+            "sell": "RS",
+            "uno": "DpadLeft",
+        }
+        
+        # 恢复键盘热键
+        self.hotkeyLineEdit.setText(default_hotkeys["hotkey"])
+        self.debugHotkeyLineEdit.setText(default_hotkeys["debug_hotkey"])
+        self.sellHotkeyLineEdit.setText(default_hotkeys["sell_hotkey"])
+        self.unoHotkeyLineEdit.setText(default_hotkeys["uno_hotkey"])
+        
+        # 恢复手柄按键映射
+        self.hotkeyGamepadLineEdit.setText(default_gamepad_mappings["toggle"])
+        self.debugGamepadLineEdit.setText(default_gamepad_mappings["debug"])
+        self.sellGamepadLineEdit.setText(default_gamepad_mappings["sell"])
+        self.unoGamepadLineEdit.setText(default_gamepad_mappings["uno"])
+        
+        # 保存更改
+        self._save_global_settings()
+        self._save_gamepad_mappings()
+        
+        InfoBar.success(
+            title=self.tr("恢复成功"),
+            content=self.tr("所有热键已恢复为默认值"),
             duration=2000,
             position=InfoBarPosition.TOP,
             parent=self.window(),
