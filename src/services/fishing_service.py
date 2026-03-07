@@ -148,8 +148,18 @@ class FishingService:
                         self.worker.release_service.check_and_auto_release()
                     )
                     if released_count == -1:
-                        # 弹窗中止，继续执行
-                        pass
+                        # 弹窗中止，重新尝试放生
+                        self.worker.log_updated.emit("弹窗已处理，重新尝试放生...")
+                        released_count = (
+                            self.worker.release_service.check_and_auto_release()
+                        )
+                        if released_count == -1 or released_count == 0:
+                            self.worker.log_updated.emit(
+                                "自动放生未放生任何鱼，鱼桶可能仍然满载或没有符合放生条件的鱼。"
+                            )
+                            if cfg.global_settings.get("enable_sound_alert", False):
+                                self.worker.sound_alert_requested.emit("inventory_full")
+                            self.worker.pause(reason="鱼桶已满且无法自动放生")
                     elif released_count == 0:
                         self.worker.log_updated.emit(
                             "自动放生未放生任何鱼，鱼桶可能仍然满载或没有符合放生条件的鱼。"

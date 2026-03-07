@@ -2,8 +2,11 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.3.8Beta"
-RELEASE_NOTES = """"""
+VERSION = "3.3.8"
+RELEASE_NOTES = """1. 增加鱼饵自动切换功能，收益中的当前使用鱼饵不用自己换，
+优先级从右到左，脚本启动会自己切换到第一个鱼饵，后续用完会自动切换到下一个鱼饵，
+直到勾选的最后一个鱼饵用完才会停止钓鱼。
+2.优化放生时遇到加时弹窗的处理逻辑"""
 
 
 def generate_readme(version, notes):

@@ -109,63 +109,13 @@ class FishingWorker(QThread):
                     target_bait = self.bait_manager.sorted_baits[0]
 
                     if detected_bait != target_bait:
-                        self.log_updated.emit(
-                            f"切换鱼饵: {detected_bait} -> {target_bait}"
-                        )
-
-                        # 第一次尝试：按索引计算滚动
-                        scroll_count = self.bait_manager.calculate_scroll_count(
+                        success = self._switch_to_target_bait(
                             detected_bait, target_bait
                         )
-                        self.inputs.switch_bait(scroll_count)
-                        time.sleep(0.8)
-
-                        new_bait = self.vision.detect_current_bait()
-                        if new_bait == target_bait:
-                            cfg.current_bait = target_bait
-                            self.bait_detected.emit(target_bait)
-                            self.log_updated.emit(f"已切换到 {target_bait}")
-                        else:
-                            # 如果没滚动到正确鱼饵，改用逐个滚动检测
-                            self.log_updated.emit(
-                                f"未滚动到目标，当前: {new_bait}，开始逐个滚动检测"
-                            )
-                            max_scrolls = 4
-                            found_bait = False
-
-                            for scroll_attempt in range(max_scrolls):
-                                self.inputs.switch_bait(-1)
-                                time.sleep(0.8)
-
-                                current_bait = self.vision.detect_current_bait()
-                                if current_bait:
-                                    self.log_updated.emit(f"检测到: {current_bait}")
-                                    if current_bait == target_bait:
-                                        cfg.current_bait = target_bait
-                                        self.bait_detected.emit(target_bait)
-                                        self.log_updated.emit(f"已切换到 {target_bait}")
-                                        found_bait = True
-                                        break
-
-                            # 如果找不到优先级最高的鱼饵，检查其他勾选的鱼饵
-                            if not found_bait:
-                                self.log_updated.emit(
-                                    f"找不到 {target_bait}，检查其他勾选的鱼饵"
-                                )
-                                final_bait = self.vision.detect_current_bait()
-
-                                if (
-                                    final_bait
-                                    and final_bait in self.bait_manager.sorted_baits
-                                ):
-                                    cfg.current_bait = final_bait
-                                    self.bait_detected.emit(final_bait)
-                                    self.log_updated.emit(f"使用当前鱼饵: {final_bait}")
-                                else:
-                                    self.log_updated.emit(
-                                        f"所有勾选的鱼饵都找不到，暂停脚本"
-                                    )
-                                    self.pause(reason="找不到勾选的鱼饵")
+                        if not success:
+                            self.log_updated.emit("弹窗已处理，重新切换鱼饵...")
+                            time.sleep(0.5)
+                            self._switch_to_target_bait(detected_bait, target_bait)
 
                     self.bait_manager.set_current_bait(cfg.current_bait)
         except Exception:
@@ -489,6 +439,86 @@ class FishingWorker(QThread):
             self.msleep(200)
         return False
 
+    def _check_popup_during_bait_switch(self):
+        """检测切换鱼饵过程中的弹窗"""
+        popup_region = cfg.get_rect("popup_exclamation")
+        if self.vision.find_template_popup(
+            "exclamation_grayscale", region=popup_region, threshold=0.7
+        ):
+            self.log_updated.emit("切换鱼饵过程中检测到加时弹窗，等待处理...")
+            if not self._wait_for_popup_clear(timeout=10):
+                self.log_updated.emit("等待弹窗清除超时")
+            time.sleep(5.0)
+            return True
+        return False
+
+    def _switch_to_target_bait(self, detected_bait, target_bait):
+        """
+        切换到目标鱼饵
+
+        Args:
+            detected_bait: 当前检测到的鱼饵
+            target_bait: 目标鱼饵
+
+        Returns:
+            bool: True 表示成功，False 表示遇到弹窗需要重试
+        """
+        self.log_updated.emit(f"切换鱼饵: {detected_bait} -> {target_bait}")
+
+        # 第一次尝试：按索引计算滚动
+        scroll_count = self.bait_manager.calculate_scroll_count(
+            detected_bait, target_bait
+        )
+        self.inputs.switch_bait(scroll_count)
+        time.sleep(0.8)
+
+        if self._check_popup_during_bait_switch():
+            return False
+
+        new_bait = self.vision.detect_current_bait()
+        if new_bait == target_bait:
+            cfg.current_bait = target_bait
+            self.bait_detected.emit(target_bait)
+            self.log_updated.emit(f"已切换到 {target_bait}")
+            return True
+
+        # 如果没滚动到正确鱼饵，改用逐个滚动检测
+        self.log_updated.emit(f"未滚动到目标，当前: {new_bait}，开始逐个滚动检测")
+        max_scrolls = 4
+        found_bait = False
+
+        for scroll_attempt in range(max_scrolls):
+            self.inputs.switch_bait(-1)
+            time.sleep(0.8)
+
+            if self._check_popup_during_bait_switch():
+                return False
+
+            current_bait = self.vision.detect_current_bait()
+            if current_bait:
+                self.log_updated.emit(f"检测到: {current_bait}")
+                if current_bait == target_bait:
+                    cfg.current_bait = target_bait
+                    self.bait_detected.emit(target_bait)
+                    self.log_updated.emit(f"已切换到 {target_bait}")
+                    found_bait = True
+                    break
+
+        # 如果找不到优先级最高的鱼饵，检查其他勾选的鱼饵
+        if not found_bait:
+            self.log_updated.emit(f"找不到 {target_bait}，检查其他勾选的鱼饵")
+            final_bait = self.vision.detect_current_bait()
+
+            if final_bait and final_bait in self.bait_manager.sorted_baits:
+                cfg.current_bait = final_bait
+                self.bait_detected.emit(final_bait)
+                self.log_updated.emit(f"使用当前鱼饵: {final_bait}")
+            else:
+                self.log_updated.emit(f"所有勾选的鱼饵都找不到，暂停脚本")
+                self.pause(reason="找不到勾选的鱼饵")
+
+        return True
+
     def _check_popup_and_abort_release(self, released_count):
         """检测弹窗，如果存在则等待处理完成后关闭鱼桶并返回"""
         popup_region = cfg.get_rect("popup_exclamation")
@@ -498,6 +528,8 @@ class FishingWorker(QThread):
             self.log_updated.emit("放生过程中检测到加时弹窗，等待处理完成后关闭鱼桶...")
             if not self._wait_for_popup_clear(timeout=10):
                 self.log_updated.emit("等待弹窗清除超时")
+
+            time.sleep(5.0)
 
             # 检查鱼桶是否还在打开状态（通过检测第一格鱼的品质星星）
             zone = cfg.REGIONS["fish_inventory"]["zones"][0]

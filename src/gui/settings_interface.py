@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QFileDialog,
     QProgressDialog,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QThread
 from datetime import datetime
@@ -27,6 +28,7 @@ from qfluentwidgets import (
     InfoBar,
     InfoBarPosition,
     MessageBox,
+    SegmentedWidget,
 )
 from src.config import cfg
 from src.gui.components import KeyBindingWidget
@@ -73,8 +75,17 @@ class SettingsInterface(ScrollArea):
         # Init Layout
         self.vBoxLayout = QVBoxLayout(self.scrollWidget)
         self.vBoxLayout.setContentsMargins(36, 10, 36, 10)
-        self.vBoxLayout.setSpacing(20)
+        self.vBoxLayout.setSpacing(12)
         self.vBoxLayout.setAlignment(Qt.AlignTop)
+
+        # 添加分段控件
+        self.segmentedWidget = SegmentedWidget(self.scrollWidget)
+        self.segmentedWidget.addItem("fishing", "钓鱼设置")
+        self.segmentedWidget.addItem("function", "功能设置")
+        self.segmentedWidget.addItem("data", "数据管理")
+        self.segmentedWidget.setCurrentItem("fishing")
+        self.segmentedWidget.currentItemChanged.connect(self._onSegmentChanged)
+        self.vBoxLayout.addWidget(self.segmentedWidget)
 
         # 1. Preset Selection Group
         self.presetGroup = SettingCardGroup(self.tr("预设配置"), self.scrollWidget)
@@ -569,9 +580,40 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.accountGroup)
 
+        # Keep section groups compact and push spare space to the bottom.
+        for group in (
+            self.presetGroup,
+            self.fishingGroup,
+            self.globalGroup,
+            self.baitGroup,
+            self.unoGroup,
+            self.releaseGroup,
+            self.recordGroup,
+            self.accountGroup,
+        ):
+            group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
+        self.vBoxLayout.addStretch(1)
+
         # 5. Load initial values and connect signals
         self._load_settings_to_ui()
         self._connect_signals()
+
+        # 设置组分类
+        self.groupCategories = {
+            "fishing": [
+                self.presetGroup,
+                self.fishingGroup,
+                self.savePresetButton,
+                self.baitGroup,
+                self.releaseGroup,
+            ],
+            "function": [self.globalGroup, self.unoGroup],
+            "data": [self.recordGroup, self.accountGroup],
+        }
+
+        # 初始显示钓鱼设置
+        self._onSegmentChanged("fishing")
 
         # Style
         self.setStyleSheet("QScrollArea {background-color: transparent; border: none;}")
@@ -1162,3 +1204,15 @@ class SettingsInterface(ScrollArea):
             position=InfoBarPosition.TOP,
             parent=self.window(),
         )
+
+    def _onSegmentChanged(self, key):
+        """切换设置分类显示"""
+        for category, widgets in self.groupCategories.items():
+            visible = category == key
+            for widget in widgets:
+                widget.setVisible(visible)
+
+        # 强制布局更新
+        self.vBoxLayout.update()
+        self.scrollWidget.updateGeometry()
+        self.scrollWidget.adjustSize()
