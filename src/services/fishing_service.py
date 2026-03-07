@@ -831,7 +831,6 @@ class FishingService:
             return self.record_catch()
 
         self.worker.status_updated.emit("记录渔获(后台)")
-        self.worker.log_updated.emit("正在快速采集渔获快照，后台识别中...")
 
         snapshots = self._capture_catch_snapshots()
         if not snapshots:
@@ -841,7 +840,7 @@ class FishingService:
         self._maybe_trigger_steam_screenshot_early(snapshots)
 
         if snapshots and self._submit_async_catch_processing(snapshots):
-            self.worker.log_updated.emit("渔获识别已转入后台，继续下一轮。")
+            self.worker.log_updated.emit("渔获识别已转入后台...")
             return False
 
         self.worker.log_updated.emit("后台处理启动失败，回退到同步识别。")

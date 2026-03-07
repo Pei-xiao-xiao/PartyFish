@@ -346,6 +346,10 @@ class OverlayWindow(QWidget):
             display_text = "找不到游戏了"
         elif "没有鱼饵" in display_text:
             display_text = "鱼饵用完了"
+        elif "切换鱼饵" in display_text:
+            display_text = "切鱼饵中..."
+        elif "寻找可用鱼饵" in display_text:
+            display_text = "检查鱼饵中..."
         elif "鱼桶" in display_text and "满" in display_text:
             display_text = "鱼桶满了"
         elif "抛竿" in display_text:

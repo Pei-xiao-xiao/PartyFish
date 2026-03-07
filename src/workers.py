@@ -75,24 +75,7 @@ class FishingWorker(QThread):
         self.bait_detected.emit(detected_bait)
 
         if self.bait_manager and self.bait_manager.sorted_baits:
-            runtime_baits = self.bait_manager.configure_runtime_sequence(detected_bait)
-            remaining_baits = self.bait_manager.get_remaining_baits()
-
-            if self.bait_manager.is_selected_bait(detected_bait):
-                if remaining_baits:
-                    self.log_updated.emit(
-                        "当前鱼饵已在勾选列表中，先用完当前鱼饵，再按优先级切换: "
-                        + " -> ".join(remaining_baits)
-                    )
-                else:
-                    self.log_updated.emit(
-                        "当前鱼饵已在勾选列表中，本轮没有其他待切换鱼饵。"
-                    )
-            elif runtime_baits:
-                self.log_updated.emit(
-                    "当前鱼饵未勾选，先用完当前鱼饵，再按优先级切换: "
-                    + " -> ".join(runtime_baits[1:])
-                )
+            self.bait_manager.configure_runtime_sequence(detected_bait)
 
         return cfg.current_bait
 
@@ -480,6 +463,12 @@ class FishingWorker(QThread):
             return True
         return False
 
+    def _pause_for_no_bait(self, reason):
+        """统一处理切换鱼饵时的无鱼饵暂停逻辑。"""
+        if cfg.global_settings.get("enable_sound_alert", False):
+            self.sound_alert_requested.emit("no_bait")
+        self.pause(reason=reason)
+
     def _switch_to_target_bait(self, detected_bait, target_bait):
         """
         切换到目标鱼饵
@@ -491,7 +480,7 @@ class FishingWorker(QThread):
         Returns:
             bool: True 表示成功，False 表示遇到弹窗需要重试
         """
-        self.log_updated.emit(f"切换鱼饵: {detected_bait} -> {target_bait}")
+        self.status_updated.emit("切换鱼饵中")
 
         # 第一次尝试：按索引计算滚动
         scroll_count = self.bait_manager.calculate_scroll_count(
@@ -512,8 +501,13 @@ class FishingWorker(QThread):
             self.log_updated.emit(f"已切换到 {target_bait}")
             return True
 
+        if detected_bait and new_bait == detected_bait:
+            self._pause_for_no_bait("没有鱼饵了")
+            return True
+
         # 如果没滚动到正确鱼饵，改用逐个滚动检测
-        self.log_updated.emit(f"未滚动到目标，当前: {new_bait}，开始逐个滚动检测")
+        self.log_updated.emit(f"未找到目标，当前: {new_bait}，开始逐个检查")
+        self.status_updated.emit("寻找可用鱼饵")
         max_scrolls = 4
         found_bait = False
 
@@ -548,7 +542,7 @@ class FishingWorker(QThread):
                 self.log_updated.emit(f"使用当前鱼饵: {final_bait}")
             else:
                 self.log_updated.emit(f"所有勾选的鱼饵都找不到，暂停脚本")
-                self.pause(reason="找不到勾选的鱼饵")
+                self._pause_for_no_bait("找不到勾选的鱼饵")
 
         return True
 
