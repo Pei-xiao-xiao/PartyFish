@@ -126,6 +126,7 @@ class FishingWorker(QThread):
             self.log_updated.emit("已激活游戏窗口")
 
         self._sync_current_bait_state()
+        self._pending_bait_sync = False  # 首次启动已检测，清除标志
 
         while self.running:
             while self.paused:

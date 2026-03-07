@@ -206,8 +206,6 @@ class FishingService:
         verification_timeout = 5  # 增加超时时间从3秒到5秒
         wait_bite_region = cfg.get_rect("wait_bite")
 
-        last_cast_icon_gone = False
-        last_wait_icon_appeared = False
         verification_check_count = 0
         cast_icon_ever_gone = False
         max_match_score = 0.0  # 记录最大匹配分数
@@ -227,8 +225,6 @@ class FishingService:
                 key, region=wait_bite_region, threshold=0.8
             )
 
-            last_cast_icon_gone = cast_icon_gone
-            last_wait_icon_appeared = wait_icon_appeared
             verification_check_count += 1
 
             if cast_icon_gone:
@@ -246,12 +242,6 @@ class FishingService:
         elapsed_time = time.time() - verification_start_time
         self.worker.log_updated.emit(
             f"[诊断] 抛竿验证超时。检测次数: {verification_check_count}, 耗时: {elapsed_time:.2f}秒"
-        )
-        self.worker.log_updated.emit(
-            f"[诊断] 最后状态 - 抛竿图标已消失: {last_cast_icon_gone}, 等待图标已出现: {last_wait_icon_appeared}"
-        )
-        self.worker.log_updated.emit(
-            f"[诊断] 抛竿图标区域: {found_region}, 等待图标区域: {wait_bite_region}"
         )
 
         return False, cast_icon_ever_gone
