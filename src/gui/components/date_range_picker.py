@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QFrame,
     QScrollArea,
+    QSizePolicy,
 )
 
 from qfluentwidgets import (
@@ -139,6 +140,10 @@ class DateRangeCalendar(QWidget):
     dateClicked = Signal(QDate)
     hoverChanged = Signal(QDate)
     monthClicked = Signal()
+    prevMonthRequested = Signal()
+    nextMonthRequested = Signal()
+    prevYearRequested = Signal()
+    nextYearRequested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -150,14 +155,10 @@ class DateRangeCalendar(QWidget):
         self._recordDates: set[str] = set()
 
         self.cellSize = 40
-        self.headerHeight = 40
-        self.weekdayHeight = 30
-        self.setMinimumSize(self.cellSize * 7 + 20, self.headerHeight + self.weekdayHeight + self.cellSize * 6 + 20)
-        self.setMouseTracking(True)
-
-        self._headerRect = QRect(10, 8, self.cellSize * 7, self.headerHeight - 8)
-        self._hoverHeader = False
+        self.headerHeight = 36
+        self.weekdayHeight = 28
         self._initColors()
+        self._initUI()
 
     def _initColors(self):
         is_dark = isDarkTheme()
@@ -171,41 +172,115 @@ class DateRangeCalendar(QWidget):
         self._selectedBgColor = tc
         self._borderColor = QColor(0x49, 0x52, 0x64) if is_dark else QColor(0xE5, 0xE7, 0xEB)
 
+    def _initUI(self):
+        self.mainLayout = QVBoxLayout(self)
+        self.mainLayout.setContentsMargins(8, 4, 8, 4)
+        self.mainLayout.setSpacing(0)
+
+        self.headerWidget = QWidget()
+        self.headerLayout = QHBoxLayout(self.headerWidget)
+        self.headerLayout.setContentsMargins(0, 0, 0, 4)
+        self.headerLayout.setSpacing(2)
+
+        self.prevYearBtn = QPushButton("《")
+        self.prevYearBtn.setFixedSize(32, 28)
+        self.prevYearBtn.setFlat(True)
+        self.prevYearBtn.setFont(QFont("Microsoft YaHei", 12, QFont.Black))
+        self.prevYearBtn.clicked.connect(self.prevYearRequested)
+
+        self.prevMonthBtn = QPushButton("〈")
+        self.prevMonthBtn.setFixedSize(28, 28)
+        self.prevMonthBtn.setFlat(True)
+        self.prevMonthBtn.setFont(QFont("Microsoft YaHei", 12, QFont.Black))
+        self.prevMonthBtn.clicked.connect(self.prevMonthRequested)
+
+        self.titleLabel = QLabel()
+        self.titleLabel.setAlignment(Qt.AlignCenter)
+        self.titleLabel.setFont(QFont("Microsoft YaHei", 11, QFont.Bold))
+        self.titleLabel.mousePressEvent = self._onTitleClicked
+        self.titleLabel.setCursor(Qt.PointingHandCursor)
+
+        self.nextMonthBtn = QPushButton("〉")
+        self.nextMonthBtn.setFixedSize(28, 28)
+        self.nextMonthBtn.setFlat(True)
+        self.nextMonthBtn.setFont(QFont("Microsoft YaHei", 12, QFont.Black))
+        self.nextMonthBtn.clicked.connect(self.nextMonthRequested)
+
+        self.nextYearBtn = QPushButton("》")
+        self.nextYearBtn.setFixedSize(32, 28)
+        self.nextYearBtn.setFlat(True)
+        self.nextYearBtn.setFont(QFont("Microsoft YaHei", 12, QFont.Black))
+        self.nextYearBtn.clicked.connect(self.nextYearRequested)
+
+        self.headerLayout.addWidget(self.prevYearBtn)
+        self.headerLayout.addWidget(self.prevMonthBtn)
+        self.headerLayout.addWidget(self.titleLabel, 1)
+        self.headerLayout.addWidget(self.nextMonthBtn)
+        self.headerLayout.addWidget(self.nextYearBtn)
+
+        self.calendarView = _CalendarView(self)
+        self.calendarView.dateClicked.connect(self.dateClicked)
+        self.calendarView.hoverChanged.connect(self.hoverChanged)
+
+        self.mainLayout.addWidget(self.headerWidget)
+        self.mainLayout.addWidget(self.calendarView, 1)
+
+        self._updateTitle()
+        self.setMinimumSize(self.cellSize * 7 + 20, self.headerHeight + self.weekdayHeight + self.cellSize * 6 + 20)
+
+    def _onTitleClicked(self, event):
+        if event.button() == Qt.LeftButton:
+            self.monthClicked.emit()
+
+    def _updateTitle(self):
+        year, month = self._currentMonth
+        monthNames = ["一月", "二月", "三月", "四月", "五月", "六月",
+                      "七月", "八月", "九月", "十月", "十一月", "十二月"]
+        self.titleLabel.setText(f"{year}年 {monthNames[month - 1]}")
+
     def applyTheme(self):
         self._initColors()
+        self.calendarView._initColors()
+        self.calendarView.update()
         self.update()
 
     def setCurrentMonth(self, year: int, month: int):
         self._currentMonth = (year, month)
-        self.update()
+        self._updateTitle()
+        self.calendarView._currentMonth = (year, month)
+        self.calendarView.update()
 
     def currentMonth(self) -> Tuple[int, int]:
         return self._currentMonth
 
     def setStartDate(self, date: Optional[QDate]):
         self._startDate = date
+        self.calendarView._startDate = date
         if date:
             self._state = SelectionState.START_SELECTED
         else:
             self._state = SelectionState.NONE
-        self.update()
+        self.calendarView.update()
 
     def setEndDate(self, date: Optional[QDate]):
         self._endDate = date
+        self.calendarView._endDate = date
         if date and self._startDate:
             self._state = SelectionState.COMPLETE
-        self.update()
+        self.calendarView.update()
 
     def setRange(self, start: Optional[QDate], end: Optional[QDate]):
         self._startDate = start
         self._endDate = end
+        self.calendarView._startDate = start
+        self.calendarView._endDate = end
         if start and end:
             self._state = SelectionState.COMPLETE
         elif start:
             self._state = SelectionState.START_SELECTED
         else:
             self._state = SelectionState.NONE
-        self.update()
+        self.calendarView.update()
 
     def startDate(self) -> Optional[QDate]:
         return self._startDate
@@ -218,106 +293,87 @@ class DateRangeCalendar(QWidget):
 
     def setRecordDates(self, dates: set[str]):
         self._recordDates = dates
-        self.update()
+        self.calendarView._recordDates = dates
+        self.calendarView.update()
 
     def recordDates(self) -> set[str]:
         return self._recordDates
 
-    def _monthOffset(self, offset: int):
-        year, month = self._currentMonth
-        month += offset
-        if month > 12:
-            year += month // 12
-            month = month % 12
-            if month == 0:
-                month = 12
-                year -= 1
-        elif month < 1:
-            year += (month - 12) // 12
-            month = month % 12
-            if month == 0:
-                month = 12
-        self._currentMonth = (year, month)
-        self.update()
-
     def prevMonth(self):
-        self._monthOffset(-1)
+        year, month = self._currentMonth
+        month -= 1
+        if month < 1:
+            month = 12
+            year -= 1
+        self.setCurrentMonth(year, month)
 
     def nextMonth(self):
-        self._monthOffset(1)
-
-    def _dateToRect(self, date: QDate) -> QRect:
         year, month = self._currentMonth
-        if date.year() != year or date.month() != month:
-            return QRect()
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+        self.setCurrentMonth(year, month)
 
-        firstDay = QDate(year, month, 1)
-        startOffset = firstDay.dayOfWeek() - 1
-
-        col = (startOffset + date.day() - 1) % 7
-        row = (startOffset + date.day() - 1) // 7
-
-        x = 10 + col * self.cellSize
-        y = self.headerHeight + self.weekdayHeight + row * self.cellSize
-
-        return QRect(x, y, self.cellSize, self.cellSize)
-
-    def _posToDate(self, pos: QPoint) -> Optional[QDate]:
+    def prevYear(self):
         year, month = self._currentMonth
+        self.setCurrentMonth(year - 1, month)
 
-        col = (pos.x() - 10) // self.cellSize
-        row = (pos.y() - self.headerHeight - self.weekdayHeight) // self.cellSize
+    def nextYear(self):
+        year, month = self._currentMonth
+        self.setCurrentMonth(year + 1, month)
 
-        if not (0 <= col < 7 and row >= 0):
-            return None
 
-        firstDay = QDate(year, month, 1)
-        startOffset = firstDay.dayOfWeek() - 1
+class _CalendarView(QWidget):
+    dateClicked = Signal(QDate)
+    hoverChanged = Signal(QDate)
 
-        dayIndex = row * 7 + col - startOffset + 1
-        daysInMonth = firstDay.daysInMonth()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._currentMonth = QDate.currentDate().year(), QDate.currentDate().month()
+        self._startDate: Optional[QDate] = None
+        self._endDate: Optional[QDate] = None
+        self._hoverDate: Optional[QDate] = None
+        self._recordDates: set[str] = set()
 
-        if 1 <= dayIndex <= daysInMonth:
-            return QDate(year, month, dayIndex)
-        return None
+        self.cellSize = 40
+        self.headerHeight = 0
+        self.weekdayHeight = 28
+        self.setMinimumSize(self.cellSize * 7, self.weekdayHeight + self.cellSize * 6)
+        self.setMouseTracking(True)
+        self._initColors()
+
+    def _initColors(self):
+        is_dark = isDarkTheme()
+        tc = themeColor()
+
+        self._bgColor = QColor(0x2B, 0x31, 0x3B) if is_dark else QColor(255, 255, 255)
+        self._textColor = QColor(0xE5, 0xE7, 0xEB) if is_dark else QColor(0x1F, 0x29, 0x37)
+        self._secondaryTextColor = QColor(0x94, 0xA3, 0xB8) if is_dark else QColor(0x64, 0x74, 0x8B)
+        self._hoverBgColor = QColor(255, 255, 255, 15) if is_dark else QColor(0, 0, 0, 8)
+        self._rangeBgColor = QColor(tc.red(), tc.green(), tc.blue(), 40) if is_dark else QColor(tc.red(), tc.green(), tc.blue(), 30)
+        self._selectedBgColor = tc
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
 
         self._drawBackground(painter)
-        self._drawHeader(painter)
         self._drawWeekdays(painter)
         self._drawDays(painter)
 
     def _drawBackground(self, painter: QPainter):
         painter.fillRect(self.rect(), self._bgColor)
 
-    def _drawHeader(self, painter: QPainter):
-        year, month = self._currentMonth
-        monthNames = ["一月", "二月", "三月", "四月", "五月", "六月",
-                      "七月", "八月", "九月", "十月", "十一月", "十二月"]
-        title = f"{year}年 {monthNames[month - 1]}"
-
-        if self._hoverHeader:
-            painter.setBrush(QBrush(self._hoverBgColor))
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(self._headerRect, 4, 4)
-
-        painter.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
-        painter.setPen(self._textColor)
-
-        painter.drawText(self._headerRect, Qt.AlignCenter, title)
-
     def _drawWeekdays(self, painter: QPainter):
         weekdays = ["一", "二", "三", "四", "五", "六", "日"]
         painter.setFont(QFont("Microsoft YaHei", 10))
         painter.setPen(self._secondaryTextColor)
 
-        y = self.headerHeight + 5
+        y = 2
         for i, day in enumerate(weekdays):
-            x = 10 + i * self.cellSize
-            rect = QRect(x, y, self.cellSize, self.weekdayHeight - 10)
+            x = i * self.cellSize
+            rect = QRect(x, y, self.cellSize, self.weekdayHeight - 4)
             painter.drawText(rect, Qt.AlignCenter, day)
 
     def _drawDays(self, painter: QPainter):
@@ -356,7 +412,7 @@ class DateRangeCalendar(QWidget):
                 textColor = QColor(255, 255, 255)
                 painter.setFont(normalFont)
             elif hasRecord:
-                textColor = QColor(0xE5, 0x3F, 0x3F)
+                textColor = QColor(0x3B, 0xA5, 0xD8)
                 painter.setFont(recordFont)
             else:
                 textColor = self._textColor
@@ -364,6 +420,41 @@ class DateRangeCalendar(QWidget):
 
             painter.setPen(textColor)
             painter.drawText(cellRect, Qt.AlignCenter, str(day))
+
+    def _dateToRect(self, date: QDate) -> QRect:
+        year, month = self._currentMonth
+        if date.year() != year or date.month() != month:
+            return QRect()
+
+        firstDay = QDate(year, month, 1)
+        startOffset = firstDay.dayOfWeek() - 1
+
+        col = (startOffset + date.day() - 1) % 7
+        row = (startOffset + date.day() - 1) // 7
+
+        x = col * self.cellSize
+        y = self.weekdayHeight + row * self.cellSize
+
+        return QRect(x, y, self.cellSize, self.cellSize)
+
+    def _posToDate(self, pos: QPoint) -> Optional[QDate]:
+        year, month = self._currentMonth
+
+        col = pos.x() // self.cellSize
+        row = (pos.y() - self.weekdayHeight) // self.cellSize
+
+        if not (0 <= col < 7 and row >= 0):
+            return None
+
+        firstDay = QDate(year, month, 1)
+        startOffset = firstDay.dayOfWeek() - 1
+
+        dayIndex = row * 7 + col - startOffset + 1
+        daysInMonth = firstDay.daysInMonth()
+
+        if 1 <= dayIndex <= daysInMonth:
+            return QDate(year, month, dayIndex)
+        return None
 
     def _isInRange(self, date: QDate) -> bool:
         if not self._startDate:
@@ -389,9 +480,7 @@ class DateRangeCalendar(QWidget):
         painter.drawEllipse(rect)
 
     def mouseMoveEvent(self, event):
-        pos = event.pos()
-        self._hoverHeader = self._headerRect.contains(pos)
-        date = self._posToDate(pos)
+        date = self._posToDate(event.pos())
         if date and date != self._hoverDate:
             self._hoverDate = date
             self.hoverChanged.emit(date)
@@ -399,19 +488,13 @@ class DateRangeCalendar(QWidget):
 
     def leaveEvent(self, event):
         self._hoverDate = None
-        self._hoverHeader = False
         self.update()
 
     def mousePressEvent(self, event):
         if event.button() != Qt.LeftButton:
             return
 
-        pos = event.pos()
-        if self._headerRect.contains(pos):
-            self.monthClicked.emit()
-            return
-
-        date = self._posToDate(pos)
+        date = self._posToDate(event.pos())
         if date:
             self.dateClicked.emit(date)
 
@@ -461,42 +544,8 @@ class DateRangePickerBase(QWidget):
         self.leftCalendar = DateRangeCalendar()
         self.rightCalendar = DateRangeCalendar()
 
-        leftNavWidget = QWidget()
-        leftNavLayout = QVBoxLayout(leftNavWidget)
-        leftNavLayout.setContentsMargins(0, 0, 0, 0)
-        leftNavLayout.setSpacing(0)
-
-        self.leftPrevBtn = TransparentToolButton(FIF.CARE_LEFT_SOLID, self)
-        self.leftNextBtn = TransparentToolButton(FIF.CARE_RIGHT_SOLID, self)
-        self.leftPrevBtn.setFixedSize(32, 32)
-        self.leftNextBtn.setFixedSize(32, 32)
-
-        leftNavLayout.addStretch()
-        leftNavLayout.addWidget(self.leftPrevBtn, 0, Qt.AlignVCenter)
-        leftNavLayout.addStretch()
-        leftNavLayout.addWidget(self.leftNextBtn, 0, Qt.AlignVCenter)
-        leftNavLayout.addStretch()
-
-        rightNavWidget = QWidget()
-        rightNavLayout = QVBoxLayout(rightNavWidget)
-        rightNavLayout.setContentsMargins(0, 0, 0, 0)
-        rightNavLayout.setSpacing(0)
-
-        self.rightPrevBtn = TransparentToolButton(FIF.CARE_LEFT_SOLID, self)
-        self.rightNextBtn = TransparentToolButton(FIF.CARE_RIGHT_SOLID, self)
-        self.rightPrevBtn.setFixedSize(32, 32)
-        self.rightNextBtn.setFixedSize(32, 32)
-
-        rightNavLayout.addStretch()
-        rightNavLayout.addWidget(self.rightPrevBtn, 0, Qt.AlignVCenter)
-        rightNavLayout.addStretch()
-        rightNavLayout.addWidget(self.rightNextBtn, 0, Qt.AlignVCenter)
-        rightNavLayout.addStretch()
-
-        self.calendarLayout.addWidget(leftNavWidget)
         self.calendarLayout.addWidget(self.leftCalendar, 1)
         self.calendarLayout.addWidget(self.rightCalendar, 1)
-        self.calendarLayout.addWidget(rightNavWidget)
 
         self.quickSelectWidget = QWidget()
         self.quickSelectLayout = QHBoxLayout(self.quickSelectWidget)
@@ -538,10 +587,15 @@ class DateRangePickerBase(QWidget):
         self._syncCalendars()
 
     def _connectSignals(self):
-        self.leftPrevBtn.clicked.connect(self._onLeftPrev)
-        self.leftNextBtn.clicked.connect(self._onLeftNext)
-        self.rightPrevBtn.clicked.connect(self._onRightPrev)
-        self.rightNextBtn.clicked.connect(self._onRightNext)
+        self.leftCalendar.prevMonthRequested.connect(self.leftCalendar.prevMonth)
+        self.leftCalendar.nextMonthRequested.connect(self.leftCalendar.nextMonth)
+        self.leftCalendar.prevYearRequested.connect(self.leftCalendar.prevYear)
+        self.leftCalendar.nextYearRequested.connect(self.leftCalendar.nextYear)
+
+        self.rightCalendar.prevMonthRequested.connect(self.rightCalendar.prevMonth)
+        self.rightCalendar.nextMonthRequested.connect(self.rightCalendar.nextMonth)
+        self.rightCalendar.prevYearRequested.connect(self.rightCalendar.prevYear)
+        self.rightCalendar.nextYearRequested.connect(self.rightCalendar.nextYear)
 
         self.leftCalendar.dateClicked.connect(self._onDateClicked)
         self.rightCalendar.dateClicked.connect(self._onDateClicked)
@@ -560,7 +614,7 @@ class DateRangePickerBase(QWidget):
         picker = YearMonthPicker(self)
         picker.setYear(year)
         picker.monthSelected.connect(lambda y, m: calendar.setCurrentMonth(y, m))
-        globalPos = calendar.mapToGlobal(QPoint(10, 48))
+        globalPos = calendar.mapToGlobal(QPoint(10, 40))
         picker.showAt(globalPos)
 
     def _syncCalendars(self):
@@ -568,18 +622,6 @@ class DateRangePickerBase(QWidget):
         self.leftCalendar.setCurrentMonth(today.year(), today.month())
         nextMonth = today.addMonths(1)
         self.rightCalendar.setCurrentMonth(nextMonth.year(), nextMonth.month())
-
-    def _onLeftPrev(self):
-        self.leftCalendar.prevMonth()
-
-    def _onLeftNext(self):
-        self.leftCalendar.nextMonth()
-
-    def _onRightPrev(self):
-        self.rightCalendar.prevMonth()
-
-    def _onRightNext(self):
-        self.rightCalendar.nextMonth()
 
     def _onDateClicked(self, date: QDate):
         if self._state == SelectionState.NONE:
@@ -692,7 +734,7 @@ class DateRangeDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("选择日期范围")
         self.setModal(True)
-        self.setFixedSize(700, 420)
+        self.setFixedSize(640, 420)
 
         self._initUI()
 
