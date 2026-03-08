@@ -88,6 +88,32 @@ class RecordDataService:
                 filtered.append(r)
         return filtered
 
+    def filter_by_date_range(
+        self, records: List[FishRecord], start_date: str, end_date: str
+    ) -> List[FishRecord]:
+        """
+        按日期范围筛选记录
+
+        Args:
+            records: 记录列表
+            start_date: 开始日期（格式：YYYY-MM-DD）
+            end_date: 结束日期（格式：YYYY-MM-DD）
+
+        Returns:
+            List[FishRecord]: 筛选后的记录
+        """
+        filtered = []
+        for r in records:
+            record_date = r.timestamp.split(" ")[0]
+            # 标准化日期格式：支持 YYYY/MM/DD, YYYY/M/D, YYYY-MM-DD
+            if "/" in record_date:
+                parts = record_date.split("/")
+                if len(parts) == 3:
+                    record_date = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+            if start_date <= record_date <= end_date:
+                filtered.append(r)
+        return filtered
+
     def filter_by_today(self, records: List[FishRecord]) -> List[FishRecord]:
         """
         筛选今日记录

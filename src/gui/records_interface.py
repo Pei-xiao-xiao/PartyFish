@@ -14,9 +14,6 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPainter
 from PySide6.QtWidgets import (
-    QCalendarWidget,
-    QDialog,
-    QDialogButtonBox,
     QHeaderView,
     QHBoxLayout,
     QLabel,
@@ -41,6 +38,7 @@ from qfluentwidgets import (
 
 from src.config import cfg
 from src.gui.components import QUALITY_COLORS
+from src.gui.components.date_range_picker import DateRangePicker
 from src.services.record_chart_service import RecordChartService
 from src.services.record_data_service import FishRecord, RecordDataService
 from src.services.record_schema import infer_time_period_from_timestamp
@@ -249,22 +247,14 @@ class RecordsInterface(QWidget):
         top_controls_layout.addWidget(self.data_dir_button)
 
         self.date_selector_layout = QHBoxLayout()
-        self.date_selector_label = QLabel("选择日期:")
-        self.date_selector_button = PrimaryPushButton("选择日期")
-        self.date_selector_button.setFixedWidth(120)
-        self.date_selector_button.clicked.connect(self._show_date_dialog)
-
-        self.current_date_label = QLabel("")
-        self.current_date_label.setFixedWidth(120)
-        self.current_date_label.setStyleSheet(
-            "font-weight: bold; color: #3BA5D8; font-size: 14px;"
-        )
+        self.date_selector_label = QLabel("选择日期范围:")
+        self.date_range_picker = DateRangePicker(placeholder="选择日期范围")
+        self.date_range_picker.setFixedWidth(220)
+        self.date_range_picker.rangeChanged.connect(self._on_date_range_changed)
 
         self.date_selector_layout.addWidget(self.date_selector_label)
         self.date_selector_layout.addSpacing(8)
-        self.date_selector_layout.addWidget(self.date_selector_button)
-        self.date_selector_layout.addSpacing(12)
-        self.date_selector_layout.addWidget(self.current_date_label)
+        self.date_selector_layout.addWidget(self.date_range_picker)
         self.date_selector_layout.addStretch(1)
         self.date_selector_layout.setContentsMargins(15, 0, 0, 0)
         top_controls_layout.addLayout(self.date_selector_layout)
@@ -292,8 +282,8 @@ class RecordsInterface(QWidget):
 
         self._toggle_date_selector(False)
 
-        self.selected_date = datetime.now().strftime("%Y-%m-%d")
-        self.current_date_label.setText(self.selected_date)
+        self.selected_start_date: str | None = None
+        self.selected_end_date: str | None = None
 
         self.dashboard_layout_row1 = QHBoxLayout()
         self.dashboard_layout_row1.setSpacing(15)
@@ -373,8 +363,7 @@ class RecordsInterface(QWidget):
     def _toggle_date_selector(self, visible: bool):
         for widget in (
             self.date_selector_label,
-            self.date_selector_button,
-            self.current_date_label,
+            self.date_range_picker,
         ):
             widget.setVisible(visible)
 
@@ -408,86 +397,10 @@ class RecordsInterface(QWidget):
         )
         self._reset_and_reload()
 
-    def _show_date_dialog(self):
-        """显示日期选择弹窗。"""
-        from PySide6.QtGui import QTextCharFormat
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("选择日期")
-        dialog.setModal(True)
-
-        calendar = QCalendarWidget(dialog)
-        calendar.setGridVisible(True)
-
-        available_dates = self.data_service.get_available_dates(self.all_records)
-        available_qdates = set()
-        for date_str in available_dates:
-            year, month, day = map(int, date_str.split("-"))
-            available_qdates.add(QDate(year, month, day))
-
-        available_format = QTextCharFormat()
-        available_format.setForeground(QColor("#000000"))
-        available_format.setFontWeight(100)
-        available_format.setFontPointSize(12)
-
-        unavailable_format = QTextCharFormat()
-        unavailable_format.setForeground(QColor("gray"))
-        unavailable_format.setFontWeight(50)
-        unavailable_format.setFontPointSize(10)
-
-        if available_qdates:
-            min_date = min(available_qdates)
-            max_date = max(available_qdates)
-            calendar.setMinimumDate(min_date)
-            calendar.setMaximumDate(max_date)
-
-            start_date = min_date.addMonths(-1)
-            end_date = max_date.addMonths(1)
-            current_date = start_date
-
-            while current_date <= end_date:
-                if min_date <= current_date <= max_date:
-                    if current_date in available_qdates:
-                        calendar.setDateTextFormat(current_date, available_format)
-                    else:
-                        calendar.setDateTextFormat(current_date, unavailable_format)
-                else:
-                    calendar.setDateTextFormat(current_date, unavailable_format)
-                current_date = current_date.addDays(1)
-        else:
-            today = QDate.currentDate()
-            calendar.setMinimumDate(today)
-            calendar.setMaximumDate(today)
-            calendar.setDateTextFormat(today, unavailable_format)
-
-        def validate_selection():
-            selected_qdate = calendar.selectedDate()
-            if selected_qdate not in available_qdates and available_qdates:
-                calendar.setSelectedDate(next(iter(available_qdates)))
-
-        calendar.selectionChanged.connect(validate_selection)
-
-        year, month, day = map(int, self.selected_date.split("-"))
-        default_qdate = QDate(year, month, day)
-        if default_qdate in available_qdates:
-            calendar.setSelectedDate(default_qdate)
-        elif available_qdates:
-            calendar.setSelectedDate(next(iter(available_qdates)))
-
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.accepted.connect(dialog.accept)
-        button_box.rejected.connect(dialog.reject)
-
-        layout = QVBoxLayout()
-        layout.addWidget(calendar)
-        layout.addWidget(button_box)
-        dialog.setLayout(layout)
-
-        if dialog.exec() == QDialog.Accepted:
-            selected_qdate = calendar.selectedDate()
-            self.selected_date = selected_qdate.toString("yyyy-MM-dd")
-            self.current_date_label.setText(self.selected_date)
-            self._reset_and_reload()
+    def _on_date_range_changed(self, start: QDate, end: QDate):
+        self.selected_start_date = start.toString("yyyy-MM-dd")
+        self.selected_end_date = end.toString("yyyy-MM-dd")
+        self._reset_and_reload()
 
     def _open_data_directory(self):
         """在系统文件管理器中打开 Partyfish 应用数据目录。"""
@@ -534,6 +447,8 @@ class RecordsInterface(QWidget):
         self._load_more_timer.stop()
         self._pending_table_records.clear()
         self.all_records = self.data_service.load_records()
+        available_dates = self.data_service.get_available_dates(self.all_records)
+        self.date_range_picker.setRecordDates(available_dates)
         self._update_stats_and_table(rebuild_table=True)
 
     def _normalize_record_date(self, date_text: str) -> str:
@@ -592,9 +507,12 @@ class RecordsInterface(QWidget):
         if self._current_view_key == "today":
             view_records = self.data_service.filter_by_today(self.all_records)
         elif self._current_view_key == "date":
-            view_records = self.data_service.filter_by_date(
-                self.all_records, self.selected_date
-            )
+            if self.selected_start_date and self.selected_end_date:
+                view_records = self.data_service.filter_by_date_range(
+                    self.all_records, self.selected_start_date, self.selected_end_date
+                )
+            else:
+                view_records = []
         else:
             view_records = self.all_records
 

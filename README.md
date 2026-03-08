@@ -20,11 +20,13 @@ fish/
 ├── resources/                       # 资源文件
 │   ├── fish.json                    # 鱼类数据库
 │   ├── fish/                        # 鱼类图片资源
+│   ├── bait/                        # 鱼饵图片资源
 │   ├── fonts/                       # 字体文件
 │   ├── maps/                        # 地图资源
 │   ├── location/                    # 位置图片
 │   ├── rod/                         # 鱼竿图片
 │   ├── weather/                     # 天气图片
+│   ├── weather_game/                # 游戏天气图片
 │   └── *.png                        # 游戏界面模板图片
 ├── src/                             # 源代码目录
 │   ├── config.py                    # 配置管理
@@ -34,6 +36,7 @@ fish/
 │   ├── pokedex.py                   # 鱼类图鉴数据处理
 │   ├── pokedex_image_generator.py   # 鱼类图鉴图片生成
 │   ├── uno.py                       # uno 游戏摸牌
+│   ├── gamepad_controller.py        # 手柄控制器
 │   ├── debug_overlay.py             # 调试覆盖层
 │   ├── _version.py                  # 版本管理
 │   ├── record_manager.py            # 导入导出钓鱼记录
@@ -43,6 +46,7 @@ fish/
 │   │   └── region_config.py         # 区域配置
 │   ├── managers/                    # 管理器模块
 │   │   ├── audio_manager.py         # 音频管理
+│   │   ├── bait_manager.py          # 鱼饵管理
 │   │   ├── cycle_reset_manager.py   # 循环重置管理
 │   │   ├── sales_limit_manager.py   # 销售限制管理
 │   │   └── signal_manager.py        # 信号管理
@@ -59,6 +63,7 @@ fish/
 │   │   ├── profit_analysis_service.py # 收益分析服务
 │   │   ├── record_chart_service.py  # 记录图表服务
 │   │   ├── record_data_service.py   # 记录数据服务
+│   │   ├── record_schema.py         # 记录数据模式
 │   │   ├── record_service.py        # 记录服务
 │   │   ├── record_stats_service.py  # 记录统计服务
 │   │   ├── release_service.py       # 发布服务
@@ -67,24 +72,25 @@ fish/
 │   │   ├── template_service.py      # 模板服务
 │   │   ├── vision_utils_service.py  # 视觉工具服务
 │   │   └── window_service.py        # 窗口服务
-│   ├── gui/                         # GUI 界面模块
-│   │   ├── components/              # 可复用组件
-│   │   │   ├── draggable_scroll_area.py # 可拖拽滚动区域
-│   │   │   ├── filter_drawer.py     # 过滤抽屉
-│   │   │   ├── filter_panel.py      # 过滤面板
-│   │   │   ├── fish_preview.py      # 鱼类预览
-│   │   │   └── home_fish_card.py    # 主页鱼类卡片
-│   │   ├── main_window.py           # 主窗口
-│   │   ├── home_interface.py        # 主页面
-│   │   ├── records_interface.py     # 钓鱼记录
-│   │   ├── profit_interface.py      # 收益统计
-│   │   ├── pokedex_interface.py     # 鱼类图鉴
-│   │   ├── settings_interface.py    # 设置页面
-│   │   ├── overlay_window.py        # 迷你悬浮窗
-│   │   ├── fish_detail_dialog.py    # 鱼类详情对话框
-│   │   ├── sell_confirmation_dialog.py # 售卖确认对话框
-│   │   ├── single_instance.py       # 单实例管理
-│   │   └── welcome_dialog.py        # 欢迎对话框
+│   └── gui/                         # GUI 界面模块
+│       ├── components/              # 可复用组件
+│       │   ├── date_range_picker.py # 日期范围选择器
+│       │   ├── draggable_scroll_area.py # 可拖拽滚动区域
+│       │   ├── filter_drawer.py     # 过滤抽屉
+│       │   ├── filter_panel.py      # 过滤面板
+│       │   ├── fish_preview.py      # 鱼类预览
+│       │   └── home_fish_card.py    # 主页鱼类卡片
+│       ├── main_window.py           # 主窗口
+│       ├── home_interface.py        # 主页面
+│       ├── records_interface.py     # 钓鱼记录
+│       ├── profit_interface.py      # 收益统计
+│       ├── pokedex_interface.py     # 鱼类图鉴
+│       ├── settings_interface.py    # 设置页面
+│       ├── overlay_window.py        # 迷你悬浮窗
+│       ├── fish_detail_dialog.py    # 鱼类详情对话框
+│       ├── sell_confirmation_dialog.py # 售卖确认对话框
+│       ├── single_instance.py       # 单实例管理
+│       └── welcome_dialog.py        # 欢迎对话框
 ├── data/                            # 数据存储（自动生成）
 │   ├── audio/                       # 音频资源
 │   │   ├── inventory_full.mp3       # 鱼桶满提示音
@@ -94,8 +100,8 @@ fish/
 │   │   ├── 没鱼饵啦！该买鱼饵了.mp3  # 没鱼饵中文提示音
 │   │   └── 鱼桶满啦！该卖鱼了.mp3    # 鱼桶满中文提示音
 │   ├── protected_fish.json          # 放生配置
-│   ├── records.csv                  # 钓鱼记录
-│   └── sales.csv                    # 销售记录
+│   ├── records.csv                  # 钓鱼记录（运行时生成）
+│   └── sales.csv                    # 销售记录（运行时生成）
 └── docs/                            # 文档
     └── images/                      # 图片资源
 ```
