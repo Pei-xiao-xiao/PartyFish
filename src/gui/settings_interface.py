@@ -172,7 +172,7 @@ class SettingsInterface(ScrollArea):
             margins.left(), margins.top(), 16, margins.bottom()
         )
         self.fishingGroup.addSettingCard(self.maxPullsCard)
-        
+
         self.vBoxLayout.addWidget(self.fishingGroup)
 
         # 3. Save and Reset Buttons
@@ -181,15 +181,19 @@ class SettingsInterface(ScrollArea):
         self.saveResetButtonLayout.setContentsMargins(0, 0, 0, 0)
         self.saveResetButtonLayout.setSpacing(10)
         self.saveResetButtonLayout.addStretch(1)
-        
-        self.resetFishingConfigButton2 = PushButton(self.tr("恢复默认"), self.saveResetButtonWidget)
+
+        self.resetFishingConfigButton2 = PushButton(
+            self.tr("恢复默认"), self.saveResetButtonWidget
+        )
         self.resetFishingConfigButton2.setFixedWidth(100)
-        self.savePresetButton = PrimaryPushButton(self.tr("保存钓鱼配置"), self.saveResetButtonWidget)
+        self.savePresetButton = PrimaryPushButton(
+            self.tr("保存钓鱼配置"), self.saveResetButtonWidget
+        )
         self.savePresetButton.setFixedWidth(120)
-        
+
         self.saveResetButtonLayout.addWidget(self.resetFishingConfigButton2)
         self.saveResetButtonLayout.addWidget(self.savePresetButton)
-        
+
         self.vBoxLayout.addWidget(self.saveResetButtonWidget, 0, Qt.AlignRight)
 
         # 4. Global Settings Group
@@ -380,7 +384,9 @@ class SettingsInterface(ScrollArea):
             self.tr("将所有快捷键恢复为默认值"),
             parent=self.globalGroup,
         )
-        self.resetHotkeyConfigButton = PushButton(self.tr("恢复"), self.resetHotkeyConfigCard)
+        self.resetHotkeyConfigButton = PushButton(
+            self.tr("恢复"), self.resetHotkeyConfigCard
+        )
         self.resetHotkeyConfigButton.setFixedWidth(80)
         self.resetHotkeyConfigCard.hBoxLayout.addWidget(
             self.resetHotkeyConfigButton, 0, Qt.AlignRight
@@ -757,7 +763,6 @@ class SettingsInterface(ScrollArea):
 
         # 恢复默认配置信号
         self.resetFishingConfigButton2.clicked.connect(self._on_reset_fishing_config)
-        self.savePresetButton.clicked.connect(self._save_preset_settings)
         self.resetHotkeyConfigButton.clicked.connect(self._on_reset_hotkey_config)
 
     def _on_theme_changed(self, theme):
@@ -973,9 +978,7 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["gamepad_mappings"][
             "sell"
         ] = self.sellGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"][
-            "uno"
-        ] = self.unoGamepadLineEdit.text()
+        cfg.global_settings["gamepad_mappings"]["uno"] = self.unoGamepadLineEdit.text()
 
         cfg.save()
         self.gamepad_mapping_changed_signal.emit()
@@ -1279,7 +1282,7 @@ class SettingsInterface(ScrollArea):
         """恢复默认钓鱼参数配置"""
         preset_name = self.presetComboBox.currentText()
         default_presets = cfg._get_default_presets()
-        
+
         if preset_name in default_presets:
             default_config = default_presets[preset_name]
             self.castTimeSpinBox.setValue(default_config["cast_time"])
@@ -1287,7 +1290,7 @@ class SettingsInterface(ScrollArea):
             self.releaseTimeSpinBox.setValue(default_config["release_time"])
             self.cycleIntervalSpinBox.setValue(default_config["cycle_interval"])
             self.maxPullsSpinBox.setValue(default_config["max_pulls"])
-            
+
             InfoBar.success(
                 title=self.tr("恢复成功"),
                 content=self.tr(f"已恢复预设 '{preset_name}' 的默认钓鱼参数"),
@@ -1312,30 +1315,30 @@ class SettingsInterface(ScrollArea):
             "sell_hotkey": "F4",
             "uno_hotkey": "F3",
         }
-        
+
         default_gamepad_mappings = {
             "toggle": "LS",
             "debug": "DpadRight",
             "sell": "RS",
             "uno": "DpadLeft",
         }
-        
+
         # 恢复键盘热键
         self.hotkeyLineEdit.setText(default_hotkeys["hotkey"])
         self.debugHotkeyLineEdit.setText(default_hotkeys["debug_hotkey"])
         self.sellHotkeyLineEdit.setText(default_hotkeys["sell_hotkey"])
         self.unoHotkeyLineEdit.setText(default_hotkeys["uno_hotkey"])
-        
+
         # 恢复手柄按键映射
         self.hotkeyGamepadLineEdit.setText(default_gamepad_mappings["toggle"])
         self.debugGamepadLineEdit.setText(default_gamepad_mappings["debug"])
         self.sellGamepadLineEdit.setText(default_gamepad_mappings["sell"])
         self.unoGamepadLineEdit.setText(default_gamepad_mappings["uno"])
-        
+
         # 保存更改
         self._save_global_settings()
         self._save_gamepad_mappings()
-        
+
         InfoBar.success(
             title=self.tr("恢复成功"),
             content=self.tr("所有热键已恢复为默认值"),
