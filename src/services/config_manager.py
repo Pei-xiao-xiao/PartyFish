@@ -126,6 +126,7 @@ class ConfigManager:
             "uno_max_cards": 35,
             "release_mode": "off",
             "auto_release_enabled": False,
+            "cast_mode": "tap",
             "enable_fish_name_protection": False,
             "release_standard": True,
             "release_uncommon": False,

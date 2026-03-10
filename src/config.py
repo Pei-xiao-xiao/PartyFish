@@ -20,6 +20,8 @@ class SingletonMeta(type):
 
 
 class Config(metaclass=SingletonMeta):
+    CAST_MODE_TIMES = {"tap": 0.1, "far": 2.7}
+
     def __init__(self):
         # 初始化配置子模块
         self._display_config = DisplayConfig()
@@ -246,6 +248,26 @@ class Config(metaclass=SingletonMeta):
 
     def get_bottom_right_pos(self, coords):
         return self.coordinate_service.get_bottom_right_pos(coords)
+
+    def normalize_cast_mode(self, mode):
+        """Normalize cast mode to a supported fixed option."""
+        return mode if mode in self.CAST_MODE_TIMES else "tap"
+
+    def get_cast_mode(self):
+        """Return the active cast mode for the current account."""
+        return self.normalize_cast_mode(self.global_settings.get("cast_mode", "tap"))
+
+    def apply_cast_mode(self, mode):
+        """Apply the account-level cast mode to all presets."""
+        mode = self.normalize_cast_mode(mode)
+        cast_time = self.CAST_MODE_TIMES[mode]
+        self.global_settings["cast_mode"] = mode
+
+        for preset in self.presets.values():
+            if isinstance(preset, dict):
+                preset["cast_time"] = cast_time
+
+        return cast_time
 
     def __getattr__(self, name):
         """
