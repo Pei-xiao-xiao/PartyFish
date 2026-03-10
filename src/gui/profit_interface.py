@@ -186,6 +186,7 @@ class ProfitInterface(QWidget):
         self.current_history_stats = None
         self._editing_blocked = False
         self._pending_reload = False
+        self._history_range_is_user_selected = False
         self._reload_timer = QTimer(self)
         self._reload_timer.setSingleShot(True)
         self._reload_timer.timeout.connect(self._flush_pending_reload)
@@ -634,7 +635,7 @@ class ProfitInterface(QWidget):
         available_history_dates = self.analysis_service.get_available_history_dates()
         self.history_date_picker.setRecordDates(available_history_dates)
         range_start, range_end = self.history_date_picker.getRange()
-        if not range_start or not range_end:
+        if not range_start or not range_end or not self._history_range_is_user_selected:
             range_start, range_end = self._get_default_history_range(
                 available_history_dates
             )
@@ -779,6 +780,7 @@ class ProfitInterface(QWidget):
     def _on_history_date_range_changed(self, start: QDate, end: QDate):
         if not start.isValid() or not end.isValid():
             return
+        self._history_range_is_user_selected = True
         self.reload_data()
 
     def _on_manual_add(self):
