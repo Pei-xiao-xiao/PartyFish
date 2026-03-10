@@ -494,6 +494,7 @@ class ProfitInterface(QWidget):
         """重新加载数据并刷新界面"""
         self._pending_reload = False
         self._apply_theme_styles()
+        self.update_current_bait_display(cfg.current_bait)
         # 使用服务加载数据
         start_time = self.analysis_service.get_current_cycle_start_time()
         today_stats = self.analysis_service.load_today_stats(start_time)

@@ -87,6 +87,8 @@ class ConfigManager:
 
         # 确保账号数据目录存在
         self.config._get_account_data_dir().mkdir(parents=True, exist_ok=True)
+        self.config.account_service.ensure_account_settings_migrated()
+        self.config.account_service.apply_account_settings()
 
         self.config.qfluent_settings = config_data.get(
             "QFluentWidgets", {"ThemeMode": "Light"}
@@ -134,6 +136,8 @@ class ConfigManager:
             "enable_first_catch_screenshot": True,
             "enable_season_filter": True,
             "enable_gamepad": False,
+            "selected_baits": [],
+            "pokedex_filter_criteria": {},
             "gamepad_mappings": {
                 "toggle": "LS",
                 "debug": "DpadRight",
@@ -145,13 +149,14 @@ class ConfigManager:
     def save(self):
         """保存配置到 JSON 文件"""
         config_path = self.config.user_data_dir / "config.json"
+        self.config.account_service.persist_current_account_settings()
 
         config_data = {
             "current_preset": self.config.current_preset_name,
             "current_bait": self.config.current_bait,
             "current_account": self.config.current_account,
             "presets": self.config.presets,
-            "global_settings": self.config.global_settings,
+            "global_settings": self.config.account_service.get_shared_global_settings(),
             "QFluentWidgets": self.config.qfluent_settings,
         }
 

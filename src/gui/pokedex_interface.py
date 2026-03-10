@@ -4,6 +4,8 @@
 优化版：品质圆点可点击，居中对齐
 """
 
+from copy import deepcopy
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -34,6 +36,7 @@ from qfluentwidgets import (
     RoundMenu,
     Action,
 )
+from src.config import cfg
 from src.pokedex import pokedex, QUALITIES
 from src.gui.fish_detail_dialog import FishDetailDialog
 from src.gui.components import QUALITY_COLORS
@@ -651,11 +654,14 @@ class PokedexInterface(QWidget):
         self.fish_cards = []
 
         # 筛选条件缓存
-        self.current_filter_criteria = {}
+        self.current_filter_criteria = deepcopy(
+            cfg.global_settings.get("pokedex_filter_criteria", {})
+        )
         self.current_sort_key = "default"
         self.current_sort_reverse = False
 
         self._init_ui()
+        self._sync_filter_button_state()
         self._load_fish_list()
 
     def _init_ui(self):
@@ -775,6 +781,7 @@ class PokedexInterface(QWidget):
         """加载鱼类列表"""
         # 加载卡片
         self._refresh_cards()
+        self._sync_filter_button_state()
 
     def _refresh_cards(self, fish_list=None):
         """刷新卡片显示"""
@@ -960,6 +967,8 @@ class PokedexInterface(QWidget):
     def _on_multi_filter_changed(self, criteria):
         """筛选条件变化"""
         self.current_filter_criteria = criteria
+        cfg.global_settings["pokedex_filter_criteria"] = deepcopy(criteria)
+        cfg.save()
         self._refresh_cards()
 
         # 更新筛选按钮状态（如果有筛选，高亮显示）
@@ -973,6 +982,30 @@ class PokedexInterface(QWidget):
         else:
             self.filter_btn.setToolTip("筛选")
             self.filter_btn.setChecked(False)
+
+    def _sync_filter_button_state(self):
+        """Sync filter button state from saved criteria."""
+        criteria = self.current_filter_criteria or {}
+        if criteria:
+            count = sum(len(v) for v in criteria.values())
+            self.filter_btn.setToolTip(f"Filter ({count})")
+            self.filter_btn.setChecked(True)
+            return
+
+        self.filter_btn.setToolTip("Filter")
+        self.filter_btn.setChecked(False)
+
+    def _update_filter_button_state(self):
+        """同步筛选按钮高亮和提示。"""
+        criteria = self.current_filter_criteria or {}
+        if criteria:
+            count = sum(len(v) for v in criteria.values())
+            self.filter_btn.setToolTip(f"绛涢€?({count})")
+            self.filter_btn.setChecked(True)
+            return
+
+        self.filter_btn.setToolTip("绛涢€?")
+        self.filter_btn.setChecked(False)
 
     def _on_search_changed(self, text):
         """搜索变化"""
@@ -1025,17 +1058,17 @@ class PokedexInterface(QWidget):
     def _show_pokedex_menu(self):
         """显示图鉴操作菜单"""
         menu = RoundMenu(parent=self)
-        
+
         # 添加"一键全图鉴"选项
         action1 = Action(FluentIcon.COMPLETED, "一键全图鉴")
         action1.triggered.connect(self._on_fill_all_clicked)
         menu.addAction(action1)
-        
+
         # 添加"清空全图鉴"选项
         action2 = Action(FluentIcon.DELETE, "清空全图鉴")
         action2.triggered.connect(self._on_clear_all_clicked)
         menu.addAction(action2)
-        
+
         # 在按钮下方弹出菜单
         button_pos = self.pokedex_manage_btn.mapToGlobal(
             self.pokedex_manage_btn.rect().bottomLeft()
@@ -1329,4 +1362,8 @@ class PokedexInterface(QWidget):
     def reload_data(self):
         """重新加载数据（账号切换时调用）"""
         pokedex.reload()
+        self.current_filter_criteria = deepcopy(
+            cfg.global_settings.get("pokedex_filter_criteria", {})
+        )
+        self._sync_filter_button_state()
         self._refresh_cards()

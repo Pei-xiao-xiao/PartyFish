@@ -530,6 +530,7 @@ class HomeInterface(QWidget):
             # 使用延时更新，避免阻塞下拉框动画，提升流畅度
             def delayed_update():
                 cfg.switch_account(account_name)
+                self.refresh_account_controls()
                 # 发送信号通知其他组件（如记录页、收益页）刷新数据
                 self.account_changed_signal.emit(account_name)
                 # 清空本次会话记录，因为切换了账号
@@ -543,6 +544,30 @@ class HomeInterface(QWidget):
 
             # 延时 50ms 执行，给 UI 响应时间
             QTimer.singleShot(50, delayed_update)
+
+    def refresh_account_controls(self):
+        """按当前账号配置刷新首页控件。"""
+        self.presetComboBox.blockSignals(True)
+        self.presetComboBox.setCurrentText(cfg.current_preset_name)
+        self.presetComboBox.blockSignals(False)
+
+        self.release_mode_segment.blockSignals(True)
+        self.release_mode_segment.setCurrentItem(
+            cfg.global_settings.get("release_mode", "off")
+        )
+        self.release_mode_segment.blockSignals(False)
+
+        self.sound_switch.blockSignals(True)
+        self.sound_switch.setChecked(
+            cfg.global_settings.get("control_sound_enabled", False)
+        )
+        self.sound_switch.blockSignals(False)
+
+        self.screenshot_mode_segment.blockSignals(True)
+        self.screenshot_mode_segment.setCurrentItem(
+            cfg.global_settings.get("screenshot_mode", "wegame")
+        )
+        self.screenshot_mode_segment.blockSignals(False)
 
     def _on_sound_switch_changed(self, checked):
         """处理音效开关变化"""
@@ -857,9 +882,7 @@ class HomeInterface(QWidget):
         current_rod_mode = getattr(cfg, "rod_filter_mode", "all")
         self.rod_filter_segment.setCurrentItem(current_rod_mode)
 
-        self.rod_filter_segment.currentItemChanged.connect(
-            self._on_rod_filter_changed
-        )
+        self.rod_filter_segment.currentItemChanged.connect(self._on_rod_filter_changed)
         header_layout.addWidget(self.rod_filter_segment)
         header_layout.addStretch(1)
 

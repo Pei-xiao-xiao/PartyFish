@@ -5,11 +5,40 @@
 
 import json
 import shutil
-from pathlib import Path
+from copy import deepcopy
 
 
 class AccountService:
     """账号管理服务类"""
+
+    ACCOUNT_SPECIFIC_GLOBAL_KEYS = (
+        "selected_baits",
+        "release_mode",
+        "auto_release_enabled",
+        "enable_fish_name_protection",
+        "release_standard",
+        "release_uncommon",
+        "release_rare",
+        "release_epic",
+        "release_legendary",
+        "pokedex_filter_criteria",
+    )
+
+    DEFAULT_ACCOUNT_SETTINGS = {
+        "server_region": "CN",
+        "current_preset": "路亚轻杆",
+        "current_bait": "蔓越莓",
+        "selected_baits": [],
+        "release_mode": "off",
+        "auto_release_enabled": False,
+        "enable_fish_name_protection": False,
+        "release_standard": True,
+        "release_uncommon": False,
+        "release_rare": False,
+        "release_epic": False,
+        "release_legendary": False,
+        "pokedex_filter_criteria": {},
+    }
 
     def __init__(self, config):
         """
@@ -52,10 +81,13 @@ class AccountService:
         :param account_name: 目标账号名
         :return: True 如果切换成功
         """
+        self.persist_current_account_settings()
         self.config.current_account = account_name
-        # 确保账号数据目录存在
+
         account_dir = self.get_account_data_dir()
         account_dir.mkdir(parents=True, exist_ok=True)
+
+        self.apply_account_settings(account_name)
         self.config.save()
         return True
 
@@ -66,7 +98,7 @@ class AccountService:
         :return: True 如果删除成功
         """
         if account_name == self.config.current_account:
-            return False  # 不能删除当前正在使用的账号
+            return False
 
         account_dir = self.config.user_data_dir / "accounts" / account_name
         if account_dir.exists():
@@ -88,6 +120,22 @@ class AccountService:
             / "account_settings.json"
         )
 
+    def _get_default_account_settings(self):
+        return deepcopy(self.DEFAULT_ACCOUNT_SETTINGS)
+
+    def _normalize_account_settings(self, settings):
+        normalized = self._get_default_account_settings()
+        if isinstance(settings, dict):
+            normalized.update(settings)
+
+        if not isinstance(normalized.get("selected_baits"), list):
+            normalized["selected_baits"] = []
+
+        if not isinstance(normalized.get("pokedex_filter_criteria"), dict):
+            normalized["pokedex_filter_criteria"] = {}
+
+        return normalized
+
     def get_account_settings(self, account_name=None):
         """
         获取账号设置
@@ -95,17 +143,16 @@ class AccountService:
         :return: 账号设置字典
         """
         settings_file = self.get_account_settings_file(account_name)
-        default_settings = {"server_region": "CN"}
+        settings = {}
 
         if settings_file.exists():
             try:
                 with open(settings_file, "r", encoding="utf-8") as f:
                     settings = json.load(f)
-                    default_settings.update(settings)
             except (json.JSONDecodeError, Exception):
-                pass
+                settings = {}
 
-        return default_settings
+        return self._normalize_account_settings(settings)
 
     def save_account_settings(self, settings, account_name=None):
         """
@@ -117,7 +164,78 @@ class AccountService:
         settings_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(settings_file, "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=2, ensure_ascii=False)
+            json.dump(
+                self._normalize_account_settings(settings),
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
+
+    def get_shared_global_settings(self):
+        """返回应该写入全局配置文件的共享设置。"""
+        return {
+            key: deepcopy(value)
+            for key, value in self.config.global_settings.items()
+            if key not in self.ACCOUNT_SPECIFIC_GLOBAL_KEYS
+        }
+
+    def ensure_account_settings_migrated(self):
+        """
+        将旧版全局配置中的账号相关字段迁移到当前账号。
+        """
+        settings_file = self.get_account_settings_file()
+        if settings_file.exists():
+            try:
+                with open(settings_file, "r", encoding="utf-8") as f:
+                    settings = json.load(f)
+            except (json.JSONDecodeError, Exception):
+                settings = {}
+        else:
+            settings = {}
+
+        changed = False
+
+        if "current_preset" not in settings:
+            settings["current_preset"] = self.config.current_preset_name
+            changed = True
+
+        if "current_bait" not in settings:
+            settings["current_bait"] = self.config.current_bait
+            changed = True
+
+        for key in self.ACCOUNT_SPECIFIC_GLOBAL_KEYS:
+            if key not in settings and key in self.config.global_settings:
+                settings[key] = deepcopy(self.config.global_settings.get(key))
+                changed = True
+
+        if changed:
+            self.save_account_settings(settings)
+
+    def apply_account_settings(self, account_name=None):
+        """将账号私有配置加载到当前运行时配置中。"""
+        settings = self.get_account_settings(account_name)
+
+        for key in self.ACCOUNT_SPECIFIC_GLOBAL_KEYS:
+            self.config.global_settings[key] = deepcopy(settings.get(key))
+
+        preset_name = settings.get("current_preset", self.config.current_preset_name)
+        if preset_name not in self.config.presets:
+            preset_name = next(iter(self.config.presets), "路亚轻杆")
+        self.config.current_preset_name = preset_name
+        self.config.current_bait = settings.get(
+            "current_bait", self.config.current_bait
+        )
+
+    def persist_current_account_settings(self):
+        """保存当前账号的私有配置。"""
+        settings = self.get_account_settings()
+        settings["current_preset"] = self.config.current_preset_name
+        settings["current_bait"] = self.config.current_bait
+
+        for key in self.ACCOUNT_SPECIFIC_GLOBAL_KEYS:
+            settings[key] = deepcopy(self.config.global_settings.get(key))
+
+        self.save_account_settings(settings)
 
     def get_account_server_region(self, account_name=None):
         """
@@ -152,10 +270,12 @@ class AccountService:
         account_dir = self.config.user_data_dir / "accounts" / account_name / "data"
 
         if account_dir.exists():
-            return False  # 账号已存在
+            return False
 
         account_dir.mkdir(parents=True, exist_ok=True)
 
-        self.set_account_server_region(server_region, account_name)
+        settings = self._get_default_account_settings()
+        settings["server_region"] = server_region
+        self.save_account_settings(settings, account_name)
 
         return True

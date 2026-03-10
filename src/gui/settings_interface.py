@@ -112,6 +112,7 @@ class SettingsInterface(ScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("settingsInterface")
+        self._loading_ui = False
 
         # 初始化滚动控件
         self.scrollWidget = QWidget()
@@ -795,14 +796,19 @@ class SettingsInterface(ScrollArea):
         self.resetHotkeyConfigButton.clicked.connect(self._on_reset_hotkey_config)
 
     def _on_theme_changed(self, theme):
+        if self._loading_ui:
+            return
         self.theme_changed_signal.emit(theme)
         self._save_global_settings()
 
     def _on_season_filter_changed(self):
+        if self._loading_ui:
+            return
         self._save_global_settings()
         self.season_filter_changed_signal.emit()
 
     def _load_settings_to_ui(self, preset_name_to_load=None):
+        self._loading_ui = True
         # 阻止信号以防止更新 UI 时递归调用
         self.presetComboBox.blockSignals(True)
 
@@ -896,6 +902,7 @@ class SettingsInterface(ScrollArea):
 
         # 解除信号阻止
         self.presetComboBox.blockSignals(False)
+        self._loading_ui = False
 
     def _save_preset_settings(self):
         """仅保存钓鱼预设设置。"""
@@ -923,6 +930,8 @@ class SettingsInterface(ScrollArea):
         )
 
     def _save_global_settings(self):
+        if self._loading_ui:
+            return
         """立即保存全局设置。"""
         new_hotkey = self.hotkeyLineEdit.text()
         if cfg.global_settings.get("hotkey") != new_hotkey:
@@ -994,6 +1003,8 @@ class SettingsInterface(ScrollArea):
         cfg.save()
 
     def _save_gamepad_mappings(self):
+        if self._loading_ui:
+            return
         """保存手柄按钮映射。"""
         if "gamepad_mappings" not in cfg.global_settings:
             cfg.global_settings["gamepad_mappings"] = {}
@@ -1013,6 +1024,8 @@ class SettingsInterface(ScrollArea):
         self.gamepad_mapping_changed_signal.emit()
 
     def _on_auto_release_changed(self, checked):
+        if self._loading_ui:
+            return
         """处理自动放生开关变化，同步放生模式"""
         # 保存配置
         cfg.global_settings["auto_release_enabled"] = checked
@@ -1066,6 +1079,8 @@ class SettingsInterface(ScrollArea):
             self.enableFishNameProtectionCard.setEnabled(True)
 
     def _on_single_release_changed(self, checked):
+        if self._loading_ui:
+            return
         """处理单条放生开关变化，同步放生模式"""
         # 保存配置
         if checked:
@@ -1139,7 +1154,9 @@ class SettingsInterface(ScrollArea):
 
         dialog = ServerRegionDialog(self.window())
         dialog.titleLabel.setText(self.tr("选择区服"))
-        dialog.contentLabel.setText(self.tr(f"请为账号 '{account_name}' 选择区服类型："))
+        dialog.contentLabel.setText(
+            self.tr(f"请为账号 '{account_name}' 选择区服类型：")
+        )
         dialog.yesButton.setText(self.tr("创建"))
         dialog.cancelButton.setText(self.tr("取消"))
 
@@ -1149,7 +1166,9 @@ class SettingsInterface(ScrollArea):
             if cfg.create_account(account_name, server_region):
                 InfoBar.success(
                     title=self.tr("创建成功"),
-                    content=self.tr(f"账号 '{account_name}' 已创建（{self.tr('国服') if server_region == 'CN' else self.tr('国际服')}）"),
+                    content=self.tr(
+                        f"账号 '{account_name}' 已创建（{self.tr('国服') if server_region == 'CN' else self.tr('国际服')}）"
+                    ),
                     duration=2000,
                     position=InfoBarPosition.TOP,
                     parent=self.window(),
@@ -1208,6 +1227,7 @@ class SettingsInterface(ScrollArea):
     def refresh_account_ui(self):
         """外部调用：刷新账号管理 UI（当账号切换时）"""
         self._refresh_delete_account_list()
+        self._load_settings_to_ui(cfg.current_preset_name)
 
     def _on_export_record(self):
         """导出记录"""
