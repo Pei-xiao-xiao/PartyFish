@@ -81,6 +81,11 @@ class ConfigManager:
         loaded_global_settings = config_data.get("global_settings", {})
         default_global_settings.update(loaded_global_settings)
         self.config.global_settings = default_global_settings
+        self.config.global_settings["gamepad_mappings"] = (
+            self.config.normalize_gamepad_mappings(
+                self.config.global_settings.get("gamepad_mappings", {})
+            )
+        )
 
         self.config.current_bait = config_data.get("current_bait", "蔓越莓")
         self.config.current_account = config_data.get("current_account", "默认账号")
@@ -140,10 +145,8 @@ class ConfigManager:
             "selected_baits": [],
             "pokedex_filter_criteria": {},
             "gamepad_mappings": {
-                "toggle": "LS",
-                "debug": "DpadRight",
-                "sell": "RS",
-                "uno": "DpadLeft",
+                action: mapping.copy()
+                for action, mapping in self.config.DEFAULT_GAMEPAD_MAPPINGS.items()
             },
         }
 

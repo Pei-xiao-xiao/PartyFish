@@ -21,6 +21,20 @@ class SingletonMeta(type):
 
 class Config(metaclass=SingletonMeta):
     CAST_MODE_TIMES = {"tap": 0.1, "far": 2.7}
+    GAMEPAD_TRIGGER_MODES = {"press", "hold"}
+    GAMEPAD_HOLD_MS = 500
+    GAMEPAD_HOLD_MS_MIN = 100
+    GAMEPAD_HOLD_MS_MAX = 3000
+    DEFAULT_GAMEPAD_MAPPINGS = {
+        "toggle": {"button": "LS", "mode": "press", "hold_ms": GAMEPAD_HOLD_MS},
+        "debug": {
+            "button": "DpadRight",
+            "mode": "press",
+            "hold_ms": GAMEPAD_HOLD_MS,
+        },
+        "sell": {"button": "RS", "mode": "press", "hold_ms": GAMEPAD_HOLD_MS},
+        "uno": {"button": "DpadLeft", "mode": "press", "hold_ms": GAMEPAD_HOLD_MS},
+    }
 
     def __init__(self):
         # 初始化配置子模块
@@ -268,6 +282,79 @@ class Config(metaclass=SingletonMeta):
                 preset["cast_time"] = cast_time
 
         return cast_time
+
+    def normalize_gamepad_mapping(self, action, mapping):
+        """Normalize one gamepad mapping to the structured config format."""
+        default_mapping = self.DEFAULT_GAMEPAD_MAPPINGS.get(
+            action,
+            {"button": "", "mode": "press", "hold_ms": self.GAMEPAD_HOLD_MS},
+        )
+
+        if isinstance(mapping, str):
+            normalized = {
+                "button": mapping.strip(),
+                "mode": default_mapping["mode"],
+                "hold_ms": default_mapping["hold_ms"],
+            }
+        elif isinstance(mapping, dict):
+            normalized = {
+                "button": str(mapping.get("button", default_mapping["button"]) or ""),
+                "mode": mapping.get("mode", default_mapping["mode"]),
+                "hold_ms": mapping.get("hold_ms", default_mapping["hold_ms"]),
+            }
+        else:
+            normalized = default_mapping.copy()
+
+        if normalized["mode"] not in self.GAMEPAD_TRIGGER_MODES:
+            normalized["mode"] = "press"
+        normalized["hold_ms"] = self.normalize_gamepad_hold_ms(
+            normalized.get("hold_ms", default_mapping["hold_ms"])
+        )
+
+        return normalized
+
+    def normalize_gamepad_hold_ms(self, hold_ms):
+        """Normalize one gamepad hold threshold in milliseconds."""
+        try:
+            hold_ms = int(hold_ms)
+        except (TypeError, ValueError):
+            hold_ms = self.GAMEPAD_HOLD_MS
+
+        return max(self.GAMEPAD_HOLD_MS_MIN, min(self.GAMEPAD_HOLD_MS_MAX, hold_ms))
+
+    def normalize_gamepad_mappings(self, mappings):
+        """Normalize all gamepad mappings and fill missing defaults."""
+        mappings = mappings if isinstance(mappings, dict) else {}
+        return {
+            action: self.normalize_gamepad_mapping(action, mappings.get(action))
+            for action in self.DEFAULT_GAMEPAD_MAPPINGS
+        }
+
+    def get_gamepad_mapping(self, action):
+        """Return one normalized gamepad mapping."""
+        mappings = self.normalize_gamepad_mappings(
+            self.global_settings.get("gamepad_mappings", {})
+        )
+        self.global_settings["gamepad_mappings"] = mappings
+        return mappings.get(
+            action,
+            {"button": "", "mode": "press", "hold_ms": self.GAMEPAD_HOLD_MS},
+        )
+
+    def set_gamepad_mapping(self, action, button, mode="press", hold_ms=None):
+        """Update one gamepad mapping in normalized form."""
+        mappings = self.normalize_gamepad_mappings(
+            self.global_settings.get("gamepad_mappings", {})
+        )
+        mappings[action] = self.normalize_gamepad_mapping(
+            action,
+            {
+                "button": button,
+                "mode": mode,
+                "hold_ms": (self.GAMEPAD_HOLD_MS if hold_ms is None else hold_ms),
+            },
+        )
+        self.global_settings["gamepad_mappings"] = mappings
 
     def __getattr__(self, name):
         """

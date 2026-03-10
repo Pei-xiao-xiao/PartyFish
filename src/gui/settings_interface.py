@@ -239,13 +239,29 @@ class SettingsInterface(ScrollArea):
         self.hotkeyCard.hBoxLayout.addSpacing(5)
         self.hotkeyGamepadLineEdit = KeyBindingWidget(self.hotkeyCard)
         self.hotkeyGamepadLineEdit.set_gamepad_mode(True)
-        self.hotkeyGamepadLineEdit.setFixedWidth(80)
+        self.hotkeyGamepadLineEdit.setFixedWidth(100)
         self.hotkeyGamepadLineEdit.setPlaceholderText("手柄")
-        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
-        self.hotkeyGamepadLineEdit.setText(gamepad_mappings.get("toggle", ""))
+        toggle_gamepad_mapping = cfg.get_gamepad_mapping("toggle")
+        self.hotkeyGamepadLineEdit.set_gamepad_binding(toggle_gamepad_mapping)
         self.hotkeyCard.hBoxLayout.addWidget(
             self.hotkeyGamepadLineEdit, 0, Qt.AlignRight
         )
+        self.hotkeyCard.hBoxLayout.addSpacing(5)
+        self.hotkeyGamepadModeCombo = self._create_gamepad_mode_combo(
+            self.hotkeyCard, toggle_gamepad_mapping.get("mode", "press")
+        )
+        self.hotkeyCard.hBoxLayout.addWidget(
+            self.hotkeyGamepadModeCombo, 0, Qt.AlignRight
+        )
+        self.hotkeyCard.hBoxLayout.addSpacing(5)
+        self.hotkeyGamepadHoldSpinBox = self._create_gamepad_hold_spinbox(
+            self.hotkeyCard, toggle_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.hotkeyCard.hBoxLayout.addWidget(
+            self.hotkeyGamepadHoldSpinBox, 0, Qt.AlignRight
+        )
+        self.hotkeyGamepadModeCombo.hide()
+        self.hotkeyGamepadHoldSpinBox.hide()
         margins = self.hotkeyCard.hBoxLayout.contentsMargins()
         self.hotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -265,12 +281,30 @@ class SettingsInterface(ScrollArea):
         self.debugHotkeyCard.hBoxLayout.addSpacing(5)
         self.debugGamepadLineEdit = KeyBindingWidget(self.debugHotkeyCard)
         self.debugGamepadLineEdit.set_gamepad_mode(True)
-        self.debugGamepadLineEdit.setFixedWidth(80)
+        self.debugGamepadLineEdit.setFixedWidth(100)
         self.debugGamepadLineEdit.setPlaceholderText("手柄")
-        self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
+        debug_gamepad_mapping = cfg.get_gamepad_mapping("debug")
+        self.debugGamepadLineEdit.set_gamepad_binding(debug_gamepad_mapping)
         self.debugHotkeyCard.hBoxLayout.addWidget(
             self.debugGamepadLineEdit, 0, Qt.AlignRight
         )
+        self.debugHotkeyCard.hBoxLayout.addSpacing(5)
+        self.debugGamepadModeCombo = self._create_gamepad_mode_combo(
+            self.debugHotkeyCard, debug_gamepad_mapping.get("mode", "press")
+        )
+        self.debugHotkeyCard.hBoxLayout.addWidget(
+            self.debugGamepadModeCombo, 0, Qt.AlignRight
+        )
+        self.debugHotkeyCard.hBoxLayout.addSpacing(5)
+        self.debugGamepadHoldSpinBox = self._create_gamepad_hold_spinbox(
+            self.debugHotkeyCard,
+            debug_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+        )
+        self.debugHotkeyCard.hBoxLayout.addWidget(
+            self.debugGamepadHoldSpinBox, 0, Qt.AlignRight
+        )
+        self.debugGamepadModeCombo.hide()
+        self.debugGamepadHoldSpinBox.hide()
         margins = self.debugHotkeyCard.hBoxLayout.contentsMargins()
         self.debugHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -290,12 +324,30 @@ class SettingsInterface(ScrollArea):
         self.sellHotkeyCard.hBoxLayout.addSpacing(5)
         self.sellGamepadLineEdit = KeyBindingWidget(self.sellHotkeyCard)
         self.sellGamepadLineEdit.set_gamepad_mode(True)
-        self.sellGamepadLineEdit.setFixedWidth(80)
+        self.sellGamepadLineEdit.setFixedWidth(100)
         self.sellGamepadLineEdit.setPlaceholderText("手柄")
-        self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
+        sell_gamepad_mapping = cfg.get_gamepad_mapping("sell")
+        self.sellGamepadLineEdit.set_gamepad_binding(sell_gamepad_mapping)
         self.sellHotkeyCard.hBoxLayout.addWidget(
             self.sellGamepadLineEdit, 0, Qt.AlignRight
         )
+        self.sellHotkeyCard.hBoxLayout.addSpacing(5)
+        self.sellGamepadModeCombo = self._create_gamepad_mode_combo(
+            self.sellHotkeyCard, sell_gamepad_mapping.get("mode", "press")
+        )
+        self.sellHotkeyCard.hBoxLayout.addWidget(
+            self.sellGamepadModeCombo, 0, Qt.AlignRight
+        )
+        self.sellHotkeyCard.hBoxLayout.addSpacing(5)
+        self.sellGamepadHoldSpinBox = self._create_gamepad_hold_spinbox(
+            self.sellHotkeyCard,
+            sell_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+        )
+        self.sellHotkeyCard.hBoxLayout.addWidget(
+            self.sellGamepadHoldSpinBox, 0, Qt.AlignRight
+        )
+        self.sellGamepadModeCombo.hide()
+        self.sellGamepadHoldSpinBox.hide()
         margins = self.sellHotkeyCard.hBoxLayout.contentsMargins()
         self.sellHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -469,13 +521,29 @@ class SettingsInterface(ScrollArea):
         self.unoHotkeyCard.hBoxLayout.addSpacing(5)
         self.unoGamepadLineEdit = KeyBindingWidget(self.unoHotkeyCard)
         self.unoGamepadLineEdit.set_gamepad_mode(True)
-        self.unoGamepadLineEdit.setFixedWidth(80)
+        self.unoGamepadLineEdit.setFixedWidth(100)
         self.unoGamepadLineEdit.setPlaceholderText("手柄")
-        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
-        self.unoGamepadLineEdit.setText(gamepad_mappings.get("uno", ""))
+        uno_gamepad_mapping = cfg.get_gamepad_mapping("uno")
+        self.unoGamepadLineEdit.set_gamepad_binding(uno_gamepad_mapping)
         self.unoHotkeyCard.hBoxLayout.addWidget(
             self.unoGamepadLineEdit, 0, Qt.AlignRight
         )
+        self.unoHotkeyCard.hBoxLayout.addSpacing(5)
+        self.unoGamepadModeCombo = self._create_gamepad_mode_combo(
+            self.unoHotkeyCard, uno_gamepad_mapping.get("mode", "press")
+        )
+        self.unoHotkeyCard.hBoxLayout.addWidget(
+            self.unoGamepadModeCombo, 0, Qt.AlignRight
+        )
+        self.unoHotkeyCard.hBoxLayout.addSpacing(5)
+        self.unoGamepadHoldSpinBox = self._create_gamepad_hold_spinbox(
+            self.unoHotkeyCard, uno_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.unoHotkeyCard.hBoxLayout.addWidget(
+            self.unoGamepadHoldSpinBox, 0, Qt.AlignRight
+        )
+        self.unoGamepadModeCombo.hide()
+        self.unoGamepadHoldSpinBox.hide()
         margins = self.unoHotkeyCard.hBoxLayout.contentsMargins()
         self.unoHotkeyCard.hBoxLayout.setContentsMargins(
             margins.left(), margins.top(), 16, margins.bottom()
@@ -684,6 +752,7 @@ class SettingsInterface(ScrollArea):
 
         # 5. Load initial values and connect signals
         self._load_settings_to_ui()
+        self._update_gamepad_hold_controls()
         self._connect_signals()
 
         # 设置组分类
@@ -724,6 +793,47 @@ class SettingsInterface(ScrollArea):
         setattr(self, attr_name, spinbox)
         return card
 
+    @staticmethod
+    def _gamepad_mode_to_text(mode):
+        return "长按" if mode == "hold" else "单击"
+
+    @staticmethod
+    def _gamepad_mode_from_text(text):
+        return "hold" if text == "长按" else "press"
+
+    def _create_gamepad_mode_combo(self, parent, mode="press"):
+        combo = ComboBox(parent)
+        combo.addItems(["单击", "长按"])
+        combo.setFixedWidth(72)
+        combo.setCurrentText(self._gamepad_mode_to_text(mode))
+        return combo
+
+    def _create_gamepad_hold_spinbox(self, parent, hold_ms=None):
+        spinbox = SpinBox(parent)
+        spinbox.setRange(cfg.GAMEPAD_HOLD_MS_MIN, cfg.GAMEPAD_HOLD_MS_MAX)
+        spinbox.setSingleStep(100)
+        spinbox.setSuffix(" ms")
+        spinbox.setFixedWidth(84)
+        spinbox.setValue(cfg.normalize_gamepad_hold_ms(hold_ms))
+        return spinbox
+
+    def _update_gamepad_hold_controls(self):
+        controls = (
+            (self.hotkeyGamepadModeCombo, self.hotkeyGamepadHoldSpinBox),
+            (self.debugGamepadModeCombo, self.debugGamepadHoldSpinBox),
+            (self.sellGamepadModeCombo, self.sellGamepadHoldSpinBox),
+            (self.unoGamepadModeCombo, self.unoGamepadHoldSpinBox),
+        )
+
+        for combo, spinbox in controls:
+            spinbox.setEnabled(
+                self._gamepad_mode_from_text(combo.currentText()) == "hold"
+            )
+
+    def _apply_captured_gamepad_binding(self, mode_combo, hold_spinbox, mode, hold_ms):
+        mode_combo.setCurrentText(self._gamepad_mode_to_text(mode))
+        hold_spinbox.setValue(cfg.normalize_gamepad_hold_ms(hold_ms))
+
     def _connect_signals(self):
         self.presetComboBox.currentTextChanged.connect(self._load_settings_to_ui)
         self.savePresetButton.clicked.connect(self._save_preset_settings)
@@ -744,10 +854,62 @@ class SettingsInterface(ScrollArea):
         self.firstCatchScreenshotCard.checkedChanged.connect(self._save_global_settings)
 
         self.enableGamepadCard.checkedChanged.connect(self._save_global_settings)
+        self.hotkeyGamepadLineEdit.gamepad_binding_captured.connect(
+            lambda _button, mode, hold_ms: self._apply_captured_gamepad_binding(
+                self.hotkeyGamepadModeCombo,
+                self.hotkeyGamepadHoldSpinBox,
+                mode,
+                hold_ms,
+            )
+        )
+        self.debugGamepadLineEdit.gamepad_binding_captured.connect(
+            lambda _button, mode, hold_ms: self._apply_captured_gamepad_binding(
+                self.debugGamepadModeCombo,
+                self.debugGamepadHoldSpinBox,
+                mode,
+                hold_ms,
+            )
+        )
+        self.sellGamepadLineEdit.gamepad_binding_captured.connect(
+            lambda _button, mode, hold_ms: self._apply_captured_gamepad_binding(
+                self.sellGamepadModeCombo, self.sellGamepadHoldSpinBox, mode, hold_ms
+            )
+        )
+        self.unoGamepadLineEdit.gamepad_binding_captured.connect(
+            lambda _button, mode, hold_ms: self._apply_captured_gamepad_binding(
+                self.unoGamepadModeCombo, self.unoGamepadHoldSpinBox, mode, hold_ms
+            )
+        )
         self.hotkeyGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
         self.debugGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
         self.sellGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
         self.unoGamepadLineEdit.editingFinished.connect(self._save_gamepad_mappings)
+        self.hotkeyGamepadModeCombo.currentTextChanged.connect(
+            self._save_gamepad_mappings
+        )
+        self.hotkeyGamepadModeCombo.currentTextChanged.connect(
+            self._update_gamepad_hold_controls
+        )
+        self.debugGamepadModeCombo.currentTextChanged.connect(
+            self._save_gamepad_mappings
+        )
+        self.debugGamepadModeCombo.currentTextChanged.connect(
+            self._update_gamepad_hold_controls
+        )
+        self.sellGamepadModeCombo.currentTextChanged.connect(
+            self._save_gamepad_mappings
+        )
+        self.sellGamepadModeCombo.currentTextChanged.connect(
+            self._update_gamepad_hold_controls
+        )
+        self.unoGamepadModeCombo.currentTextChanged.connect(self._save_gamepad_mappings)
+        self.unoGamepadModeCombo.currentTextChanged.connect(
+            self._update_gamepad_hold_controls
+        )
+        self.hotkeyGamepadHoldSpinBox.valueChanged.connect(self._save_gamepad_mappings)
+        self.debugGamepadHoldSpinBox.valueChanged.connect(self._save_gamepad_mappings)
+        self.sellGamepadHoldSpinBox.valueChanged.connect(self._save_gamepad_mappings)
+        self.unoGamepadHoldSpinBox.valueChanged.connect(self._save_gamepad_mappings)
 
         self.unoMaxCardsSpinBox.valueChanged.connect(self._save_global_settings)
 
@@ -878,11 +1040,39 @@ class SettingsInterface(ScrollArea):
         self.enableGamepadCard.setChecked(
             cfg.global_settings.get("enable_gamepad", False)
         )
-        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
-        self.hotkeyGamepadLineEdit.setText(gamepad_mappings.get("toggle", ""))
-        self.debugGamepadLineEdit.setText(gamepad_mappings.get("debug", ""))
-        self.sellGamepadLineEdit.setText(gamepad_mappings.get("sell", ""))
-        self.unoGamepadLineEdit.setText(gamepad_mappings.get("uno", ""))
+        toggle_gamepad_mapping = cfg.get_gamepad_mapping("toggle")
+        debug_gamepad_mapping = cfg.get_gamepad_mapping("debug")
+        sell_gamepad_mapping = cfg.get_gamepad_mapping("sell")
+        uno_gamepad_mapping = cfg.get_gamepad_mapping("uno")
+        self.hotkeyGamepadLineEdit.set_gamepad_binding(toggle_gamepad_mapping)
+        self.debugGamepadLineEdit.set_gamepad_binding(debug_gamepad_mapping)
+        self.sellGamepadLineEdit.set_gamepad_binding(sell_gamepad_mapping)
+        self.unoGamepadLineEdit.set_gamepad_binding(uno_gamepad_mapping)
+        self.hotkeyGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(toggle_gamepad_mapping.get("mode", "press"))
+        )
+        self.hotkeyGamepadHoldSpinBox.setValue(
+            toggle_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.debugGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(debug_gamepad_mapping.get("mode", "press"))
+        )
+        self.debugGamepadHoldSpinBox.setValue(
+            debug_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.sellGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(sell_gamepad_mapping.get("mode", "press"))
+        )
+        self.sellGamepadHoldSpinBox.setValue(
+            sell_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.unoGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(uno_gamepad_mapping.get("mode", "press"))
+        )
+        self.unoGamepadHoldSpinBox.setValue(
+            uno_gamepad_mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self._update_gamepad_hold_controls()
 
         # 加载鱼饵选择
         selected_baits = cfg.global_settings.get("selected_baits", [])
@@ -996,19 +1186,35 @@ class SettingsInterface(ScrollArea):
         if self._loading_ui:
             return
         """保存手柄按钮映射。"""
-        if "gamepad_mappings" not in cfg.global_settings:
-            cfg.global_settings["gamepad_mappings"] = {}
+        toggle_binding = self.hotkeyGamepadLineEdit.get_gamepad_binding()
+        debug_binding = self.debugGamepadLineEdit.get_gamepad_binding()
+        sell_binding = self.sellGamepadLineEdit.get_gamepad_binding()
+        uno_binding = self.unoGamepadLineEdit.get_gamepad_binding()
 
-        cfg.global_settings["gamepad_mappings"][
-            "toggle"
-        ] = self.hotkeyGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"][
-            "debug"
-        ] = self.debugGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"][
-            "sell"
-        ] = self.sellGamepadLineEdit.text()
-        cfg.global_settings["gamepad_mappings"]["uno"] = self.unoGamepadLineEdit.text()
+        cfg.set_gamepad_mapping(
+            "toggle",
+            toggle_binding.get("button", ""),
+            toggle_binding.get("mode", "press"),
+            toggle_binding.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+        )
+        cfg.set_gamepad_mapping(
+            "debug",
+            debug_binding.get("button", ""),
+            debug_binding.get("mode", "press"),
+            debug_binding.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+        )
+        cfg.set_gamepad_mapping(
+            "sell",
+            sell_binding.get("button", ""),
+            sell_binding.get("mode", "press"),
+            sell_binding.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+        )
+        cfg.set_gamepad_mapping(
+            "uno",
+            uno_binding.get("button", ""),
+            uno_binding.get("mode", "press"),
+            uno_binding.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+        )
 
         cfg.save()
         self.gamepad_mapping_changed_signal.emit()
@@ -1362,12 +1568,7 @@ class SettingsInterface(ScrollArea):
             "uno_hotkey": "F3",
         }
 
-        default_gamepad_mappings = {
-            "toggle": "LS",
-            "debug": "DpadRight",
-            "sell": "RS",
-            "uno": "DpadLeft",
-        }
+        default_gamepad_mappings = cfg.DEFAULT_GAMEPAD_MAPPINGS
 
         # 恢复键盘热键
         self.hotkeyLineEdit.setText(default_hotkeys["hotkey"])
@@ -1376,10 +1577,37 @@ class SettingsInterface(ScrollArea):
         self.unoHotkeyLineEdit.setText(default_hotkeys["uno_hotkey"])
 
         # 恢复手柄按键映射
-        self.hotkeyGamepadLineEdit.setText(default_gamepad_mappings["toggle"])
-        self.debugGamepadLineEdit.setText(default_gamepad_mappings["debug"])
-        self.sellGamepadLineEdit.setText(default_gamepad_mappings["sell"])
-        self.unoGamepadLineEdit.setText(default_gamepad_mappings["uno"])
+        self.hotkeyGamepadLineEdit.set_gamepad_binding(
+            default_gamepad_mappings["toggle"]
+        )
+        self.debugGamepadLineEdit.set_gamepad_binding(default_gamepad_mappings["debug"])
+        self.sellGamepadLineEdit.set_gamepad_binding(default_gamepad_mappings["sell"])
+        self.unoGamepadLineEdit.set_gamepad_binding(default_gamepad_mappings["uno"])
+        self.hotkeyGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(default_gamepad_mappings["toggle"].get("mode"))
+        )
+        self.hotkeyGamepadHoldSpinBox.setValue(
+            default_gamepad_mappings["toggle"].get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.debugGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(default_gamepad_mappings["debug"].get("mode"))
+        )
+        self.debugGamepadHoldSpinBox.setValue(
+            default_gamepad_mappings["debug"].get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.sellGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(default_gamepad_mappings["sell"].get("mode"))
+        )
+        self.sellGamepadHoldSpinBox.setValue(
+            default_gamepad_mappings["sell"].get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self.unoGamepadModeCombo.setCurrentText(
+            self._gamepad_mode_to_text(default_gamepad_mappings["uno"].get("mode"))
+        )
+        self.unoGamepadHoldSpinBox.setValue(
+            default_gamepad_mappings["uno"].get("hold_ms", cfg.GAMEPAD_HOLD_MS)
+        )
+        self._update_gamepad_hold_controls()
 
         # 保存更改
         self._save_global_settings()

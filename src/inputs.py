@@ -2,7 +2,7 @@ import ctypes
 import time
 import random
 from pynput import keyboard, mouse
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QTimer
 from src.config import cfg
 
 # 鼠标事件常量
@@ -39,6 +39,8 @@ class InputController(QObject):
         self._update_uno_hotkey_handler()
 
         self._gamepad_controller = None
+        self._gamepad_hold_timers = {}
+        self._active_gamepad_buttons = set()
         self._init_gamepad()
 
     def _parse_hotkey_string(self, hotkey_string):
@@ -197,8 +199,14 @@ class InputController(QObject):
             from src.gamepad_controller import gamepad_controller
 
             self._gamepad_controller = gamepad_controller
-            self._gamepad_controller.gamepad_button_pressed.connect(
-                self._on_gamepad_button
+            try:
+                self._gamepad_controller.gamepad_button_state_changed.disconnect(
+                    self._on_gamepad_button_state_changed
+                )
+            except Exception:
+                pass
+            self._gamepad_controller.gamepad_button_state_changed.connect(
+                self._on_gamepad_button_state_changed
             )
             if self.running:
                 self._gamepad_controller.start_listening()
@@ -216,29 +224,98 @@ class InputController(QObject):
         if self._gamepad_controller:
             self._gamepad_controller.stop_listening()
             try:
-                self._gamepad_controller.gamepad_button_pressed.disconnect(
-                    self._on_gamepad_button
+                self._gamepad_controller.gamepad_button_state_changed.disconnect(
+                    self._on_gamepad_button_state_changed
                 )
             except Exception:
                 pass
             self._gamepad_controller = None
 
+        self._clear_gamepad_hold_state()
         self._init_gamepad()
 
     def _on_gamepad_button(self, button_name):
         """
         处理手柄按钮按下事件。
         """
-        gamepad_mappings = cfg.global_settings.get("gamepad_mappings", {})
+        mappings = cfg.normalize_gamepad_mappings(
+            cfg.global_settings.get("gamepad_mappings", {})
+        )
 
-        if button_name == gamepad_mappings.get("toggle"):
+        for action_name, mapping in mappings.items():
+            if mapping.get("button") == button_name and mapping.get("mode") == "press":
+                self._emit_gamepad_action(action_name)
+
+    def _emit_gamepad_action(self, action_name):
+        if action_name == "toggle":
             self.toggle_script_signal.emit()
-        elif button_name == gamepad_mappings.get("debug"):
+        elif action_name == "debug":
             self.debug_screenshot_signal.emit()
-        elif button_name == gamepad_mappings.get("sell"):
+        elif action_name == "sell":
             self.sell_hotkey_signal.emit()
-        elif button_name == gamepad_mappings.get("uno"):
+        elif action_name == "uno":
             self.uno_hotkey_signal.emit()
+
+    def _cancel_gamepad_hold(self, action_name):
+        timer = self._gamepad_hold_timers.pop(action_name, None)
+        if timer:
+            timer.stop()
+            timer.deleteLater()
+
+    def _clear_gamepad_hold_state(self):
+        for action_name in list(self._gamepad_hold_timers):
+            self._cancel_gamepad_hold(action_name)
+        self._active_gamepad_buttons.clear()
+
+    def _on_gamepad_hold_timeout(self, action_name, button_name):
+        mapping = cfg.get_gamepad_mapping(action_name)
+        if (
+            mapping.get("mode") == "hold"
+            and mapping.get("button") == button_name
+            and button_name in self._active_gamepad_buttons
+        ):
+            self._emit_gamepad_action(action_name)
+        self._cancel_gamepad_hold(action_name)
+
+    def _start_gamepad_hold(self, action_name, button_name, hold_ms):
+        self._cancel_gamepad_hold(action_name)
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(
+            lambda action=action_name, button=button_name: self._on_gamepad_hold_timeout(
+                action, button
+            )
+        )
+        self._gamepad_hold_timers[action_name] = timer
+        timer.start(cfg.normalize_gamepad_hold_ms(hold_ms))
+
+    def _on_gamepad_button_state_changed(self, button_name, pressed):
+        """Handle gamepad button state changes for press/hold mappings."""
+        if pressed:
+            self._active_gamepad_buttons.add(button_name)
+        else:
+            self._active_gamepad_buttons.discard(button_name)
+
+        mappings = cfg.normalize_gamepad_mappings(
+            cfg.global_settings.get("gamepad_mappings", {})
+        )
+        cfg.global_settings["gamepad_mappings"] = mappings
+
+        for action_name, mapping in mappings.items():
+            if mapping.get("button") != button_name:
+                continue
+
+            if mapping.get("mode") == "hold":
+                if pressed:
+                    self._start_gamepad_hold(
+                        action_name,
+                        button_name,
+                        mapping.get("hold_ms", cfg.GAMEPAD_HOLD_MS),
+                    )
+                else:
+                    self._cancel_gamepad_hold(action_name)
+            elif pressed:
+                self._emit_gamepad_action(action_name)
 
     def add_jitter(self, base_time):
         jitter_range = cfg.jitter_range
@@ -442,6 +519,7 @@ class InputController(QObject):
             self.mouse_listener = None
         if self._gamepad_controller:
             self._gamepad_controller.stop_listening()
+        self._clear_gamepad_hold_state()
 
     @staticmethod
     def hold_key(key_name):

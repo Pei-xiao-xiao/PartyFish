@@ -1,21 +1,26 @@
-from PySide6.QtWidgets import QLineEdit
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
-from qfluentwidgets import Theme, qconfig
+import time
 
-# 定义品质颜色 (亮色主题, 暗色主题)
+from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QLineEdit
+from qfluentwidgets import qconfig
+
+from src.config import cfg
+
+# Quality colors for light and dark themes.
 QUALITY_COLORS = {
-    "标准": (QColor("#606060"), QColor("#D0D0D0")),  # 灰色
-    "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),  # 绿色
-    "稀有": (QColor("#007ACC"), QColor("#3498DB")),  # 蓝色
-    "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),  # 紫色
-    "传奇": (QColor("#FF8C00"), QColor("#F39C12")),  # 橙色
-    "传说": (QColor("#FF8C00"), QColor("#F39C12")),  # 传奇的别名
+    "标准": (QColor("#606060"), QColor("#D0D0D0")),
+    "非凡": (QColor("#1E9E00"), QColor("#2ECC71")),
+    "稀有": (QColor("#007ACC"), QColor("#3498DB")),
+    "史诗": (QColor("#8A2BE2"), QColor("#9B59B6")),
+    "传奇": (QColor("#FF8C00"), QColor("#F39C12")),
+    "传说": (QColor("#FF8C00"), QColor("#F39C12")),
 }
 
 
 class KeyBindingWidget(QLineEdit):
     gamepad_button_captured = Signal(str)
+    gamepad_binding_captured = Signal(str, str, int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -26,11 +31,22 @@ class KeyBindingWidget(QLineEdit):
         self.original_text = ""
         self._gamepad_mode = False
         self._gamepad_connection = None
+        self._captured_gamepad_button = None
+        self._gamepad_press_started_at = None
+        self._gamepad_binding = {
+            "button": "",
+            "mode": "press",
+            "hold_ms": cfg.GAMEPAD_HOLD_MS,
+        }
+        self._original_gamepad_binding = self._gamepad_binding.copy()
+        self._capture_timer = QTimer(self)
+        self._capture_timer.setInterval(100)
+        self._capture_timer.timeout.connect(self._update_capture_elapsed_text)
 
     def set_gamepad_mode(self, enabled: bool):
         self._gamepad_mode = enabled
         if enabled:
-            self.setPlaceholderText("点击后按手柄按键")
+            self.setPlaceholderText("点击后按或按住手柄按键")
         else:
             self.setPlaceholderText("点击后按下按键")
 
@@ -51,9 +67,9 @@ class KeyBindingWidget(QLineEdit):
 
             if button == Qt.LeftButton:
                 return
-            elif button == Qt.RightButton:
+            if button == Qt.RightButton:
                 return
-            elif button == Qt.MiddleButton:
+            if button == Qt.MiddleButton:
                 parts.append("Mouse3")
             elif button == Qt.XButton1:
                 parts.append("Mouse4")
@@ -70,8 +86,10 @@ class KeyBindingWidget(QLineEdit):
     def start_capture(self):
         self.is_capturing = True
         self.original_text = self.text()
+        self._original_gamepad_binding = self._gamepad_binding.copy()
+        self._reset_gamepad_capture_state()
         if self._gamepad_mode:
-            self.setText("请按手柄按键...")
+            self.setText("请按或按住手柄按键...")
             self._connect_gamepad()
         else:
             self.setText("请按下按键...")
@@ -82,35 +100,63 @@ class KeyBindingWidget(QLineEdit):
         self.is_capturing = False
         self.setProperty("isCapturing", False)
         self._disconnect_gamepad()
+        self._capture_timer.stop()
+        self._reset_gamepad_capture_state()
         self.update_style()
+
+    def _reset_gamepad_capture_state(self):
+        self._captured_gamepad_button = None
+        self._gamepad_press_started_at = None
+
+    def set_gamepad_binding(self, mapping):
+        normalized = cfg.normalize_gamepad_mapping("custom", mapping)
+        self._gamepad_binding = normalized
+        self.setText(self._format_gamepad_binding_text(normalized))
+
+    def get_gamepad_binding(self):
+        return self._gamepad_binding.copy()
+
+    def _format_gamepad_binding_text(self, mapping):
+        button = mapping.get("button", "")
+        if not button:
+            return ""
+        if mapping.get("mode") == "hold":
+            return (
+                f"{button} ({mapping.get('hold_ms', cfg.GAMEPAD_HOLD_MS) / 1000:.1f}s)"
+            )
+        return button
+
+    def _update_capture_elapsed_text(self):
+        if not self._captured_gamepad_button or self._gamepad_press_started_at is None:
+            return
+        elapsed_s = time.monotonic() - self._gamepad_press_started_at
+        self.setText(f"{self._captured_gamepad_button} ({elapsed_s:.1f}s)")
 
     def _connect_gamepad(self):
         if not self._gamepad_mode:
             return
+
         try:
             from src.gamepad_controller import gamepad_controller
 
-            # 确保 pygame 已初始化
             if not gamepad_controller._pygame_initialized:
                 if not gamepad_controller._init_pygame():
                     print("[KeyBindingWidget] Failed to initialize pygame")
                     return
 
-            # 确保手柄控制器正在监听
             if not gamepad_controller._running:
                 gamepad_controller.start_listening()
                 print("[KeyBindingWidget] Started gamepad listening")
 
-            # 连接信号（使用 UniqueConnection 避免重复连接）
             try:
-                gamepad_controller.gamepad_button_pressed.disconnect(
-                    self._on_gamepad_button
+                gamepad_controller.gamepad_button_state_changed.disconnect(
+                    self._on_gamepad_button_state_changed
                 )
             except (TypeError, RuntimeError):
-                pass  # 信号未连接，忽略
+                pass
 
-            gamepad_controller.gamepad_button_pressed.connect(
-                self._on_gamepad_button, Qt.UniqueConnection
+            gamepad_controller.gamepad_button_state_changed.connect(
+                self._on_gamepad_button_state_changed, Qt.UniqueConnection
             )
             self._gamepad_connection = True
             print(f"[KeyBindingWidget] Gamepad connected for {self.placeholderText()}")
@@ -121,27 +167,51 @@ class KeyBindingWidget(QLineEdit):
             traceback.print_exc()
 
     def _disconnect_gamepad(self):
-        if self._gamepad_connection:
-            try:
-                from src.gamepad_controller import gamepad_controller
+        if not self._gamepad_connection:
+            return
 
-                gamepad_controller.gamepad_button_pressed.disconnect(
-                    self._on_gamepad_button
-                )
-                print(
-                    f"[KeyBindingWidget] Gamepad disconnected for {self.placeholderText()}"
-                )
-            except Exception:
-                pass
-            finally:
-                self._gamepad_connection = None
+        try:
+            from src.gamepad_controller import gamepad_controller
 
-    def _on_gamepad_button(self, button_name: str):
-        if self.is_capturing and self._gamepad_mode:
-            self.setText(button_name)
-            self.stop_capture()
-            self.editingFinished.emit()
-            self.gamepad_button_captured.emit(button_name)
+            gamepad_controller.gamepad_button_state_changed.disconnect(
+                self._on_gamepad_button_state_changed
+            )
+            print(
+                f"[KeyBindingWidget] Gamepad disconnected for {self.placeholderText()}"
+            )
+        except Exception:
+            pass
+        finally:
+            self._gamepad_connection = None
+
+    def _on_gamepad_button_state_changed(self, button_name: str, pressed: bool):
+        if not (self.is_capturing and self._gamepad_mode):
+            return
+
+        if pressed:
+            if self._captured_gamepad_button is None:
+                self._captured_gamepad_button = button_name
+                self._gamepad_press_started_at = time.monotonic()
+                self._capture_timer.start()
+                self._update_capture_elapsed_text()
+            return
+
+        if button_name != self._captured_gamepad_button:
+            return
+
+        started_at = self._gamepad_press_started_at or time.monotonic()
+        hold_ms = max(0, int((time.monotonic() - started_at) * 1000))
+        mode = "hold" if hold_ms >= cfg.GAMEPAD_HOLD_MS else "press"
+        self._gamepad_binding = {
+            "button": button_name,
+            "mode": mode,
+            "hold_ms": cfg.normalize_gamepad_hold_ms(hold_ms),
+        }
+        self.setText(self._format_gamepad_binding_text(self._gamepad_binding))
+        self.stop_capture()
+        self.gamepad_binding_captured.emit(button_name, mode, hold_ms)
+        self.gamepad_button_captured.emit(button_name)
+        self.editingFinished.emit()
 
     def update_style(self):
         color = qconfig.themeColor.name
@@ -160,7 +230,7 @@ class KeyBindingWidget(QLineEdit):
 
         if self._gamepad_mode:
             if event.key() == Qt.Key_Escape:
-                self.setText(self.original_text)
+                self.set_gamepad_binding(self._original_gamepad_binding)
                 self.stop_capture()
             return
 
@@ -187,12 +257,18 @@ class KeyBindingWidget(QLineEdit):
             self.stop_capture()
             self.editingFinished.emit()
         elif key == Qt.Key_Escape:
-            self.setText(self.original_text)
+            if self._gamepad_mode:
+                self.set_gamepad_binding(self._original_gamepad_binding)
+            else:
+                self.setText(self.original_text)
             self.stop_capture()
 
     def focusOutEvent(self, event):
         if self.is_capturing:
-            self.setText(self.original_text)
+            if self._gamepad_mode:
+                self.set_gamepad_binding(self._original_gamepad_binding)
+            else:
+                self.setText(self.original_text)
             self.stop_capture()
         super().focusOutEvent(event)
 
@@ -226,4 +302,8 @@ class KeyBindingWidget(QLineEdit):
 
 from src.gui.components.filter_panel import FilterPanel
 from src.gui.components.filter_drawer import FilterDrawer
-from src.gui.components.date_range_picker import DateRangePicker, DateRangeDialog, DateRangeCalendar
+from src.gui.components.date_range_picker import (
+    DateRangePicker,
+    DateRangeDialog,
+    DateRangeCalendar,
+)
