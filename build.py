@@ -66,7 +66,7 @@ def run_pyinstaller():
     import subprocess
 
     # 清理旧的输出文件
-    dist_exe = Path("dist/partyfish.exe")
+    dist_exe = Path("dist/PartyFish.exe")
     if dist_exe.exists():
         dist_exe.unlink()
         print("已清理旧输出文件")

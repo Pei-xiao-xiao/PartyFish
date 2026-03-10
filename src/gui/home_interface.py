@@ -1,4 +1,6 @@
-from PySide6.QtCore import Qt, QTimer, Slot, QTime, Signal, QDateTime
+import os
+
+from PySide6.QtCore import Qt, QTimer, Slot, QTime, Signal, QDateTime, QUrl, QSize
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -10,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QGraphicsDropShadowEffect,
     QFrame,
+    QPushButton,
 )
 from PySide6.QtGui import (
     QColor,
@@ -17,8 +20,11 @@ from PySide6.QtGui import (
     QPixmap,
     QPainter,
     QPainterPath,
+    QPen,
+    QIcon,
     QFont,
     QLinearGradient,
+    QDesktopServices,
 )
 from qfluentwidgets import (
     CardWidget,
@@ -687,6 +693,86 @@ class HomeInterface(QWidget):
         if hasattr(self, "_hotkey_badges") and "卖鱼" in self._hotkey_badges:
             self._hotkey_badges["卖鱼"].setText(new_hotkey)
 
+    def _create_dashboard_link_icon(
+        self, icon_kind: str, color: str = "#06b6d4"
+    ) -> QIcon:
+        pixmap = QPixmap(18, 18)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(color), 1.4)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+
+        if icon_kind == "folder":
+            folder_path = QPainterPath()
+            folder_path.moveTo(2.5, 6.5)
+            folder_path.lineTo(6.2, 6.5)
+            folder_path.lineTo(7.8, 4.8)
+            folder_path.lineTo(15.5, 4.8)
+            folder_path.lineTo(15.5, 13.8)
+            folder_path.lineTo(2.5, 13.8)
+            folder_path.closeSubpath()
+            painter.drawPath(folder_path)
+            painter.drawLine(2.5, 6.5, 15.5, 6.5)
+        elif icon_kind == "image":
+            painter.drawRoundedRect(2.5, 3.5, 13.0, 11.0, 2.0, 2.0)
+            painter.drawEllipse(10.6, 6.0, 2.1, 2.1)
+
+            image_path = QPainterPath()
+            image_path.moveTo(4.5, 12.2)
+            image_path.lineTo(7.7, 9.4)
+            image_path.lineTo(9.7, 11.0)
+            image_path.lineTo(11.7, 8.3)
+            image_path.lineTo(14.0, 12.2)
+            painter.drawPath(image_path)
+
+        painter.end()
+        return QIcon(pixmap)
+
+    def _create_dashboard_link_button(self, text, icon_kind, handler):
+        button = QPushButton(text, self.sales_card)
+        button.setFlat(True)
+        button.setCursor(Qt.PointingHandCursor)
+        button.setIcon(self._create_dashboard_link_icon(icon_kind))
+        button.setIconSize(QSize(16, 16))
+        button.clicked.connect(handler)
+        button.setStyleSheet(
+            """
+            QPushButton {
+                color: #06b6d4;
+                background: transparent;
+                border: none;
+                padding: 4px 8px;
+                text-align: left;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                color: #0891b2;
+            }
+            QPushButton:pressed {
+                color: #0e7490;
+            }
+            """
+        )
+        return button
+
+    def _open_directory(self, directory: Path):
+        directory.mkdir(parents=True, exist_ok=True)
+        if hasattr(os, "startfile"):
+            os.startfile(str(directory))
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory)))
+
+    def _open_data_directory(self):
+        self._open_directory(cfg.user_data_dir)
+
+    def _open_screenshot_directory(self):
+        self._open_directory(cfg._get_application_path() / "截图")
+
     def init_dashboard(self):
         """初始化数据看板 - 今日销售 + 图鉴进度"""
         self.dashboard_layout = QHBoxLayout()
@@ -747,6 +833,31 @@ class HomeInterface(QWidget):
         progress_layout.addWidget(self.sales_progress_bar, 1)
         progress_layout.addWidget(self.sales_value_label)
         sales_layout.addWidget(progress_container)
+
+        sales_divider = QFrame(self.sales_card)
+        sales_divider.setFrameShape(QFrame.HLine)
+        sales_divider.setFixedHeight(1)
+        sales_divider.setStyleSheet("background-color: #e5e7eb; border: none;")
+        sales_layout.addWidget(sales_divider)
+
+        sales_actions = QHBoxLayout()
+        sales_actions.setContentsMargins(0, 0, 0, 0)
+        sales_actions.setSpacing(12)
+
+        self.sales_data_dir_button = self._create_dashboard_link_button(
+            "打开数据目录",
+            "folder",
+            self._open_data_directory,
+        )
+        self.sales_screenshot_dir_button = self._create_dashboard_link_button(
+            "打开截图目录",
+            "image",
+            self._open_screenshot_directory,
+        )
+        sales_actions.addWidget(self.sales_data_dir_button)
+        sales_actions.addWidget(self.sales_screenshot_dir_button)
+        sales_actions.addStretch(1)
+        sales_layout.addLayout(sales_actions)
 
         self.dashboard_layout.addWidget(self.sales_card, 2)
 

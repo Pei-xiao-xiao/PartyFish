@@ -245,6 +245,7 @@ class RecordsInterface(QWidget):
         self.data_dir_button.setFixedWidth(100)
         self.data_dir_button.clicked.connect(self._open_data_directory)
         top_controls_layout.addWidget(self.data_dir_button)
+        self.data_dir_button.hide()
 
         self.date_selector_layout = QHBoxLayout()
         self.date_selector_label = QLabel("选择日期范围:")
