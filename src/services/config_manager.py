@@ -116,6 +116,7 @@ class ConfigManager:
             "overlay_visible": False,
             "overlay_position": None,
             "fish_filter_mode": "all",
+            "rod_filter_mode": "all",
             "welcome_dialog_shown": False,
             "hardware_info": {},
             "uno_hotkey": "F3",

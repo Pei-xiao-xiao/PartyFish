@@ -848,6 +848,19 @@ class HomeInterface(QWidget):
             self._on_fish_filter_changed
         )
         header_layout.addWidget(self.fish_filter_segment)
+
+        self.rod_filter_segment = SegmentedWidget(self.session_records_container)
+        self.rod_filter_segment.addItem("all", "全部")
+        self.rod_filter_segment.addItem("heavy", "重杆")
+        self.rod_filter_segment.addItem("light", "轻杆")
+
+        current_rod_mode = getattr(cfg, "rod_filter_mode", "all")
+        self.rod_filter_segment.setCurrentItem(current_rod_mode)
+
+        self.rod_filter_segment.currentItemChanged.connect(
+            self._on_rod_filter_changed
+        )
+        header_layout.addWidget(self.rod_filter_segment)
         header_layout.addStretch(1)
 
         layout.addLayout(header_layout)
@@ -892,6 +905,13 @@ class HomeInterface(QWidget):
     def _on_fish_filter_changed(self, routeKey):
         """处理鱼种过滤改变"""
         cfg.fish_filter_mode = routeKey
+        cfg.save()
+        self._refresh_fish_preview()
+        self.fishFilterChanged.emit()
+
+    def _on_rod_filter_changed(self, routeKey):
+        """处理杆类型过滤改变"""
+        cfg.rod_filter_mode = routeKey
         cfg.save()
         self._refresh_fish_preview()
         self.fishFilterChanged.emit()
@@ -973,6 +993,16 @@ class HomeInterface(QWidget):
             elif filter_mode == "ice":
                 catchable_fish = [
                     f for f in catchable_fish if "池塘" in f.get("type", "")
+                ]
+
+            rod_filter_mode = getattr(cfg, "rod_filter_mode", "all")
+            if rod_filter_mode == "heavy":
+                catchable_fish = [
+                    f for f in catchable_fish if "重杆" in f.get("type", "")
+                ]
+            elif rod_filter_mode == "light":
+                catchable_fish = [
+                    f for f in catchable_fish if "轻杆" in f.get("type", "")
                 ]
 
             if not catchable_fish:
