@@ -6,7 +6,7 @@
 import csv
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 from collections import defaultdict
 from src.config import cfg
 
@@ -38,6 +38,59 @@ class HistoryStats:
 
 class ProfitAnalysisService:
     """利润分析服务类"""
+
+    @staticmethod
+    def _normalize_date_text(date_text: str) -> str:
+        normalized = str(date_text).strip()
+        if "/" in normalized:
+            parts = normalized.split("/")
+            if len(parts) == 3:
+                normalized = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+        return normalized
+
+    @staticmethod
+    def _parse_timestamp(timestamp: str) -> Optional[datetime]:
+        normalized = str(timestamp).strip().replace("/", "-")
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(normalized, fmt)
+            except ValueError:
+                continue
+        return None
+
+    def get_available_history_dates(self) -> Set[str]:
+        available_dates: Set[str] = set()
+
+        sales_path = cfg.sales_file
+        if sales_path.exists():
+            try:
+                with open(sales_path, "r", encoding="utf-8-sig") as f:
+                    reader = csv.reader(f)
+                    next(reader, None)
+                    for row in reader:
+                        if not row:
+                            continue
+                        parsed = self._parse_timestamp(row[0])
+                        if parsed:
+                            available_dates.add(parsed.strftime("%Y-%m-%d"))
+            except Exception:
+                pass
+
+        records_path = cfg.records_file
+        if records_path.exists():
+            try:
+                with open(records_path, "r", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if not row:
+                            continue
+                        parsed = self._parse_timestamp(row.get("Timestamp", ""))
+                        if parsed:
+                            available_dates.add(parsed.strftime("%Y-%m-%d"))
+            except Exception:
+                pass
+
+        return available_dates
 
     def get_current_cycle_start_time(self) -> datetime:
         """
@@ -137,7 +190,12 @@ class ProfitAnalysisService:
             limit_reached_time=limit_reached_time,
         )
 
-    def load_history_stats(self, days: int = 30) -> HistoryStats:
+    def load_history_stats(
+        self,
+        days: Optional[int] = 30,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> HistoryStats:
         """
         加载历史统计数据
 
@@ -149,7 +207,11 @@ class ProfitAnalysisService:
         """
         daily_sales = defaultdict(int)
         daily_cost = defaultdict(int)
-        cutoff_date = datetime.now() - timedelta(days=days)
+        cutoff_date = (
+            datetime.now() - timedelta(days=days) if days is not None else None
+        )
+        normalized_start = self._normalize_date_text(start_date) if start_date else None
+        normalized_end = self._normalize_date_text(end_date) if end_date else None
 
         # 加载销售历史
         sales_path = cfg.sales_file
@@ -164,9 +226,18 @@ class ProfitAnalysisService:
                         ts_str = row[0]
                         amount = int(row[1])
                         try:
-                            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                            if dt >= cutoff_date:
-                                date_str = dt.strftime("%Y-%m-%d")
+                            dt = self._parse_timestamp(ts_str)
+                            if not dt:
+                                continue
+                            date_str = dt.strftime("%Y-%m-%d")
+                            in_range = True
+                            if normalized_start and normalized_end:
+                                in_range = (
+                                    normalized_start <= date_str <= normalized_end
+                                )
+                            elif cutoff_date is not None:
+                                in_range = dt >= cutoff_date
+                            if in_range:
                                 daily_sales[date_str] += amount
                         except ValueError:
                             pass
@@ -184,9 +255,18 @@ class ProfitAnalysisService:
                             continue
                         ts_str = row.get("Timestamp", "")
                         try:
-                            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                            if dt >= cutoff_date:
-                                date_str = dt.strftime("%Y-%m-%d")
+                            dt = self._parse_timestamp(ts_str)
+                            if not dt:
+                                continue
+                            date_str = dt.strftime("%Y-%m-%d")
+                            in_range = True
+                            if normalized_start and normalized_end:
+                                in_range = (
+                                    normalized_start <= date_str <= normalized_end
+                                )
+                            elif cutoff_date is not None:
+                                in_range = dt >= cutoff_date
+                            if in_range:
                                 daily_cost[date_str] += int(
                                     row.get("BaitCost", "0") or 0
                                 )
@@ -196,16 +276,20 @@ class ProfitAnalysisService:
                 pass
 
         # 计算统计数据
-        total_income = sum(daily_sales.values())
-        total_cost = sum(daily_cost.values())
+        all_dates = sorted(set(daily_sales) | set(daily_cost))
+        normalized_daily_sales = {date: daily_sales.get(date, 0) for date in all_dates}
+        normalized_daily_cost = {date: daily_cost.get(date, 0) for date in all_dates}
+
+        total_income = sum(normalized_daily_sales.values())
+        total_cost = sum(normalized_daily_cost.values())
         total_net = total_income - total_cost
-        days_count = len(daily_sales)
+        days_count = len(all_dates)
         avg_income = total_income // days_count if days_count > 0 else 0
-        max_income = max(daily_sales.values()) if days_count > 0 else 0
+        max_income = max(normalized_daily_sales.values()) if days_count > 0 else 0
 
         return HistoryStats(
-            daily_sales=dict(daily_sales),
-            daily_cost=dict(daily_cost),
+            daily_sales=normalized_daily_sales,
+            daily_cost=normalized_daily_cost,
             total_income=total_income,
             total_cost=total_cost,
             total_net=total_net,

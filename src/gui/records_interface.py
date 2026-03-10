@@ -12,11 +12,19 @@ from PySide6.QtCore import (
     Signal,
     Qt as QtCoreQt,
 )
-from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPainter
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QDesktopServices,
+    QPainter,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QHeaderView,
     QHBoxLayout,
     QLabel,
+    QStackedWidget,
     QStyledItemDelegate,
     QStyle,
     QTableWidgetItem,
@@ -300,6 +308,7 @@ class RecordsInterface(QWidget):
         self.vBoxLayout.addLayout(self.dashboard_layout_row1)
 
         bottom_layout = QHBoxLayout()
+        bottom_layout.setSpacing(16)
 
         self.table = HoverDeleteTableWidget(self)
         self.table.setColumnCount(7)
@@ -330,12 +339,31 @@ class RecordsInterface(QWidget):
         self.table.setColumnWidth(ACTION_COLUMN, DETAIL_COLUMN_WIDTH)
         self.table.verticalScrollBar().valueChanged.connect(self._check_scroll_load)
         self.table.delete_row_signal.connect(self._on_delete_row)
-        bottom_layout.addWidget(self.table, 3)
+        self.table_empty_state = self._create_empty_state_widget(
+            icon_kind="search",
+            title="未找到记录",
+            description="当前筛选条件下没有渔获记录",
+            background_role="warm",
+        )
+        self.table_stack = QStackedWidget(self)
+        self.table_stack.addWidget(self.table)
+        self.table_stack.addWidget(self.table_empty_state)
+        bottom_layout.addWidget(self.table_stack, 3)
 
         self._init_pie_chart()
-        bottom_layout.addWidget(self.chart_view, 2)
+        self.chart_empty_state = self._create_empty_state_widget(
+            icon_kind="pie",
+            title="暂无分布数据",
+            description="",
+            background_role="cool",
+        )
+        self.chart_stack = QStackedWidget(self)
+        self.chart_stack.addWidget(self.chart_view)
+        self.chart_stack.addWidget(self.chart_empty_state)
+        bottom_layout.addWidget(self.chart_stack, 2)
 
         self.vBoxLayout.addLayout(bottom_layout)
+        self._apply_empty_state_styles()
         self._load_data()
 
     def _init_pie_chart(self):
@@ -437,6 +465,101 @@ class RecordsInterface(QWidget):
 
         card.value_label = value_label
         return card
+
+    def _create_empty_state_icon(self, icon_kind: str, color: QColor) -> QPixmap:
+        pixmap = QPixmap(96, 96)
+        pixmap.fill(QColor(0, 0, 0, 0))
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(color, 4)
+        pen.setCapStyle(QtCoreQt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(QtCoreQt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(QtCoreQt.BrushStyle.NoBrush)
+
+        if icon_kind == "search":
+            painter.drawEllipse(22, 18, 38, 38)
+            painter.drawLine(52, 48, 72, 68)
+        elif icon_kind == "pie":
+            painter.drawEllipse(18, 18, 44, 44)
+            painter.drawPie(18, 18, 44, 44, 0, 90 * 16)
+
+        painter.end()
+        return pixmap
+
+    def _create_empty_state_widget(
+        self,
+        icon_kind: str,
+        title: str,
+        description: str,
+        background_role: str,
+    ) -> QWidget:
+        widget = QWidget(self)
+        widget._icon_kind = icon_kind
+        widget._background_role = background_role
+
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.addStretch(1)
+
+        icon_label = QLabel(widget)
+        icon_label.setFixedSize(96, 96)
+        icon_label.setAlignment(QtCoreQt.AlignmentFlag.AlignCenter)
+
+        title_label = QLabel(title, widget)
+        title_label.setAlignment(QtCoreQt.AlignmentFlag.AlignCenter)
+
+        description_label = QLabel(description, widget)
+        description_label.setAlignment(QtCoreQt.AlignmentFlag.AlignCenter)
+        description_label.setWordWrap(True)
+
+        layout.addWidget(icon_label, 0, QtCoreQt.AlignmentFlag.AlignHCenter)
+        layout.addSpacing(8)
+        layout.addWidget(title_label)
+        if description:
+            layout.addSpacing(4)
+            layout.addWidget(description_label)
+        layout.addStretch(1)
+
+        widget.icon_label = icon_label
+        widget.title_label = title_label
+        widget.description_label = description_label
+        return widget
+
+    def _apply_empty_state_styles(self):
+        is_dark = qconfig.theme.value == "Dark"
+
+        palettes = {
+            self.table_empty_state: {
+                "background": "#2a2420" if is_dark else "#f8f4ef",
+                "title": "#e5e7eb" if is_dark else "#666666",
+                "description": "#a1a1aa" if is_dark else "#8c8c8c",
+                "icon": "#d4d4d8" if is_dark else "#6d6d6d",
+            },
+            self.chart_empty_state: {
+                "background": "#1f2630" if is_dark else "#f3f7fc",
+                "title": "#e5e7eb" if is_dark else "#666666",
+                "description": "#a1a1aa" if is_dark else "#8c8c8c",
+                "icon": "#d4d4d8" if is_dark else "#6d6d6d",
+            },
+        }
+
+        for widget, palette in palettes.items():
+            widget.setStyleSheet(
+                f"background-color: {palette['background']}; border-radius: 12px;"
+            )
+            widget.icon_label.setPixmap(
+                self._create_empty_state_icon(
+                    widget._icon_kind, QColor(palette["icon"])
+                )
+            )
+            widget.title_label.setStyleSheet(
+                f"color: {palette['title']}; font-size: 16px; font-weight: 600; border: none;"
+            )
+            widget.description_label.setStyleSheet(
+                f"color: {palette['description']}; font-size: 13px; border: none;"
+            )
 
     def _reset_and_reload(self):
         self._update_stats_and_table(rebuild_table=True)
@@ -582,6 +705,7 @@ class RecordsInterface(QWidget):
         """从完整的过滤数据集更新统计/卡片/图表。"""
         filtered_records = self._sort_records(self._get_filtered_records())
         self.cached_filtered_records = filtered_records
+        has_records = bool(filtered_records)
 
         stats = self.stats_service.calculate_stats(filtered_records, self.all_records)
         self.total_card.value_label.setText(str(len(filtered_records)))
@@ -592,7 +716,17 @@ class RecordsInterface(QWidget):
         self.chart_service.update_pie_chart(
             self.pie_series, stats.quality_counts, qconfig.theme.value == "Dark"
         )
+        has_chart_data = self.pie_series.count() > 0
+        self.chart_view.chart().legend().setVisible(has_chart_data)
         self._update_legend_markers()
+        self._apply_empty_state_styles()
+        if rebuild_table or not has_records:
+            self.table_stack.setCurrentWidget(
+                self.table if has_records else self.table_empty_state
+            )
+        self.chart_stack.setCurrentWidget(
+            self.chart_view if has_chart_data else self.chart_empty_state
+        )
 
         if rebuild_table:
             self._load_more_timer.stop()

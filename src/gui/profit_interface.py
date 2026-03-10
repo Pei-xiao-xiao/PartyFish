@@ -6,8 +6,16 @@
 import csv
 from collections import defaultdict
 from datetime import datetime, timedelta
-from PySide6.QtCore import Qt, Signal, QPointF, QTimer
-from PySide6.QtGui import QColor, QBrush, QLinearGradient, QPainter, QCursor
+from PySide6.QtCore import Qt, Signal, QTimer, QDate
+from PySide6.QtGui import (
+    QColor,
+    QBrush,
+    QLinearGradient,
+    QPainter,
+    QCursor,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -41,6 +49,7 @@ from qfluentwidgets import (
 )
 
 from src.config import cfg
+from src.gui.components.date_range_picker import DateRangePicker
 from src.services.profit_analysis_service import ProfitAnalysisService
 from src.services.chart_builder_service import ChartBuilderService, CHART_COLORS
 
@@ -174,6 +183,7 @@ class ProfitInterface(QWidget):
         self.current_history_view = "line"
         self.line_chart_dates = []
         self.bar_categories_dates = []
+        self.current_history_stats = None
         self._editing_blocked = False
         self._pending_reload = False
         self._reload_timer = QTimer(self)
@@ -331,6 +341,18 @@ class ProfitInterface(QWidget):
         hist_header = QHBoxLayout()
         hist_header.addWidget(StrongBodyLabel("历史记录 (30天)", history_container))
         hist_header.addStretch(1)
+        history_title = hist_header.itemAt(0).widget()
+        if history_title:
+            history_title.hide()
+
+        self.history_date_picker = DateRangePicker(
+            history_container, placeholder="\u9009\u62e9\u65e5\u671f\u8303\u56f4"
+        )
+        self.history_date_picker.setFixedWidth(250)
+        self.history_date_picker.rangeChanged.connect(
+            self._on_history_date_range_changed
+        )
+        hist_header.insertWidget(0, self.history_date_picker)
 
         self.view_switcher = SegmentedWidget(self)
         self.view_switcher.addItem("list", "列表")
@@ -402,7 +424,13 @@ class ProfitInterface(QWidget):
 
         self.history_stack.setCurrentIndex(1)
 
-        hist_layout.addWidget(self.history_stack)
+        self.history_empty_state = self._create_history_empty_state()
+        self.history_content_stack = QStackedWidget(self)
+        self.history_content_stack.addWidget(self.history_stack)
+        self.history_content_stack.addWidget(self.history_empty_state)
+        self.history_content_stack.setCurrentWidget(self.history_stack)
+
+        hist_layout.addWidget(self.history_content_stack)
         bottom_layout.addWidget(history_container, 1)
 
         self.vBoxLayout.addLayout(bottom_layout, 2)
@@ -436,6 +464,109 @@ class ProfitInterface(QWidget):
         widget.val_label = val_lbl
         return widget
 
+    def _get_default_history_range(
+        self, available_dates: set[str]
+    ) -> tuple[QDate, QDate]:
+        end_date = QDate.currentDate()
+        if available_dates:
+            latest_date = max(available_dates)
+            parsed_date = QDate.fromString(latest_date, "yyyy-MM-dd")
+            if parsed_date.isValid():
+                end_date = parsed_date
+        start_date = end_date.addDays(-29)
+        return start_date, end_date
+
+    def _create_history_empty_icon(self, color: QColor) -> QPixmap:
+        pixmap = QPixmap(96, 96)
+        pixmap.fill(QColor(0, 0, 0, 0))
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(color, 4)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawEllipse(22, 18, 38, 38)
+        painter.drawLine(52, 48, 72, 68)
+        painter.end()
+
+        return pixmap
+
+    def _create_history_empty_state(self) -> QWidget:
+        widget = QWidget(self)
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(32, 24, 32, 32)
+        layout.addStretch(1)
+
+        self.history_empty_icon_label = QLabel(widget)
+        self.history_empty_icon_label.setFixedSize(96, 96)
+        self.history_empty_icon_label.setAlignment(Qt.AlignCenter)
+
+        self.history_empty_title_label = QLabel(
+            "\u8be5\u65f6\u6bb5\u6682\u65e0\u6570\u636e", widget
+        )
+        self.history_empty_title_label.setAlignment(Qt.AlignCenter)
+
+        self.history_empty_desc_label = QLabel(
+            "\u8bf7\u5c1d\u8bd5\u8c03\u6574\u65e5\u671f\u8303\u56f4\u6216\u7b5b\u9009\u6761\u4ef6",
+            widget,
+        )
+        self.history_empty_desc_label.setAlignment(Qt.AlignCenter)
+        self.history_empty_desc_label.setWordWrap(True)
+
+        layout.addWidget(self.history_empty_icon_label, 0, Qt.AlignHCenter)
+        layout.addSpacing(10)
+        layout.addWidget(self.history_empty_title_label)
+        layout.addSpacing(4)
+        layout.addWidget(self.history_empty_desc_label)
+        layout.addStretch(1)
+
+        return widget
+
+    def _apply_history_empty_state_styles(self):
+        is_dark = isDarkTheme()
+        icon_color = QColor("#d4d4d8" if is_dark else "#6d6d6d")
+        title_color = "#e5e7eb" if is_dark else "#666666"
+        desc_color = "#a1a1aa" if is_dark else "#8c8c8c"
+
+        self.history_empty_state.setStyleSheet("background: transparent;")
+        self.history_empty_icon_label.setPixmap(
+            self._create_history_empty_icon(icon_color)
+        )
+        self.history_empty_title_label.setStyleSheet(
+            f"color: {title_color}; font-size: 16px; font-weight: 600; border: none;"
+        )
+        self.history_empty_desc_label.setStyleSheet(
+            f"color: {desc_color}; font-size: 13px; border: none;"
+        )
+
+    def _has_history_data(self, history_stats) -> bool:
+        return bool(
+            history_stats and (history_stats.daily_sales or history_stats.daily_cost)
+        )
+
+    def _refresh_history_view(self):
+        history_stats = self.current_history_stats
+        if history_stats is None:
+            return
+
+        if self.current_history_view == "list":
+            self.history_stack.setCurrentIndex(0)
+        elif self.current_history_view == "line":
+            self.history_stack.setCurrentIndex(1)
+            self._update_line_chart(history_stats)
+        elif self.current_history_view == "bar":
+            self.history_stack.setCurrentIndex(2)
+            self._update_bar_chart(history_stats)
+
+        has_history_data = self._has_history_data(history_stats)
+        self.line_chart.legend().setVisible(has_history_data)
+        self.bar_chart.legend().setVisible(has_history_data)
+        self.history_content_stack.setCurrentWidget(
+            self.history_stack if has_history_data else self.history_empty_state
+        )
+
     def _apply_theme_styles(self):
         """为迷你统计卡片和图表视图应用主题感知样式。"""
         is_dark = isDarkTheme()
@@ -463,6 +594,8 @@ class ProfitInterface(QWidget):
             self.line_chart_view.setStyleSheet("background: transparent; border: none;")
         if hasattr(self, "bar_chart_view"):
             self.bar_chart_view.setStyleSheet("background: transparent; border: none;")
+        if hasattr(self, "history_empty_state"):
+            self._apply_history_empty_state_styles()
 
     def refresh_theme(self):
         """主题切换刷新的公共 API。"""
@@ -498,7 +631,21 @@ class ProfitInterface(QWidget):
         # 使用服务加载数据
         start_time = self.analysis_service.get_current_cycle_start_time()
         today_stats = self.analysis_service.load_today_stats(start_time)
-        history_stats = self.analysis_service.load_history_stats(days=30)
+        available_history_dates = self.analysis_service.get_available_history_dates()
+        self.history_date_picker.setRecordDates(available_history_dates)
+        range_start, range_end = self.history_date_picker.getRange()
+        if not range_start or not range_end:
+            range_start, range_end = self._get_default_history_range(
+                available_history_dates
+            )
+            self.history_date_picker.setRange(range_start, range_end)
+
+        history_stats = self.analysis_service.load_history_stats(
+            days=None,
+            start_date=range_start.toString("yyyy-MM-dd"),
+            end_date=range_end.toString("yyyy-MM-dd"),
+        )
+        self.current_history_stats = history_stats
 
         # 更新今日统计 UI
         self.sales_card.value_label.setText(str(today_stats.total_sales))
@@ -576,10 +723,7 @@ class ProfitInterface(QWidget):
             self.history_table.setItem(r, 2, net_item)
 
         # 更新图表
-        if self.current_history_view == "line":
-            self._update_line_chart(history_stats)
-        elif self.current_history_view == "bar":
-            self._update_bar_chart(history_stats)
+        self._refresh_history_view()
 
         # 通知其他组件
         self.data_changed_signal.emit()
@@ -630,18 +774,12 @@ class ProfitInterface(QWidget):
     def _on_history_view_changed(self, route_key):
         """历史视图切换"""
         self.current_history_view = route_key
-        if route_key == "list":
-            self.history_stack.setCurrentIndex(0)
-        elif route_key == "line":
-            self.history_stack.setCurrentIndex(1)
-            start_time = self.analysis_service.get_current_cycle_start_time()
-            history_stats = self.analysis_service.load_history_stats(days=30)
-            self._update_line_chart(history_stats)
-        elif route_key == "bar":
-            self.history_stack.setCurrentIndex(2)
-            start_time = self.analysis_service.get_current_cycle_start_time()
-            history_stats = self.analysis_service.load_history_stats(days=30)
-            self._update_bar_chart(history_stats)
+        self._refresh_history_view()
+
+    def _on_history_date_range_changed(self, start: QDate, end: QDate):
+        if not start.isValid() or not end.isValid():
+            return
+        self.reload_data()
 
     def _on_manual_add(self):
         """手动添加记录"""
