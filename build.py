@@ -2,10 +2,8 @@ import sys
 import shutil
 from pathlib import Path
 
-VERSION = "3.3.8"
-RELEASE_NOTES = """1. 增加鱼饵自动切换功能
-2.优化放生时遇到加时弹窗的处理逻辑
-3.各种小优化 懒得写了 自己看吧"""
+VERSION = "3.3.9beta"
+RELEASE_NOTES = """"""
 
 
 def generate_readme(version, notes):

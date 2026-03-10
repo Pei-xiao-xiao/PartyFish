@@ -589,45 +589,19 @@ class FishingWorker(QThread):
         return True
 
     def _check_popup_and_abort_release(self, released_count):
-        """检测弹窗，如果存在则等待处理完成后关闭鱼桶并返回"""
+        """检测弹窗，如果存在则等待处理完成后返回"""
         popup_region = cfg.get_rect("popup_exclamation")
         if self.vision.find_template_popup(
             "exclamation_grayscale", region=popup_region, threshold=0.7
         ):
-            self.log_updated.emit("放生过程中检测到加时弹窗，等待处理完成后关闭鱼桶...")
+            self.log_updated.emit("放生过程中检测到加时弹窗，等待处理完成...")
             if not self._wait_for_popup_clear(timeout=10):
                 self.log_updated.emit("等待弹窗清除超时")
 
             time.sleep(5.0)
-
-            # 检查鱼桶是否还在打开状态（通过检测第一格鱼的品质星星）
-            zone = cfg.REGIONS["fish_inventory"]["zones"][0]
-            grid = zone["grid"]
-            zone_rect = cfg.get_bottom_right_rect(zone["coords"])
-            star_x = zone_rect[0] + int(grid["star_offset"][0] * cfg.scale)
-            star_y = zone_rect[1] + int(grid["star_offset"][1] * cfg.scale)
-            star_region = (
-                star_x,
-                star_y,
-                int(grid["star_size"][0] * cfg.scale),
-                int(grid["star_size"][1] * cfg.scale),
+            self.log_updated.emit(
+                f"检测到弹窗已处理，已回到正常钓鱼界面，本次放生了{released_count}条鱼"
             )
-            star_img = self.vision.screenshot(star_region)
-            bucket_open = (
-                star_img is not None
-                and self.vision.detect_star_color(star_img) is not None
-            )
-
-            if bucket_open:
-                self.inputs.press_key("ESC")
-                self.smart_sleep(0.5)
-                self.log_updated.emit(
-                    f"检测到弹窗，已关闭鱼桶，本次放生了{released_count}条鱼"
-                )
-            else:
-                self.log_updated.emit(
-                    f"检测到弹窗已处理，鱼桶已自动关闭，本次放生了{released_count}条鱼"
-                )
 
             self.status_updated.emit("运行中")
             return True

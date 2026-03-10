@@ -148,6 +148,7 @@ class VisionUtilsService:
             "afk_popup": "AFK弹窗",
             "ocr_area": "OCR区域",
             "sell_price_area": "鱼干价格",
+            "bucket_close_button": "鱼桶关闭按钮",
         }
 
         font_cjk = None

@@ -31,6 +31,10 @@ class RegionConfig:
                 "coords": (1819, 436, 235, 96),
                 "anchor": "bottom_right",
             },
+            "bucket_close_button": {
+                "coords": (2449, 435, 24, 23),
+                "anchor": "top_right",
+            },
             "weather_icon": {
                 "coords": (2430, 45, 75, 70),
                 "anchor": "top_right",

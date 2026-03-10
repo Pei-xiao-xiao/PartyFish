@@ -102,6 +102,19 @@ def generate_debug_screenshot(show_image=True):
     except:
         pass
 
+    # 8. 鱼桶关闭按钮区域检测
+    try:
+        bucket_close_region = cfg.get_rect("bucket_close_button")
+        recognition_results.append(f"鱼桶关闭按钮区域: {bucket_close_region}")
+        result = vision.find_template_with_score(
+            "esc__grayscale", region=bucket_close_region
+        )
+        if result:
+            score, pos = result
+            recognition_results.append(f"鱼桶关闭按钮: {score:.2f} at {pos}")
+    except:
+        pass
+
     print("Drawing debug overlay...")
     # 使用新的 vision 方法就地修改截图
     # 传递识别结果给绘图函数
@@ -202,6 +215,22 @@ def generate_debug_screenshot(show_image=True):
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
             (0, 255, 255),
+            2,
+        )
+    except:
+        pass
+
+    # 绘制鱼桶关闭按钮区域
+    try:
+        x, y, w, h = cfg.get_rect("bucket_close_button")
+        cv2.rectangle(screenshot, (x, y), (x + w, y + h), (255, 0, 255), 2)
+        cv2.putText(
+            screenshot,
+            "Bucket Close",
+            (x - 5, y - 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 0, 255),
             2,
         )
     except:

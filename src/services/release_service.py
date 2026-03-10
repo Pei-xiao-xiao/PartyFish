@@ -19,41 +19,116 @@ class ReleaseService:
             worker: FishingWorker 实例，用于访问输入、视觉、OCR等功能
         """
         self.worker = worker
+        self._last_bucket_close_button_detected = None
 
-    def _ensure_esc_closed(self, max_retries=3):
+    def _get_bucket_close_button_region(self):
+        return cfg.get_rect("bucket_close_button")
+
+    def _reset_bucket_close_button_debug_state(self):
+        self._last_bucket_close_button_detected = None
+
+    def _log_bucket_close_button_detection(self, esc_region, esc_pos):
+        detected = esc_pos is not None
+        if detected == self._last_bucket_close_button_detected:
+            return
+
+        self._last_bucket_close_button_detected = detected
+        if detected:
+            self.worker.log_updated.emit(
+                f"[调试] 鱼桶关闭模板检测到，区域={esc_region}，位置={esc_pos}"
+            )
+            return
+
+        self.worker.log_updated.emit(f"[调试] 鱼桶关闭模板未检测到，区域={esc_region}")
+
+    def _log_bucket_close_button_disappeared(self):
+        self.worker.log_updated.emit("[调试] 鱼桶关闭模板已消失")
+
+    def _find_bucket_close_button(self):
+        esc_region = self._get_bucket_close_button_region()
+        esc_pos = self.worker.vision.find_template(
+            "esc__grayscale", region=esc_region, threshold=0.8
+        )
+        self._log_bucket_close_button_detection(esc_region, esc_pos)
+        return esc_region, esc_pos
+
+    def _find_bucket_close_button_without_log(self):
+        esc_region = self._get_bucket_close_button_region()
+        esc_pos = self.worker.vision.find_template(
+            "esc__grayscale", region=esc_region, threshold=0.8
+        )
+        return esc_region, esc_pos
+
+    def _is_bucket_open(self):
+        _, esc_pos = self._find_bucket_close_button()
+        return esc_pos is not None
+
+    def _check_single_release_popup(self, release_clicked):
+        popup_region = cfg.get_rect("popup_exclamation")
+        popup_detected = self.worker.vision.find_template_popup(
+            "exclamation_grayscale", region=popup_region, threshold=0.7
+        )
+        if not popup_detected:
+            return None
+
+        self.worker.inputs.release_key("C")
+        self.worker.log_updated.emit("单条放生过程中检测到加时弹窗，等待处理...")
+        if not self.worker._wait_for_popup_clear(timeout=10):
+            self.worker.log_updated.emit("等待弹窗清除超时")
+
+        time.sleep(5.0)
+
+        if release_clicked:
+            self.worker.log_updated.emit(
+                "加时弹窗已处理，已回到正常钓鱼界面；放生按钮已点击，本次单条放生不重试"
+            )
+            return "done"
+
+        self.worker.log_updated.emit(
+            "加时弹窗已处理，已回到正常钓鱼界面；放生按钮未点击，准备重试单条放生"
+        )
+        return "retry"
+
+    def _wait_for_single_release_bucket_open(self, timeout=2.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self._is_bucket_open():
+                return "opened"
+
+            popup_result = self._check_single_release_popup(False)
+            if popup_result is not None:
+                return popup_result
+
+            self.worker.msleep(100)
+
+        if self._is_bucket_open():
+            return "opened"
+
+        return "timeout"
+
+    def _ensure_esc_closed(self):
         """
         确保ESC关闭界面，如果检测到ESC按钮还在则点击关闭
-
-        Args:
-            max_retries: 最大重试次数
 
         Returns:
             bool: 是否成功关闭
         """
-        esc_region = (
-            int(2449 * cfg.scale),
-            int(435 * cfg.scale),
-            int(24 * cfg.scale),
-            int(23 * cfg.scale),
-        )
+        self._reset_bucket_close_button_debug_state()
+        esc_region, esc_pos = self._find_bucket_close_button()
+        if esc_pos is None:
+            return True
 
-        for attempt in range(max_retries):
-            esc_pos = self.worker.vision.find_template(
-                "esc__grayscale", region=esc_region, threshold=0.8
-            )
+        self.worker.inputs.press_key("ESC")
+        self.worker.smart_sleep(0.5)
 
-            if esc_pos is None:
-                return True
-
+        esc_region, esc_pos = self._find_bucket_close_button_without_log()
+        if esc_pos is None:
+            self._log_bucket_close_button_disappeared()
+        else:
             self.worker.log_updated.emit(
-                f"检测到界面未关闭，尝试点击ESC按钮(第{attempt + 1}次)"
+                f"[调试] 按下ESC后鱼桶关闭模板仍存在，区域={esc_region}，位置={esc_pos}"
             )
-            click_x = esc_region[0] + esc_pos[0] + cfg.window_offset_x
-            click_y = esc_region[1] + esc_pos[1] + cfg.window_offset_y
-            self.worker.inputs.click(click_x, click_y)
-            self.worker.smart_sleep(0.5)
-
-        return False
+        return esc_pos is None
 
     def _open_fish_bucket(self):
         """
@@ -449,28 +524,31 @@ class ReleaseService:
             if self.worker.running and not self.worker.paused:
                 return False
             self.worker.inputs.release_key("C")
-            self.worker.inputs.press_key("ESC")
+            self._ensure_esc_closed()
             if self.worker.paused:
                 self.worker.log_updated.emit("单条放生被暂停，已中止")
                 self.worker.status_updated.emit("已暂停")
             return True
 
-        if not self.worker.running or self.worker.paused:
-            return
+        def _check_attempt_state(release_clicked=False):
+            if _abort_if_paused_or_stopped():
+                return "abort"
+            return self._check_single_release_popup(release_clicked)
 
-        self.worker.status_updated.emit("自动放生中")
-        self.worker.log_updated.emit("正在执行单条放生...")
+        def _run_single_release_attempt():
+            release_clicked = False
 
-        try:
             self.worker.inputs.hold_key("C")
             self.worker.msleep(300)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state()
+            if attempt_state:
+                return attempt_state
 
             bucket_pos = self.worker.vision.find_template("tong_gray", threshold=0.8)
             self.worker.msleep(200)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state()
+            if attempt_state:
+                return attempt_state
 
             if bucket_pos:
                 ctypes.windll.user32.SetCursorPos(
@@ -478,17 +556,26 @@ class ReleaseService:
                     bucket_pos[1] + cfg.window_offset_y,
                 )
                 self.worker.msleep(500)
-                if _abort_if_paused_or_stopped():
-                    return
+                attempt_state = _check_attempt_state()
+                if attempt_state:
+                    return attempt_state
 
             self.worker.inputs.release_key("C")
             self.worker.msleep(1200)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state()
+            if attempt_state:
+                return attempt_state
 
             if not bucket_pos:
-                self.worker.inputs.press_key("ESC")
-                return
+                self.worker.log_updated.emit("未识别到鱼桶入口，跳过单条放生")
+                return "done"
+
+            bucket_state = self._wait_for_single_release_bucket_open()
+            if bucket_state == "timeout":
+                self.worker.log_updated.emit("未检测到鱼桶关闭按钮，跳过单条放生")
+                return "done"
+            if bucket_state != "opened":
+                return bucket_state
 
             zone = cfg.REGIONS["fish_inventory"]["zones"][0]
             grid = zone["grid"]
@@ -504,8 +591,8 @@ class ReleaseService:
 
             quality = self._detect_fish_quality(star_region, 0, 0)
             if quality is None:
-                self.worker.inputs.press_key("ESC")
-                return
+                self._ensure_esc_closed()
+                return "done"
 
             release_map = {
                 "标准": "release_standard",
@@ -517,8 +604,8 @@ class ReleaseService:
             should_release = cfg.global_settings.get(release_map.get(quality), False)
 
             if not should_release:
-                self.worker.inputs.press_key("ESC")
-                return
+                self._ensure_esc_closed()
+                return "done"
 
             fish_pos = cfg.REGIONS["fish_inventory"]["single_release_fish_pos"]
             fish_rect = cfg.get_bottom_right_rect((fish_pos[0], fish_pos[1], 1, 1))
@@ -527,14 +614,17 @@ class ReleaseService:
 
             if cfg.global_settings.get("enable_fish_name_protection", False):
                 self.worker.msleep(200)
-                if _abort_if_paused_or_stopped():
-                    return
+                attempt_state = _check_attempt_state()
+                if attempt_state:
+                    return attempt_state
+
                 self.worker.inputs.double_click(
                     fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
                 )
                 self.worker.msleep(500)
-                if _abort_if_paused_or_stopped():
-                    return
+                attempt_state = _check_attempt_state()
+                if attempt_state:
+                    return attempt_state
 
                 fish_name_region = cfg.get_rect("fish_name_tooltip")
                 fish_name_img = self.worker.vision.screenshot(fish_name_region)
@@ -543,44 +633,70 @@ class ReleaseService:
                     fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
 
                 if fish_name and cfg.is_fish_protected(fish_name, quality):
-                    self.worker.inputs.press_key("ESC")
-                    self.worker.msleep(300)
                     self._ensure_esc_closed()
-                    return
+                    return "done"
 
             self.worker.msleep(200)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state()
+            if attempt_state:
+                return attempt_state
+
             self.worker.inputs.click(
                 fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
             )
             self.worker.msleep(800)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state()
+            if attempt_state:
+                return attempt_state
 
             offset = cfg.REGIONS["fish_inventory"]["single_release_button_offset"]
             release_x = fish_x + int(offset[0] * cfg.scale)
             release_y = fish_y + int(offset[1] * cfg.scale)
+
             self.worker.msleep(200)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state()
+            if attempt_state:
+                return attempt_state
 
             self.worker.inputs.click(
                 release_x + cfg.window_offset_x, release_y + cfg.window_offset_y
             )
+            release_clicked = True
             self.worker.msleep(800)
-            if _abort_if_paused_or_stopped():
-                return
+            attempt_state = _check_attempt_state(release_clicked)
+            if attempt_state:
+                return attempt_state
 
-            self.worker.inputs.press_key("ESC")
-            self.worker.msleep(300)
             self._ensure_esc_closed()
-            if _abort_if_paused_or_stopped():
+            attempt_state = _check_attempt_state(release_clicked)
+            if attempt_state:
+                return attempt_state
+
+            return "done"
+
+        if not self.worker.running or self.worker.paused:
+            return
+
+        self._reset_bucket_close_button_debug_state()
+        self.worker.status_updated.emit("自动放生中")
+        self.worker.log_updated.emit("正在执行单条放生...")
+
+        try:
+            max_retry_attempts = 2
+            for attempt in range(max_retry_attempts):
+                if attempt > 0:
+                    self.worker.log_updated.emit("加时弹窗已处理，重新执行单条放生...")
+
+                result = _run_single_release_attempt()
+                if result == "retry" and attempt < max_retry_attempts - 1:
+                    continue
+                if result == "retry":
+                    self.worker.log_updated.emit(
+                        "单条放生重试后仍被加时弹窗打断，跳过本次放生"
+                    )
                 return
 
         except Exception as e:
             self.worker.log_updated.emit(f"单条放生操作发生错误: {e}")
             self.worker.inputs.release_key("C")
-            self.worker.inputs.press_key("ESC")
-            self.worker.msleep(300)
             self._ensure_esc_closed()
