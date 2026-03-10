@@ -120,6 +120,33 @@ class FishingService:
         self.worker.pause(reason="无法识别鱼饵数量")
         return None
 
+    def _set_waiting_bait_baseline(self, bait_amount):
+        """Store the bait amount baseline for the waiting-for-bite stage."""
+        self.worker._initial_bait_for_bite = bait_amount
+
+    def refresh_waiting_bait_baseline(self):
+        """
+        Refresh the waiting-for-bite bait baseline from the current screen.
+
+        This is used when the script detects it is already in the waiting state
+        without going through the normal cast verification path.
+        """
+        for _ in range(5):
+            if not self.worker.running:
+                break
+            while self.worker.paused:
+                self.worker.msleep(100)
+
+            bait_amount = self.worker.vision.get_bait_amount()
+            if bait_amount is not None:
+                self._set_waiting_bait_baseline(bait_amount)
+                return bait_amount
+
+            self.worker.msleep(100)
+
+        self.worker._initial_bait_for_bite = None
+        return None
+
     def _handle_cast_verification_timeout(self, initial_bait, cast_icon_ever_gone):
         """
         处理抛竿验证超时的情况
@@ -231,7 +258,7 @@ class FishingService:
                 cast_icon_ever_gone = True
 
             if cast_icon_gone and wait_icon_appeared:
-                self.worker._initial_bait_for_bite = initial_bait
+                self._set_waiting_bait_baseline(initial_bait)
                 self.worker.log_updated.emit("已抛竿, 进入等待咬钩状态。")
                 self.worker.status_updated.emit("等待咬钩")
                 return True, cast_icon_ever_gone
@@ -338,6 +365,7 @@ class FishingService:
         initial_bait = getattr(self.worker, "_initial_bait_for_bite", None)
 
         if initial_bait is not None:
+            self.worker._initial_bait_for_bite = None
             self.worker.log_updated.emit(f"初始鱼饵数量: {initial_bait}")
             return initial_bait
 
