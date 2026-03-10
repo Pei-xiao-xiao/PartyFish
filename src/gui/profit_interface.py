@@ -248,13 +248,11 @@ class ProfitInterface(QWidget):
         op_layout.setContentsMargins(20, 20, 20, 20)
         op_layout.setSpacing(15)
 
-        # 进度条
         progress_layout = QHBoxLayout()
 
-        # 区服选择
         self.server_combo = ComboBox(op_container)
-        self.server_combo.addItems(["国服 (00:00 重置)", "亚服 (12:00 重置)"])
-        current_region = cfg.global_settings.get("server_region", "CN")
+        self.server_combo.addItems(["国服 (00:00 重置)", "国际服 (12:00 重置)"])
+        current_region = cfg.get_current_account_server_region()
         if current_region == "Global":
             self.server_combo.setCurrentIndex(1)
         else:
@@ -685,12 +683,23 @@ class ProfitInterface(QWidget):
 
     def _on_server_changed(self, text):
         """区服变更"""
-        new_region = "Global" if "亚服" in text else "CN"
-        if cfg.global_settings.get("server_region") != new_region:
-            cfg.global_settings["server_region"] = new_region
-            cfg.save()
+        new_region = "Global" if "国际服" in text else "CN"
+        current_region = cfg.get_current_account_server_region()
+        if current_region != new_region:
+            cfg.set_current_account_server_region(new_region)
             self.reload_data()
             self.server_changed_signal.emit(new_region)
+
+    def refresh_server_region(self):
+        """刷新区服选择器显示（账号切换时调用）"""
+        current_region = cfg.get_current_account_server_region()
+        self.server_combo.blockSignals(True)
+        if current_region == "Global":
+            self.server_combo.setCurrentIndex(1)
+        else:
+            self.server_combo.setCurrentIndex(0)
+        self.server_combo.blockSignals(False)
+        self.reload_data()
 
     def add_sale_record(self, amount):
         """添加销售记录（由 worker 调用）"""

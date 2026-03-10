@@ -45,7 +45,7 @@ class ProfitAnalysisService:
         CN: 当日 00:00
         Global: 当日 12:00 (若当前 >= 12:00) 或 昨日 12:00 (若当前 < 12:00)
         """
-        region = cfg.global_settings.get("server_region", "CN")
+        region = cfg.get_current_account_server_region()
         now = datetime.now()
 
         if region == "CN":

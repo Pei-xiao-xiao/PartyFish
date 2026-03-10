@@ -28,11 +28,40 @@ from qfluentwidgets import (
     InfoBar,
     InfoBarPosition,
     MessageBox,
+    MessageBoxBase,
+    SubtitleLabel,
     SegmentedWidget,
 )
 from src.config import cfg
 from src.gui.components import KeyBindingWidget
 from src.services.record_manager import record_manager
+
+
+class ServerRegionDialog(MessageBoxBase):
+    """区服选择对话框"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.titleLabel = SubtitleLabel("选择区服", self)
+        self.contentLabel = BodyLabel("请选择该账号的区服类型：", self)
+
+        self.regionCombo = ComboBox(self)
+        self.regionCombo.addItems(["国服 (00:00 重置)", "国际服 (12:00 重置)"])
+        self.regionCombo.setCurrentIndex(0)
+        self.regionCombo.setFixedWidth(200)
+
+        self.viewLayout.addWidget(self.titleLabel)
+        self.viewLayout.addWidget(self.contentLabel)
+        self.viewLayout.addWidget(self.regionCombo)
+
+        self.yesButton.setText("确定")
+        self.cancelButton.setText("取消")
+
+        self.widget.setMinimumWidth(300)
+
+    def get_selected_region(self):
+        """返回选择的区服：'CN' 或 'Global'"""
+        return "CN" if self.regionCombo.currentIndex() == 0 else "Global"
 
 
 class SmartDoubleSpinBox(DoubleSpinBox):
@@ -1108,26 +1137,34 @@ class SettingsInterface(ScrollArea):
             )
             return
 
-        if cfg.create_account(account_name):
-            InfoBar.success(
-                title=self.tr("创建成功"),
-                content=self.tr(f"账号 '{account_name}' 已创建"),
-                duration=2000,
-                position=InfoBarPosition.TOP,
-                parent=self.window(),
-            )
-            self.newAccountLineEdit.clear()
-            self._refresh_delete_account_list()
-            # 通知首页刷新账号列表
-            self.account_list_changed_signal.emit()
-        else:
-            InfoBar.warning(
-                title=self.tr("创建失败"),
-                content=self.tr(f"账号 '{account_name}' 已存在"),
-                duration=2000,
-                position=InfoBarPosition.TOP,
-                parent=self.window(),
-            )
+        dialog = ServerRegionDialog(self.window())
+        dialog.titleLabel.setText(self.tr("选择区服"))
+        dialog.contentLabel.setText(self.tr(f"请为账号 '{account_name}' 选择区服类型："))
+        dialog.yesButton.setText(self.tr("创建"))
+        dialog.cancelButton.setText(self.tr("取消"))
+
+        if dialog.exec():
+            server_region = dialog.get_selected_region()
+
+            if cfg.create_account(account_name, server_region):
+                InfoBar.success(
+                    title=self.tr("创建成功"),
+                    content=self.tr(f"账号 '{account_name}' 已创建（{self.tr('国服') if server_region == 'CN' else self.tr('国际服')}）"),
+                    duration=2000,
+                    position=InfoBarPosition.TOP,
+                    parent=self.window(),
+                )
+                self.newAccountLineEdit.clear()
+                self._refresh_delete_account_list()
+                self.account_list_changed_signal.emit()
+            else:
+                InfoBar.warning(
+                    title=self.tr("创建失败"),
+                    content=self.tr(f"账号 '{account_name}' 已存在"),
+                    duration=2000,
+                    position=InfoBarPosition.TOP,
+                    parent=self.window(),
+                )
 
     def _on_delete_account(self):
         """删除账号"""

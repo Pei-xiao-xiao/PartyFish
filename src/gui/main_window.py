@@ -187,8 +187,11 @@ class MainWindow(FluentWindow):
         self.append_log(f"已切换到账号: {account_name}")
         # 刷新记录页
         self.records_interface._load_data()
-        # 刷新收益页
-        self.profit_interface.reload_data()
+        # 刷新收益页（包括区服选择器）
+        if hasattr(self.profit_interface, "refresh_server_region"):
+            self.profit_interface.refresh_server_region()
+        else:
+            self.profit_interface.reload_data()
         # 刷新图鉴页（这会调用 pokedex.reload() 重新加载收集数据）
         self.pokedex_interface.reload_data()
         # 刷新设置页账号管理 UI
@@ -197,6 +200,8 @@ class MainWindow(FluentWindow):
         self._update_overlay_limit()
         # 刷新悬浮窗鱼种预览（使用新账号的收集进度重新排序）
         self.overlay.update_fish_preview()
+        # 更新重置时间（如果区服不同会提示）
+        self.cycle_reset_manager.schedule_next_reset()
 
     def _on_theme_changed(self, theme: str):
         if theme == "Light":

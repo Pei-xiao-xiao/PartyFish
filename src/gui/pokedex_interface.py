@@ -31,6 +31,8 @@ from qfluentwidgets import (
     MessageBox,
     qconfig,
     FlowLayout,
+    RoundMenu,
+    Action,
 )
 from src.pokedex import pokedex, QUALITIES
 from src.gui.fish_detail_dialog import FishDetailDialog
@@ -719,19 +721,12 @@ class PokedexInterface(QWidget):
         self.sync_btn.clicked.connect(self._on_sync_clicked)
         toolbar.addWidget(self.sync_btn)
 
-        # 一键全图鉴按钮
-        self.fill_all_btn = PushButton("一键全图鉴", self)
-        self.fill_all_btn.setIcon(FluentIcon.COMPLETED)
-        self.fill_all_btn.setToolTip("将图鉴全部点满")
-        self.fill_all_btn.clicked.connect(self._on_fill_all_clicked)
-        toolbar.addWidget(self.fill_all_btn)
-
-        # 清空全图鉴按钮
-        self.clear_all_btn = PushButton("清空全图鉴", self)
-        self.clear_all_btn.setIcon(FluentIcon.DELETE)
-        self.clear_all_btn.setToolTip("清空图鉴全部收集状态")
-        self.clear_all_btn.clicked.connect(self._on_clear_all_clicked)
-        toolbar.addWidget(self.clear_all_btn)
+        # 图鉴管理按钮（点击弹出菜单）
+        self.pokedex_manage_btn = PushButton("图鉴管理", self)
+        self.pokedex_manage_btn.setIcon(FluentIcon.EDIT)
+        self.pokedex_manage_btn.setToolTip("图鉴操作菜单")
+        self.pokedex_manage_btn.clicked.connect(self._show_pokedex_menu)
+        toolbar.addWidget(self.pokedex_manage_btn)
 
         # 生成进度图按钮 (图标化)
         self.generate_image_btn = TransparentToolButton(FluentIcon.CAMERA, self)
@@ -1026,6 +1021,26 @@ class PokedexInterface(QWidget):
                 duration=2000,
                 parent=self,
             )
+
+    def _show_pokedex_menu(self):
+        """显示图鉴操作菜单"""
+        menu = RoundMenu(parent=self)
+        
+        # 添加"一键全图鉴"选项
+        action1 = Action(FluentIcon.COMPLETED, "一键全图鉴")
+        action1.triggered.connect(self._on_fill_all_clicked)
+        menu.addAction(action1)
+        
+        # 添加"清空全图鉴"选项
+        action2 = Action(FluentIcon.DELETE, "清空全图鉴")
+        action2.triggered.connect(self._on_clear_all_clicked)
+        menu.addAction(action2)
+        
+        # 在按钮下方弹出菜单
+        button_pos = self.pokedex_manage_btn.mapToGlobal(
+            self.pokedex_manage_btn.rect().bottomLeft()
+        )
+        menu.exec(button_pos)
 
     def _on_fill_all_clicked(self):
         """一键点满图鉴"""

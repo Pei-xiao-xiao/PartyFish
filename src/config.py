@@ -186,11 +186,19 @@ class Config(metaclass=SingletonMeta):
     def switch_account(self, account_name):
         return self.account_service.switch_account(account_name)
 
-    def create_account(self, account_name):
-        return self.account_service.create_account(account_name)
+    def create_account(self, account_name, server_region="CN"):
+        return self.account_service.create_account(account_name, server_region)
 
     def delete_account(self, account_name):
         return self.account_service.delete_account(account_name)
+
+    def get_current_account_server_region(self):
+        """获取当前账号的区服设置"""
+        return self.account_service.get_account_server_region()
+
+    def set_current_account_server_region(self, region):
+        """设置当前账号的区服"""
+        self.account_service.set_account_server_region(region)
 
     def _get_base_path(self):
         """获取应用程序的基础路径。由 main.py 设置。"""

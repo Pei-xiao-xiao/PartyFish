@@ -20,6 +20,41 @@ class ReleaseService:
         """
         self.worker = worker
 
+    def _ensure_esc_closed(self, max_retries=3):
+        """
+        确保ESC关闭界面，如果检测到ESC按钮还在则点击关闭
+
+        Args:
+            max_retries: 最大重试次数
+
+        Returns:
+            bool: 是否成功关闭
+        """
+        esc_region = (
+            int(2449 * cfg.scale),
+            int(435 * cfg.scale),
+            int(24 * cfg.scale),
+            int(23 * cfg.scale),
+        )
+
+        for attempt in range(max_retries):
+            esc_pos = self.worker.vision.find_template(
+                "esc__grayscale", region=esc_region, threshold=0.8
+            )
+
+            if esc_pos is None:
+                return True
+
+            self.worker.log_updated.emit(
+                f"检测到界面未关闭，尝试点击ESC按钮(第{attempt + 1}次)"
+            )
+            click_x = esc_region[0] + esc_pos[0] + cfg.window_offset_x
+            click_y = esc_region[1] + esc_pos[1] + cfg.window_offset_y
+            self.worker.inputs.click(click_x, click_y)
+            self.worker.smart_sleep(0.5)
+
+        return False
+
     def _open_fish_bucket(self):
         """
         打开鱼桶界面
@@ -395,7 +430,8 @@ class ReleaseService:
         )
 
         self.worker.inputs.press_key("ESC")
-        self.worker.smart_sleep(0.5)
+        self.worker.smart_sleep(0.3)
+        self._ensure_esc_closed()
 
         if self.worker.paused:
             self.worker.log_updated.emit(f"放生被暂停，已放生{released_count}条鱼")
@@ -508,6 +544,8 @@ class ReleaseService:
 
                 if fish_name and cfg.is_fish_protected(fish_name, quality):
                     self.worker.inputs.press_key("ESC")
+                    self.worker.msleep(300)
+                    self._ensure_esc_closed()
                     return
 
             self.worker.msleep(200)
@@ -535,7 +573,8 @@ class ReleaseService:
                 return
 
             self.worker.inputs.press_key("ESC")
-            self.worker.msleep(500)
+            self.worker.msleep(300)
+            self._ensure_esc_closed()
             if _abort_if_paused_or_stopped():
                 return
 
@@ -543,3 +582,5 @@ class ReleaseService:
             self.worker.log_updated.emit(f"单条放生操作发生错误: {e}")
             self.worker.inputs.release_key("C")
             self.worker.inputs.press_key("ESC")
+            self.worker.msleep(300)
+            self._ensure_esc_closed()

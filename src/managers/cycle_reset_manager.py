@@ -21,16 +21,17 @@ class CycleResetManager:
         self._reset_timer = QTimer(self.window)
         self._reset_timer.setSingleShot(True)
         self._reset_timer.timeout.connect(self._on_cycle_reset)
+        self._current_region = None
 
     def start(self):
         """启动周期重置定时器"""
         self.schedule_next_reset()
 
-    def schedule_next_reset(self):
+    def schedule_next_reset(self, force_notify=False):
         """计算并安排下一次重置触发"""
         from src.config import cfg
 
-        region = cfg.global_settings.get("server_region", "CN")
+        region = cfg.get_current_account_server_region()
         now = datetime.now()
 
         if region == "CN":
@@ -49,9 +50,12 @@ class CycleResetManager:
         self._reset_timer.setInterval(ms_until_reset)
         self._reset_timer.start()
 
-        print(
-            f"下次重置: {next_reset.strftime('%H:%M')} ({ms_until_reset // 3600000}h {(ms_until_reset % 3600000) // 60000}m 后)"
-        )
+        if force_notify or self._current_region != region:
+            print(
+                f"下次重置: {next_reset.strftime('%H:%M')} ({ms_until_reset // 3600000}h {(ms_until_reset % 3600000) // 60000}m 后)"
+            )
+
+        self._current_region = region
 
     def _on_cycle_reset(self):
         """周期重置时触发"""
@@ -62,4 +66,4 @@ class CycleResetManager:
 
     def on_server_region_changed(self, new_region: str):
         """服务器区域切换时，重新安排重置时间"""
-        self.schedule_next_reset()
+        self.schedule_next_reset(force_notify=True)
