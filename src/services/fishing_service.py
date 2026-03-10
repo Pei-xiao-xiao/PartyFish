@@ -121,15 +121,14 @@ class FishingService:
         return None
 
     def _set_waiting_bait_baseline(self, bait_amount):
-        """Store the bait amount baseline for the waiting-for-bite stage."""
+        """存储等待咬钩阶段的鱼饵数量基线。"""
         self.worker._initial_bait_for_bite = bait_amount
 
     def refresh_waiting_bait_baseline(self):
         """
-        Refresh the waiting-for-bite bait baseline from the current screen.
+        从当前屏幕刷新等待咬钩阶段的鱼饵数量基线。
 
-        This is used when the script detects it is already in the waiting state
-        without going through the normal cast verification path.
+        当脚本检测到已经处于等待状态且未经过正常抛竿验证路径时使用此方法。
         """
         for _ in range(5):
             if not self.worker.running:
