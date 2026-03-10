@@ -35,6 +35,7 @@ class FishingWorker(QThread):
         # 初始化鱼饵管理器
         self.bait_manager = None
         self._pending_bait_sync = False
+        self._initial_bait_for_bite = None
         self._init_bait_manager()
         # 确保截图目录存在
         screenshots_dir = cfg._get_application_path() / "screenshots"
@@ -153,7 +154,7 @@ class FishingWorker(QThread):
                 elif self.state_machine.is_waiting_for_bite():
                     if not self.fishing_service.wait_for_bite():
                         # 如果等待超时或失败，重置状态
-                        self.state_machine.reset()
+                        self._reset_fishing_cycle()
                     else:
                         self.state_machine.transition_to_reeling()
 
@@ -161,82 +162,23 @@ class FishingWorker(QThread):
                     reel_in_finished = self.fishing_service.reel_in()
                     if not reel_in_finished:
                         # 收线失败（鱼跑了），重置状态机重新开始
-                        self.state_machine.reset()
+                        self._reset_fishing_cycle()
                     else:
                         should_release = (
                             self.fishing_service.record_catch_non_blocking()
                         )
                         self.log_updated.emit("收起渔获, 准备下一轮。")
 
-                        # 改进的关闭弹窗逻辑：循环检测直到弹窗消失
-                        max_close_attempts = 10
-                        shangyu_region = cfg.get_rect("shangyu")
-                        popup_closed = False
-
-                        for close_attempt in range(max_close_attempts):
-                            if not self.running or self.paused:
-                                break
-
-                            # 检查"收起"按钮是否还在（弹窗是否还存在）
-                            shangyu_still_exists = False
-                            for key in [
-                                "shangyu_grayscale",
-                                "shoubing_shangyu_grayscale",
-                            ]:
-                                if self.vision.find_template(
-                                    key,
-                                    region=shangyu_region,
-                                    threshold=0.8,
-                                ):
-                                    shangyu_still_exists = True
-                                    break
-                            if not shangyu_still_exists:
-                                # 弹窗已消失，成功关闭
-                                if close_attempt > 0:  # 只有尝试过点击才输出日志
-                                    self.log_updated.emit("渔获弹窗已关闭")
-                                popup_closed = True
-                                break
-
-                            # 弹窗还在，点击关闭
-                            self.msleep(100)
-                            self.inputs.left_click()
-                            self.smart_sleep(0.3)
-
-                        if not popup_closed and (self.running and not self.paused):
-                            # 达到最大尝试次数仍未关闭
-                            self.log_updated.emit(
-                                "警告: 渔获弹窗可能未完全关闭，继续下一轮"
-                            )
+                        popup_closed = self._close_catch_popup()
 
                         # 在关闭弹窗后、重新抛竿前执行单条放生
                         release_mode = cfg.global_settings.get("release_mode", "off")
                         if release_mode == "single" and should_release and popup_closed:
                             self.release_service.execute_single_release()
 
-                        # 确保弹窗完全关闭后再重置状态
+                        # 确保弹窗完全关闭后再同步钓鱼状态
                         if popup_closed:
-                            # 等待游戏界面完全准备好
-                            # self.smart_sleep(0.5)
-
-                            # 检查是否已经误触发抛竿（等待咬钩图标已出现）
-                            wait_bite_region = cfg.get_rect("wait_bite")
-                            already_cast = False
-                            for key in ["F1_grayscale", "F2_grayscale"]:
-                                if self.vision.find_template(
-                                    key, region=wait_bite_region, threshold=0.8
-                                ):
-                                    already_cast = True
-                                    break
-
-                            if already_cast:
-                                # 已经在等待咬钩状态，直接进入等待咬钩
-                                self.log_updated.emit(
-                                    "检测到已抛竿，直接进入等待咬钩状态"
-                                )
-                                self.state_machine.transition_to_waiting()
-                            else:
-                                # 重置到初始状态
-                                self.state_machine.reset()
+                            self._sync_state_after_catch_popup()
 
             except KeyboardInterrupt:
                 # 用户中断，优雅退出
@@ -256,13 +198,112 @@ class FishingWorker(QThread):
 
         self.log_updated.emit("自动化钓鱼已停止。")
 
+    def _find_any_template(self, keys, region, threshold=0.8):
+        """Return True if any template in the region matches."""
+        for key in keys:
+            if self.vision.find_template(key, region=region, threshold=threshold):
+                return True
+        return False
+
+    def _reset_fishing_cycle(self):
+        """Reset cycle state and clear any stale bait baseline."""
+        self._initial_bait_for_bite = None
+        self.state_machine.reset()
+
+    def _close_catch_popup(self):
+        """
+        关闭上鱼弹窗。
+
+        点击后先等待界面结算，避免弹窗刚关闭时又补点一轮左键，
+        导致主界面收到多余点击并误触发再次抛竿。
+        """
+        max_close_attempts = 10
+        shangyu_region = cfg.get_rect("shangyu")
+        wait_bite_region = cfg.get_rect("wait_bite")
+        cast_rod_region = cfg.get_rect("cast_rod")
+        cast_rod_ice_region = cfg.get_rect("cast_rod_ice")
+        prompt_keys = ["F1_grayscale", "F2_grayscale"]
+        popup_keys = ["shangyu_grayscale", "shoubing_shangyu_grayscale"]
+
+        for close_attempt in range(max_close_attempts):
+            if not self.running or self.paused:
+                return False
+
+            if not self._find_any_template(popup_keys, shangyu_region):
+                if close_attempt > 0:
+                    self.log_updated.emit("渔获弹窗已关闭")
+                return True
+
+            self.msleep(100)
+            self.inputs.left_click()
+
+            settle_deadline = time.time() + 0.8
+            while time.time() < settle_deadline:
+                if not self.running or self.paused:
+                    return False
+
+                if not self._find_any_template(popup_keys, shangyu_region):
+                    self.log_updated.emit("渔获弹窗已关闭")
+                    return True
+
+                if self._find_any_template(prompt_keys, wait_bite_region):
+                    self.log_updated.emit("检测到已进入等待咬钩界面，停止额外点击")
+                    return True
+
+                if self._find_any_template(
+                    prompt_keys, cast_rod_region
+                ) or self._find_any_template(prompt_keys, cast_rod_ice_region):
+                    self.log_updated.emit("检测到抛竿提示已恢复，停止额外点击")
+                    return True
+
+                self.msleep(100)
+
+        if self.running and not self.paused:
+            self.log_updated.emit("警告: 渔获弹窗可能未完全关闭，继续下一轮")
+        return False
+
+    def _sync_state_after_catch_popup(self):
+        """
+        关窗后等待钓鱼 UI 稳定，再决定是回到抛竿还是继续等待咬钩。
+        """
+        wait_bite_region = cfg.get_rect("wait_bite")
+        cast_rod_region = cfg.get_rect("cast_rod")
+        cast_rod_ice_region = cfg.get_rect("cast_rod_ice")
+        prompt_keys = ["F1_grayscale", "F2_grayscale"]
+        sync_deadline = time.time() + max(1.2, cfg.cast_time + 0.8)
+        stable_prompt_checks = 0
+
+        while time.time() < sync_deadline:
+            if not self.running or self.paused:
+                return
+
+            if self._find_any_template(prompt_keys, wait_bite_region):
+                self.fishing_service.refresh_waiting_bait_baseline()
+                self.log_updated.emit("检测到已抛竿，直接进入等待咬钩状态")
+                self.state_machine.transition_to_waiting()
+                return
+
+            if self._find_any_template(
+                prompt_keys, cast_rod_region
+            ) or self._find_any_template(prompt_keys, cast_rod_ice_region):
+                stable_prompt_checks += 1
+                if stable_prompt_checks >= 3:
+                    self._reset_fishing_cycle()
+                    return
+            else:
+                stable_prompt_checks = 0
+
+            self.msleep(100)
+
+        self._reset_fishing_cycle()
+
     def pause(self, reason: str = None):
         """
         暂停线程并重置状态
         :param reason: 暂停的具体原因，如果不为None，将显示此状态，否则显示默认的"已暂停"
         """
         self.paused = True
-        self.state_machine.reset()  # 重置状态到初始阶段
+        self._reset_fishing_cycle()
         self.inputs.ensure_mouse_up()
 
         status_text = f"已暂停: {reason}" if reason else "已暂停"
