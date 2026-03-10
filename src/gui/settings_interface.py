@@ -157,6 +157,14 @@ class SettingsInterface(ScrollArea):
         # 2. Fishing Config Group
         self.fishingGroup = SettingCardGroup(self.tr("钓鱼参数配置"), self.scrollWidget)
 
+        self.castTimeCard = self._create_double_spinbox_card(
+            icon=FluentIcon.UPDATE,
+            title=self.tr("抛竿时间"),
+            content=self.tr("按下抛竿键的持续时间 (秒)"),
+            config_key="cast_time",
+        )
+        self.fishingGroup.addSettingCard(self.castTimeCard)
+
         self.reelInTimeCard = self._create_double_spinbox_card(
             icon=FluentIcon.SPEED_HIGH,
             title=self.tr("收线时间"),
@@ -778,9 +786,9 @@ class SettingsInterface(ScrollArea):
     def _create_double_spinbox_card(self, icon, title, content, config_key):
         card = SettingCard(icon, title, content, parent=self.fishingGroup)
         spinbox = SmartDoubleSpinBox(card)
-        spinbox.setRange(0.001, 10.0)
-        spinbox.setSingleStep(0.001)
-        spinbox.setDecimals(3)
+        spinbox.setRange(0.01, 10.0)
+        spinbox.setSingleStep(0.1)
+        spinbox.setDecimals(2)
         card.hBoxLayout.addWidget(spinbox, 0, Qt.AlignRight)
         margins = card.hBoxLayout.contentsMargins()
         card.hBoxLayout.setContentsMargins(
@@ -981,6 +989,7 @@ class SettingsInterface(ScrollArea):
         # 加载预设特定设置
         current_preset = cfg.presets.get(preset_name, {})
 
+        self.castTimeSpinBox.setValue(current_preset.get("cast_time", 2.0))
         self.reelInTimeSpinBox.setValue(current_preset.get("reel_in_time", 2.0))
         self.releaseTimeSpinBox.setValue(current_preset.get("release_time", 1.0))
         self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
@@ -1089,6 +1098,7 @@ class SettingsInterface(ScrollArea):
         """仅保存钓鱼预设设置。"""
         preset_name = self.presetComboBox.currentText()
         if preset_name in cfg.presets:
+            cfg.presets[preset_name]["cast_time"] = self.castTimeSpinBox.value()
             cfg.presets[preset_name]["reel_in_time"] = self.reelInTimeSpinBox.value()
             cfg.presets[preset_name]["release_time"] = self.releaseTimeSpinBox.value()
             cfg.presets[preset_name][
@@ -1538,6 +1548,7 @@ class SettingsInterface(ScrollArea):
 
         if preset_name in default_presets:
             default_config = default_presets[preset_name]
+            self.castTimeSpinBox.setValue(default_config["cast_time"])
             self.reelInTimeSpinBox.setValue(default_config["reel_in_time"])
             self.releaseTimeSpinBox.setValue(default_config["release_time"])
             self.cycleIntervalSpinBox.setValue(default_config["cycle_interval"])

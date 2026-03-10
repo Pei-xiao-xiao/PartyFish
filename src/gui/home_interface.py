@@ -363,23 +363,11 @@ class HomeInterface(QWidget):
         self.status_container = QWidget(self.banner)
         self.status_container.setFixedWidth(130)
         status_layout = QVBoxLayout(self.status_container)
-        status_layout.setContentsMargins(12, 0, 12, 0)
-        status_layout.setSpacing(self.control_grid.verticalSpacing())
-        status_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        status_layout.setContentsMargins(12, 8, 12, 8)
+        status_layout.setSpacing(4)
+        status_layout.setAlignment(Qt.AlignCenter)
 
-        status_row_height = max(
-            self.accountComboBox.sizeHint().height(),
-            self.overlay_switch.sizeHint().height(),
-            28,
-        )
-        status_detail_row_height = max(self.presetComboBox.sizeHint().height(), 28)
-        status_action_row_height = max(
-            self.screenshot_mode_segment.sizeHint().height(), 30
-        )
-
-        self.status_header_widget = QWidget(self.status_container)
-        self.status_header_widget.setFixedHeight(status_row_height)
-        status_header_layout = QHBoxLayout(self.status_header_widget)
+        status_header_layout = QHBoxLayout()
         status_header_layout.setContentsMargins(0, 0, 0, 0)
         status_header_layout.setSpacing(6)
         status_header_layout.setAlignment(Qt.AlignCenter)
@@ -406,25 +394,13 @@ class HomeInterface(QWidget):
         self.run_time_label.setStyleSheet(
             "color: #94a3b8; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace;"
         )
-        self.run_time_label.setAlignment(Qt.AlignCenter)
-        self.run_time_label.setFixedHeight(status_detail_row_height)
-
-        self.cast_mode_segment = SegmentedWidget(self.status_container)
-        self.cast_mode_segment.addItem("tap", "点抛")
-        self.cast_mode_segment.addItem("far", "远抛")
-        self.cast_mode_segment.setFixedWidth(106)
-        self.cast_mode_segment.setFixedHeight(status_action_row_height)
-        self.cast_mode_segment.setCurrentItem(cfg.get_cast_mode())
-        self.cast_mode_segment.setToolTip("点抛固定 0.1 秒，远抛固定 2.7 秒")
-        self.cast_mode_segment.currentItemChanged.connect(self._on_cast_mode_changed)
 
         status_header_layout.addWidget(self.status_dot, 0, Qt.AlignVCenter)
         status_header_layout.addWidget(self.status_text, 0, Qt.AlignVCenter)
-        status_layout.addWidget(self.status_header_widget, 0, Qt.AlignCenter)
+        status_layout.addLayout(status_header_layout)
         status_layout.addWidget(self.run_time_label, 0, Qt.AlignCenter)
-        status_layout.addWidget(self.cast_mode_segment, 0, Qt.AlignCenter)
 
-        self.controls_layout.addWidget(self.status_container, 0, Qt.AlignTop)
+        self.controls_layout.addWidget(self.status_container)
         self.banner_layout.addWidget(self.controls_container)
 
         self.v_box_layout.addWidget(self.banner)
@@ -599,10 +575,6 @@ class HomeInterface(QWidget):
         )
         self.screenshot_mode_segment.blockSignals(False)
 
-        self.cast_mode_segment.blockSignals(True)
-        self.cast_mode_segment.setCurrentItem(cfg.get_cast_mode())
-        self.cast_mode_segment.blockSignals(False)
-
     def _on_sound_switch_changed(self, checked):
         """处理音效开关变化"""
         cfg.global_settings["control_sound_enabled"] = checked
@@ -633,15 +605,6 @@ class HomeInterface(QWidget):
         cfg.save()
         mode_text_map = {"wegame": "WeGame", "steam": "Steam"}
         self.update_log(f"[系统] 截图模式已切换为: {mode_text_map.get(mode, mode)}")
-
-    def _on_cast_mode_changed(self, mode):
-        """Handle fixed cast mode changes from the main interface."""
-        cast_time = cfg.apply_cast_mode(mode)
-        cfg.save()
-        mode_text_map = {"tap": "点抛", "far": "远抛"}
-        self.update_log(
-            f"[系统] 抛竿模式已切换为: {mode_text_map.get(mode, mode)} ({cast_time:.1f}s)"
-        )
 
     def _notify_settings_interface_update(self, mode):
         """通知设置页面更新放生模式"""

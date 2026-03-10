@@ -12,7 +12,6 @@ class AccountService:
     """账号管理服务类"""
 
     ACCOUNT_SPECIFIC_GLOBAL_KEYS = (
-        "cast_mode",
         "selected_baits",
         "release_mode",
         "auto_release_enabled",
@@ -39,7 +38,6 @@ class AccountService:
         "release_epic": False,
         "release_legendary": False,
         "pokedex_filter_criteria": {},
-        "cast_mode": "tap",
     }
 
     def __init__(self, config):
@@ -125,15 +123,6 @@ class AccountService:
     def _get_default_account_settings(self):
         return deepcopy(self.DEFAULT_ACCOUNT_SETTINGS)
 
-    def _infer_cast_mode(self, settings=None):
-        preset_name = self.config.current_preset_name
-        if isinstance(settings, dict):
-            preset_name = settings.get("current_preset", preset_name)
-
-        preset = self.config.presets.get(preset_name, {})
-        cast_time = preset.get("cast_time", 0.1)
-        return "far" if cast_time >= 1 else "tap"
-
     def _normalize_account_settings(self, settings):
         normalized = self._get_default_account_settings()
         if isinstance(settings, dict):
@@ -144,10 +133,6 @@ class AccountService:
 
         if not isinstance(normalized.get("pokedex_filter_criteria"), dict):
             normalized["pokedex_filter_criteria"] = {}
-
-        normalized["cast_mode"] = self.config.normalize_cast_mode(
-            normalized.get("cast_mode", self._infer_cast_mode(normalized))
-        )
 
         return normalized
 
@@ -218,10 +203,6 @@ class AccountService:
             settings["current_bait"] = self.config.current_bait
             changed = True
 
-        if "cast_mode" not in settings:
-            settings["cast_mode"] = self._infer_cast_mode(settings)
-            changed = True
-
         for key in self.ACCOUNT_SPECIFIC_GLOBAL_KEYS:
             if key not in settings and key in self.config.global_settings:
                 settings[key] = deepcopy(self.config.global_settings.get(key))
@@ -244,7 +225,6 @@ class AccountService:
         self.config.current_bait = settings.get(
             "current_bait", self.config.current_bait
         )
-        self.config.apply_cast_mode(settings.get("cast_mode", "tap"))
 
     def persist_current_account_settings(self):
         """保存当前账号的私有配置。"""
