@@ -29,7 +29,7 @@ class FishingStateMachine:
         self.state = FishingState.WAITING_FOR_BITE
 
     def transition_to_reeling(self):
-        """转换到收杆状态"""
+        """转换到收竿状态"""
         self.state = FishingState.REELING_IN
 
     def is_finding_prompt(self) -> bool:
@@ -41,5 +41,5 @@ class FishingStateMachine:
         return self.state == FishingState.WAITING_FOR_BITE
 
     def is_reeling_in(self) -> bool:
-        """是否在收杆状态"""
+        """是否在收竿状态"""
         return self.state == FishingState.REELING_IN

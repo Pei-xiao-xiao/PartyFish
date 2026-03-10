@@ -530,7 +530,7 @@ class FishDetailDialog(QDialog):
         return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
     def _format_rod_type(self, fish_type: str) -> str:
-        return fish_type.replace("杆", "竿")
+        return fish_type.replace(chr(0x6746), "竿")
 
     def _build_rarity_label(self) -> str:
         def parse_level(value):

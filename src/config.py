@@ -95,7 +95,7 @@ class Config(metaclass=SingletonMeta):
         self.config_manager = ConfigManager(self)
 
         # 配置存储
-        self.current_preset_name = "路亚轻杆"
+        self.current_preset_name = "路亚轻竿"
         self.presets = {}
         self.global_settings = {}
         self.qfluent_settings = {}

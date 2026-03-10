@@ -541,11 +541,11 @@ class OverlayWindow(QWidget):
             rod_filter_mode = getattr(cfg, "rod_filter_mode", "all")
             if rod_filter_mode == "heavy":
                 catchable_fish = [
-                    f for f in catchable_fish if "重杆" in f.get("type", "")
+                    f for f in catchable_fish if "重竿" in f.get("type", "")
                 ]
             elif rod_filter_mode == "light":
                 catchable_fish = [
-                    f for f in catchable_fish if "轻杆" in f.get("type", "")
+                    f for f in catchable_fish if "轻竿" in f.get("type", "")
                 ]
 
             if not catchable_fish:

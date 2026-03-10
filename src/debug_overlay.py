@@ -58,7 +58,7 @@ def generate_debug_screenshot(show_image=True):
         result = vision.find_template_with_score("star_grayscale", region=star_region)
         if result:
             score, pos = result
-            recognition_results.append(f"收杆星星: {score:.2f}")
+            recognition_results.append(f"收竿星星: {score:.2f}")
     except:
         pass
 
@@ -163,16 +163,11 @@ def generate_debug_screenshot(show_image=True):
         )
 
         # 锁定区域 (红色)
-        lock_size = int(60 * cfg.scale_x)
-        lock_x = sx + (scaled_cell_w - lock_size) // 2
-        lock_y = sy + (scaled_cell_h - lock_size) // 2
-        if cfg.window_offset_x > 0 or cfg.window_offset_y > 0:
-            lock_x += int(25 * cfg.scale_x)
-            lock_y += int(10 * cfg.scale_y)
+        lock_x, lock_y, lock_w, lock_h = cfg.get_rect("fish_inventory_lock_slot_1")
         cv2.rectangle(
             screenshot,
             (lock_x, lock_y),
-            (lock_x + lock_size, lock_y + lock_size),
+            (lock_x + lock_w, lock_y + lock_h),
             (0, 0, 255),
             1,
         )

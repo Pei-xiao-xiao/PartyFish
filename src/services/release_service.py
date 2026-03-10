@@ -44,12 +44,13 @@ class ReleaseService:
     def _log_bucket_close_button_disappeared(self):
         self.worker.log_updated.emit("[调试] 鱼桶关闭模板已消失")
 
-    def _find_bucket_close_button(self):
+    def _find_bucket_close_button(self, emit_debug=True):
         esc_region = self._get_bucket_close_button_region()
         esc_pos = self.worker.vision.find_template(
             "esc__grayscale", region=esc_region, threshold=0.8
         )
-        self._log_bucket_close_button_detection(esc_region, esc_pos)
+        if emit_debug:
+            self._log_bucket_close_button_detection(esc_region, esc_pos)
         return esc_region, esc_pos
 
     def _find_bucket_close_button_without_log(self):
@@ -59,8 +60,8 @@ class ReleaseService:
         )
         return esc_region, esc_pos
 
-    def _is_bucket_open(self):
-        _, esc_pos = self._find_bucket_close_button()
+    def _is_bucket_open(self, emit_debug=True):
+        _, esc_pos = self._find_bucket_close_button(emit_debug=emit_debug)
         return esc_pos is not None
 
     def _check_single_release_popup(self, release_clicked):
@@ -92,7 +93,7 @@ class ReleaseService:
     def _wait_for_single_release_bucket_open(self, timeout=2.0):
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if self._is_bucket_open():
+            if self._is_bucket_open(emit_debug=False):
                 return "opened"
 
             popup_result = self._check_single_release_popup(False)
@@ -101,20 +102,22 @@ class ReleaseService:
 
             self.worker.msleep(100)
 
-        if self._is_bucket_open():
+        if self._is_bucket_open(emit_debug=False):
             return "opened"
 
         return "timeout"
 
-    def _ensure_esc_closed(self):
+    def _ensure_esc_closed(self, emit_debug=True):
         """
         确保ESC关闭界面，如果检测到ESC按钮还在则点击关闭
 
         Returns:
             bool: 是否成功关闭
         """
-        self._reset_bucket_close_button_debug_state()
-        esc_region, esc_pos = self._find_bucket_close_button()
+        if emit_debug:
+            self._reset_bucket_close_button_debug_state()
+
+        esc_region, esc_pos = self._find_bucket_close_button(emit_debug=emit_debug)
         if esc_pos is None:
             return True
 
@@ -122,9 +125,9 @@ class ReleaseService:
         self.worker.smart_sleep(0.5)
 
         esc_region, esc_pos = self._find_bucket_close_button_without_log()
-        if esc_pos is None:
+        if emit_debug and esc_pos is None:
             self._log_bucket_close_button_disappeared()
-        else:
+        elif emit_debug:
             self.worker.log_updated.emit(
                 f"[调试] 按下ESC后鱼桶关闭模板仍存在，区域={esc_region}，位置={esc_pos}"
             )
@@ -199,7 +202,7 @@ class ReleaseService:
             color_verify = self.worker.vision.detect_star_color(star_img_verify)
             if color_verify != color:
                 self.worker.log_updated.emit(
-                    f"位置({row},{col})高品质验证失败: {color} != {color_verify}，跳过"
+                    f"高品质验证失败: {color} != {color_verify}，跳过"
                 )
                 return None
 
@@ -246,9 +249,7 @@ class ReleaseService:
             fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
 
         if fish_name and cfg.is_fish_protected(fish_name, quality):
-            self.worker.log_updated.emit(
-                f"位置({row},{col})检测到保护鱼:{fish_name}({quality})，锁定"
-            )
+            self.worker.log_updated.emit(f"检测到保护鱼:{fish_name}({quality})，锁定")
             return True  # 鱼受保护
 
         return False  # 鱼不受保护
@@ -325,7 +326,7 @@ class ReleaseService:
                     )
                     action_found = True
                     self.worker.log_updated.emit(
-                        f"位置({row},{col})品质:{quality}，{'放生' if should_release else '锁定'}"
+                        f"品质:{quality}，{'放生' if should_release else '锁定'}"
                     )
                     break
 
@@ -393,16 +394,11 @@ class ReleaseService:
                 return -1  # 返回-1表示弹窗中止，而非无鱼可放
 
             # 检测锁定图标
-            lock_size = int(60 * cfg.scale)
-            lock_x = scaled_zone_x + (scaled_cell_width - lock_size) // 2
-            lock_y = scaled_zone_y + (scaled_cell_height - lock_size) // 2
-            lock_region = (lock_x, lock_y, lock_size, lock_size)
+            lock_region = cfg.get_rect("fish_inventory_lock_slot_1")
 
             lock_detected = self.worker.vision.detect_lock_icon(lock_region)
             if lock_detected:
-                self.worker.log_updated.emit(
-                    f"位置({row},{col})检测到锁定图标，停止检测"
-                )
+                self.worker.log_updated.emit("检测到锁定图标，停止检测")
                 break
 
             # 检测品质
@@ -480,8 +476,6 @@ class ReleaseService:
             return 0
 
         zone = cfg.REGIONS["fish_inventory"]["zones"][0]
-        zone_id = zone["id"]
-        self.worker.log_updated.emit(f"检测区域 {zone_id}...")
 
         grid = zone["grid"]
         zone_rect = cfg.get_bottom_right_rect(zone["coords"])
@@ -504,9 +498,7 @@ class ReleaseService:
             scaled_star_height,
         )
 
-        self.worker.inputs.press_key("ESC")
-        self.worker.smart_sleep(0.3)
-        self._ensure_esc_closed()
+        self._ensure_esc_closed(emit_debug=False)
 
         if self.worker.paused:
             self.worker.log_updated.emit(f"放生被暂停，已放生{released_count}条鱼")
@@ -524,7 +516,7 @@ class ReleaseService:
             if self.worker.running and not self.worker.paused:
                 return False
             self.worker.inputs.release_key("C")
-            self._ensure_esc_closed()
+            self._ensure_esc_closed(emit_debug=False)
             if self.worker.paused:
                 self.worker.log_updated.emit("单条放生被暂停，已中止")
                 self.worker.status_updated.emit("已暂停")
@@ -591,7 +583,7 @@ class ReleaseService:
 
             quality = self._detect_fish_quality(star_region, 0, 0)
             if quality is None:
-                self._ensure_esc_closed()
+                self._ensure_esc_closed(emit_debug=False)
                 return "done"
 
             release_map = {
@@ -604,7 +596,7 @@ class ReleaseService:
             should_release = cfg.global_settings.get(release_map.get(quality), False)
 
             if not should_release:
-                self._ensure_esc_closed()
+                self._ensure_esc_closed(emit_debug=False)
                 return "done"
 
             fish_pos = cfg.REGIONS["fish_inventory"]["single_release_fish_pos"]
@@ -633,7 +625,7 @@ class ReleaseService:
                     fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
 
                 if fish_name and cfg.is_fish_protected(fish_name, quality):
-                    self._ensure_esc_closed()
+                    self._ensure_esc_closed(emit_debug=False)
                     return "done"
 
             self.worker.msleep(200)
@@ -667,7 +659,7 @@ class ReleaseService:
             if attempt_state:
                 return attempt_state
 
-            self._ensure_esc_closed()
+            self._ensure_esc_closed(emit_debug=False)
             attempt_state = _check_attempt_state(release_clicked)
             if attempt_state:
                 return attempt_state
@@ -677,7 +669,6 @@ class ReleaseService:
         if not self.worker.running or self.worker.paused:
             return
 
-        self._reset_bucket_close_button_debug_state()
         self.worker.status_updated.emit("自动放生中")
         self.worker.log_updated.emit("正在执行单条放生...")
 
@@ -699,4 +690,4 @@ class ReleaseService:
         except Exception as e:
             self.worker.log_updated.emit(f"单条放生操作发生错误: {e}")
             self.worker.inputs.release_key("C")
-            self._ensure_esc_closed()
+            self._ensure_esc_closed(emit_debug=False)

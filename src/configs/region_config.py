@@ -35,6 +35,10 @@ class RegionConfig:
                 "coords": (2449, 435, 24, 23),
                 "anchor": "top_right",
             },
+            "fish_inventory_lock_slot_1": {
+                "coords": (1903, 566, 60, 60),
+                "anchor": "bottom_right",
+            },
             "weather_icon": {
                 "coords": (2430, 45, 75, 70),
                 "anchor": "top_right",

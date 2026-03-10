@@ -191,8 +191,8 @@ class SettingsInterface(ScrollArea):
 
         self.maxPullsCard = SettingCard(
             FluentIcon.SYNC,
-            self.tr("最大拉杆次数"),
-            self.tr("单次钓鱼过程中的最大拉杆尝试次数"),
+            self.tr("最大拉竿次数"),
+            self.tr("单次钓鱼过程中的最大拉竿尝试次数"),
         )
         self.maxPullsSpinBox = SpinBox(self.maxPullsCard)
         self.maxPullsSpinBox.setRange(1, 100)

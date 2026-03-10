@@ -138,17 +138,18 @@ class VisionUtilsService:
             "cast_rod": "抛竿检测",
             "cast_rod_ice": "冰钓抛竿",
             "wait_bite": "咬钩等待",
-            "reel_in": "收杆检测",
+            "reel_in": "收竿检测",
             "bait_count": "鱼饵计数",
             "f3_menu": "F3菜单",
             "repair": "修理检测",
             "shangyu": "收鱼检测",
-            "reel_in_star": "收杆判定",
+            "reel_in_star": "收竿判定",
             "jiashi_popup": "加时弹窗",
             "afk_popup": "AFK弹窗",
             "ocr_area": "OCR区域",
             "sell_price_area": "鱼干价格",
             "bucket_close_button": "鱼桶关闭按钮",
+            "fish_inventory_lock_slot_1": "第一格锁区域",
         }
 
         font_cjk = None

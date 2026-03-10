@@ -987,8 +987,8 @@ class HomeInterface(QWidget):
 
         self.rod_filter_segment = SegmentedWidget(self.session_records_container)
         self.rod_filter_segment.addItem("all", "全部")
-        self.rod_filter_segment.addItem("heavy", "重杆")
-        self.rod_filter_segment.addItem("light", "轻杆")
+        self.rod_filter_segment.addItem("heavy", "重竿")
+        self.rod_filter_segment.addItem("light", "轻竿")
 
         current_rod_mode = getattr(cfg, "rod_filter_mode", "all")
         self.rod_filter_segment.setCurrentItem(current_rod_mode)
@@ -1044,7 +1044,7 @@ class HomeInterface(QWidget):
         self.fishFilterChanged.emit()
 
     def _on_rod_filter_changed(self, routeKey):
-        """处理杆类型过滤改变"""
+        """处理竿类型过滤改变"""
         cfg.rod_filter_mode = routeKey
         cfg.save()
         self._refresh_fish_preview()
@@ -1132,11 +1132,11 @@ class HomeInterface(QWidget):
             rod_filter_mode = getattr(cfg, "rod_filter_mode", "all")
             if rod_filter_mode == "heavy":
                 catchable_fish = [
-                    f for f in catchable_fish if "重杆" in f.get("type", "")
+                    f for f in catchable_fish if "重竿" in f.get("type", "")
                 ]
             elif rod_filter_mode == "light":
                 catchable_fish = [
-                    f for f in catchable_fish if "轻杆" in f.get("type", "")
+                    f for f in catchable_fish if "轻竿" in f.get("type", "")
                 ]
 
             if not catchable_fish:

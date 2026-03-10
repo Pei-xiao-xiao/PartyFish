@@ -1,6 +1,6 @@
 """
 钓鱼服务
-负责处理钓鱼的核心流程：抛竿、等待咬钩、收杆、记录渔获
+负责处理钓鱼的核心流程：抛竿、等待咬钩、收竿、记录渔获
 """
 
 import time
@@ -161,7 +161,7 @@ class FishingService:
             final_bait = self.worker.vision.get_bait_amount()
             if final_bait is not None and final_bait < initial_bait:
                 self.worker.log_updated.emit(
-                    f"鱼饵减少 ({initial_bait} -> {final_bait}) 但未成功收杆，判定为鱼跑了。"
+                    f"鱼饵减少 ({initial_bait} -> {final_bait}) 但未成功收竿，判定为鱼跑了。"
                 )
                 self._record_event("鱼跑了")
                 return False
@@ -476,10 +476,10 @@ class FishingService:
         return False
 
     def reel_in(self):
-        """收杆阶段"""
+        """收竿阶段"""
         if not self.worker.running:
             return False
-        self.worker.status_updated.emit("上鱼了! 开始收杆!")
+        self.worker.status_updated.emit("上鱼了! 开始收竿!")
         self.worker.log_updated.emit("进入收放线循环...")
 
         star_region = cfg.get_rect("reel_in_star")
@@ -528,7 +528,7 @@ class FishingService:
                     self._record_event("鱼跑了")
                     return False
 
-        self.worker.log_updated.emit("达到最大拉杆次数，仍未检测到星星。")
+        self.worker.log_updated.emit("达到最大拉竿次数，仍未检测到星星。")
         return False
 
     def record_catch(self):

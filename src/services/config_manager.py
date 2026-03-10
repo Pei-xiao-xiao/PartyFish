@@ -18,31 +18,43 @@ class ConfigManager:
         """
         self.config = config
 
+    @staticmethod
+    def _normalize_preset_name(name):
+        if not isinstance(name, str):
+            return name
+
+        normalized = name.replace(chr(0x6746), "竿")
+        legacy_map = {
+            "冰钓轻竿": "池塘轻竿",
+            "冰钓重竿": "池塘重竿",
+        }
+        return legacy_map.get(normalized, normalized)
+
     def get_default_presets(self):
         """返回默认预设字典"""
         return {
-            "路亚轻杆": {
+            "路亚轻竿": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.4,
                 "release_time": 0.2,
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
             },
-            "路亚重杆": {
+            "路亚重竿": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.8,
                 "release_time": 00.4,
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
             },
-            "池塘轻杆": {
+            "池塘轻竿": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.2,
                 "release_time": 0.1,
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
             },
-            "池塘重杆": {
+            "池塘重竿": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.2,
                 "release_time": 0.1,
@@ -66,16 +78,14 @@ class ConfigManager:
             self._create_default_config()
             return
 
-        self.config.current_preset_name = config_data.get("current_preset", "路亚轻杆")
-        self.config.presets = config_data.get("presets", self.get_default_presets())
-
-        # 迁移旧预设名称
-        rename_map = {"冰钓轻杆": "池塘轻杆", "冰钓重杆": "池塘重杆"}
-        for old_name, new_name in rename_map.items():
-            if old_name in self.config.presets:
-                self.config.presets[new_name] = self.config.presets.pop(old_name)
-                if self.config.current_preset_name == old_name:
-                    self.config.current_preset_name = new_name
+        self.config.current_preset_name = self._normalize_preset_name(
+            config_data.get("current_preset", "路亚轻竿")
+        )
+        loaded_presets = config_data.get("presets", self.get_default_presets())
+        self.config.presets = {
+            self._normalize_preset_name(name): preset
+            for name, preset in loaded_presets.items()
+        }
 
         default_global_settings = self._get_default_global_settings()
         loaded_global_settings = config_data.get("global_settings", {})

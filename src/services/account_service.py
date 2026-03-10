@@ -26,7 +26,7 @@ class AccountService:
 
     DEFAULT_ACCOUNT_SETTINGS = {
         "server_region": "CN",
-        "current_preset": "路亚轻杆",
+        "current_preset": "路亚轻竿",
         "current_bait": "蔓越莓",
         "selected_baits": [],
         "release_mode": "off",
@@ -48,6 +48,18 @@ class AccountService:
             config: Config 实例引用
         """
         self.config = config
+
+    @staticmethod
+    def _normalize_preset_name(name):
+        if not isinstance(name, str):
+            return name
+
+        normalized = name.replace(chr(0x6746), "竿")
+        legacy_map = {
+            "冰钓轻竿": "池塘轻竿",
+            "冰钓重竿": "池塘重竿",
+        }
+        return legacy_map.get(normalized, normalized)
 
     def get_account_data_dir(self):
         """返回当前账号的数据目录"""
@@ -127,6 +139,10 @@ class AccountService:
         normalized = self._get_default_account_settings()
         if isinstance(settings, dict):
             normalized.update(settings)
+
+        normalized["current_preset"] = self._normalize_preset_name(
+            normalized.get("current_preset")
+        )
 
         if not isinstance(normalized.get("selected_baits"), list):
             normalized["selected_baits"] = []
@@ -218,9 +234,11 @@ class AccountService:
         for key in self.ACCOUNT_SPECIFIC_GLOBAL_KEYS:
             self.config.global_settings[key] = deepcopy(settings.get(key))
 
-        preset_name = settings.get("current_preset", self.config.current_preset_name)
+        preset_name = self._normalize_preset_name(
+            settings.get("current_preset", self.config.current_preset_name)
+        )
         if preset_name not in self.config.presets:
-            preset_name = next(iter(self.config.presets), "路亚轻杆")
+            preset_name = next(iter(self.config.presets), "路亚轻竿")
         self.config.current_preset_name = preset_name
         self.config.current_bait = settings.get(
             "current_bait", self.config.current_bait
