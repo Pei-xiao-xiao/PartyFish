@@ -111,7 +111,7 @@ class MainWindow(FluentWindow):
             lambda: self.overlay.update_fish_preview()
         )
         self.settings_interface.season_filter_changed_signal.connect(
-            lambda: self.home_interface._refresh_fish_preview()
+            lambda: self.home_interface.fish_preview_widget.refresh()
         )
 
         # 启动工作线程（初始为暂停状态）
@@ -165,9 +165,9 @@ class MainWindow(FluentWindow):
         if cfg.global_settings.get("overlay_visible", False):
             self.overlay.show()
             # 阻止信号发射，避免触发 toggle_overlay 导致悬浮窗被隐藏
-            self.home_interface.overlay_switch.blockSignals(True)
-            self.home_interface.overlay_switch.setChecked(True)
-            self.home_interface.overlay_switch.blockSignals(False)
+            self.home_interface.banner_widget.overlay_switch.blockSignals(True)
+            self.home_interface.banner_widget.overlay_switch.setChecked(True)
+            self.home_interface.banner_widget.overlay_switch.blockSignals(False)
 
     def _save_overlay_state(self):
         """保存悬浮窗的当前状态和位置"""
@@ -215,6 +215,9 @@ class MainWindow(FluentWindow):
 
         if hasattr(self.home_interface, "refresh_table_colors"):
             self.home_interface.refresh_table_colors()
+
+        if hasattr(self.settings_interface, "refresh_theme"):
+            self.settings_interface.refresh_theme()
 
         if hasattr(self.profit_interface, "refresh_theme"):
             self.profit_interface.refresh_theme()

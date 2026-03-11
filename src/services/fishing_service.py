@@ -615,15 +615,19 @@ class FishingService:
         self.worker.record_added.emit(catch_data)
 
         # 使用统一的放生品质配置
-        release_map = {
-            "标准": "release_standard",
-            "非凡": "release_uncommon",
-            "稀有": "release_rare",
-            "史诗": "release_epic",
-            "传奇": "release_legendary",
-        }
-
-        should_release = cfg.global_settings.get(release_map.get(quality), False)
+        if fish_name:
+            # 有鱼类名称时，使用基于稀有度的判断
+            should_release = self.worker.release_service._should_release_by_rarity(fish_name, quality)
+        else:
+            # 没有鱼类名称信息时，使用旧逻辑
+            release_map = {
+                "标准": "release_standard",
+                "非凡": "release_uncommon",
+                "稀有": "release_rare",
+                "史诗": "release_epic",
+                "传奇": "release_legendary",
+            }
+            should_release = cfg.global_settings.get(release_map.get(quality), False)
 
         if is_new_record and cfg.global_settings.get(
             "enable_first_catch_screenshot", True

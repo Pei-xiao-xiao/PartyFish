@@ -42,6 +42,7 @@ class KeyBindingWidget(QLineEdit):
         self._capture_timer = QTimer(self)
         self._capture_timer.setInterval(100)
         self._capture_timer.timeout.connect(self._update_capture_elapsed_text)
+        self.update_style()
 
     def set_gamepad_mode(self, enabled: bool):
         self._gamepad_mode = enabled
@@ -215,12 +216,19 @@ class KeyBindingWidget(QLineEdit):
 
     def update_style(self):
         color = qconfig.themeColor.name
+        is_dark = qconfig.theme.value == "Dark"
+        text_color = "#ffffff" if is_dark else "#000000"
+        bg_color = "#374151" if is_dark else "#ffffff"
+        border_color = "#4b5563" if is_dark else "#d1d5db"
+        
         if self.property("isCapturing"):
             self.setStyleSheet(
-                f"border: 2px solid {color}; background-color: rgba(0, 159, 227, 0.1);"
+                f"border: 2px solid {color}; background-color: rgba(0, 159, 227, 0.1); color: {text_color};"
             )
         else:
-            self.setStyleSheet("")
+            self.setStyleSheet(
+                f"background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 4px; color: {text_color};"
+            )
         self.style().unpolish(self)
         self.style().polish(self)
 
@@ -307,3 +315,8 @@ from src.gui.components.date_range_picker import (
     DateRangeDialog,
     DateRangeCalendar,
 )
+from src.gui.components.banner_widget import BannerWidget
+from src.gui.components.dashboard_widget import DashboardWidget
+from src.gui.components.fish_preview_widget import FishPreviewWidget
+from src.gui.components.log_widget import LogWidget
+from src.gui.components.footer_widget import FooterWidget

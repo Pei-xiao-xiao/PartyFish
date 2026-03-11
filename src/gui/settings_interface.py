@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QProgressDialog,
     QSizePolicy,
+    QGridLayout,
 )
 from PySide6.QtCore import Qt, Signal, QThread
 from datetime import datetime
@@ -14,6 +15,7 @@ from qfluentwidgets import (
     ScrollArea,
     SettingCardGroup,
     SettingCard,
+    ExpandGroupSettingCard,
     FluentIcon,
     DoubleSpinBox,
     SpinBox,
@@ -128,6 +130,7 @@ class SettingsInterface(ScrollArea):
         # 添加分段控件
         self.segmentedWidget = SegmentedWidget(self.scrollWidget)
         self.segmentedWidget.addItem("fishing", "钓鱼设置")
+        self.segmentedWidget.addItem("release", "放生设置")
         self.segmentedWidget.addItem("function", "功能设置")
         self.segmentedWidget.addItem("data", "数据管理")
         self.segmentedWidget.setCurrentItem("fishing")
@@ -512,7 +515,55 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.baitGroup)
 
-        # 5. UNO Function Group
+        # 5. Release Group (合并自动放生和单条放生)
+        self.releaseGroup = SettingCardGroup(self.tr("放生设置"), self.scrollWidget)
+
+        self.releaseModeCard = SettingCard(
+            FluentIcon.DELETE,
+            self.tr("放生模式"),
+            self.tr("勾选启用的放生行为"),
+            parent=self.releaseGroup,
+        )
+        self.releaseModeWidget = QWidget(self.releaseModeCard)
+        self.releaseModeLayout = QHBoxLayout(self.releaseModeWidget)
+        self.releaseModeLayout.setContentsMargins(0, 0, 0, 0)
+        self.releaseModeLayout.setSpacing(12)
+
+        self.autoReleaseEnabledCard = CheckBox(
+            self.tr("桶满放生"), self.releaseModeCard
+        )
+        self.singleReleaseEnabledCard = CheckBox(
+            self.tr("单条放生"), self.releaseModeCard
+        )
+        self.enableFishNameProtectionCard = CheckBox(
+            self.tr("放生保护"), self.releaseModeCard
+        )
+
+        self.releaseModeLayout.addWidget(self.autoReleaseEnabledCard)
+        self.releaseModeLayout.addWidget(self.singleReleaseEnabledCard)
+        self.releaseModeLayout.addWidget(self.enableFishNameProtectionCard)
+        self.releaseModeLayout.addStretch(1)
+        self.releaseModeCard.hBoxLayout.addWidget(
+            self.releaseModeWidget, 0, Qt.AlignRight
+        )
+        margins = self.releaseModeCard.hBoxLayout.contentsMargins()
+        self.releaseModeCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
+        )
+        self.releaseGroup.addSettingCard(self.releaseModeCard)
+
+        self.releaseQualityCard = ExpandGroupSettingCard(
+            FluentIcon.CANCEL,
+            self.tr("按稀有度设置放生规则"),
+            self.tr("滑动滑块，为不同稀有度（1 级 - 6 级）的鱼类独立设置最高放生品质阈值。如果滑块在最左侧则表示不放生。"),
+            parent=self.releaseGroup,
+        )
+        self._create_release_quality_sliders()
+        self.releaseGroup.addSettingCard(self.releaseQualityCard)
+
+        self.vBoxLayout.addWidget(self.releaseGroup)
+
+        # 6. UNO Function Group
         self.unoGroup = SettingCardGroup(self.tr("UNO 功能"), self.scrollWidget)
 
         self.unoHotkeyCard = SettingCard(
@@ -578,78 +629,7 @@ class SettingsInterface(ScrollArea):
 
         self.vBoxLayout.addWidget(self.unoGroup)
 
-        # 6. Release Group (合并自动放生和单条放生)
-        self.releaseGroup = SettingCardGroup(self.tr("放生设置"), self.scrollWidget)
-
-        self.releaseModeCard = SettingCard(
-            FluentIcon.DELETE,
-            self.tr("放生模式"),
-            self.tr("勾选启用的放生行为"),
-            parent=self.releaseGroup,
-        )
-        self.releaseModeWidget = QWidget(self.releaseModeCard)
-        self.releaseModeLayout = QHBoxLayout(self.releaseModeWidget)
-        self.releaseModeLayout.setContentsMargins(0, 0, 0, 0)
-        self.releaseModeLayout.setSpacing(12)
-
-        self.autoReleaseEnabledCard = CheckBox(
-            self.tr("桶满放生"), self.releaseModeCard
-        )
-        self.singleReleaseEnabledCard = CheckBox(
-            self.tr("单条放生"), self.releaseModeCard
-        )
-        self.enableFishNameProtectionCard = CheckBox(
-            self.tr("放生保护"), self.releaseModeCard
-        )
-
-        self.releaseModeLayout.addWidget(self.autoReleaseEnabledCard)
-        self.releaseModeLayout.addWidget(self.singleReleaseEnabledCard)
-        self.releaseModeLayout.addWidget(self.enableFishNameProtectionCard)
-        self.releaseModeLayout.addStretch(1)
-        self.releaseModeCard.hBoxLayout.addWidget(
-            self.releaseModeWidget, 0, Qt.AlignRight
-        )
-        margins = self.releaseModeCard.hBoxLayout.contentsMargins()
-        self.releaseModeCard.hBoxLayout.setContentsMargins(
-            margins.left(), margins.top(), 16, margins.bottom()
-        )
-        self.releaseGroup.addSettingCard(self.releaseModeCard)
-
-        self.releaseQualityCard = SettingCard(
-            FluentIcon.CANCEL,
-            self.tr("放生品质"),
-            self.tr("勾选后会自动放生对应品质"),
-            parent=self.releaseGroup,
-        )
-        self.releaseQualityWidget = QWidget(self.releaseQualityCard)
-        self.releaseQualityLayout = QHBoxLayout(self.releaseQualityWidget)
-        self.releaseQualityLayout.setContentsMargins(0, 0, 0, 0)
-        self.releaseQualityLayout.setSpacing(12)
-
-        self.releaseStandardCard = CheckBox(self.tr("标准"), self.releaseQualityCard)
-        self.releaseUncommonCard = CheckBox(self.tr("非凡"), self.releaseQualityCard)
-        self.releaseRareCard = CheckBox(self.tr("稀有"), self.releaseQualityCard)
-        self.releaseEpicCard = CheckBox(self.tr("史诗"), self.releaseQualityCard)
-        self.releaseLegendaryCard = CheckBox(self.tr("传奇"), self.releaseQualityCard)
-
-        self.releaseQualityLayout.addWidget(self.releaseStandardCard)
-        self.releaseQualityLayout.addWidget(self.releaseUncommonCard)
-        self.releaseQualityLayout.addWidget(self.releaseRareCard)
-        self.releaseQualityLayout.addWidget(self.releaseEpicCard)
-        self.releaseQualityLayout.addWidget(self.releaseLegendaryCard)
-        self.releaseQualityLayout.addStretch(1)
-        self.releaseQualityCard.hBoxLayout.addWidget(
-            self.releaseQualityWidget, 0, Qt.AlignRight
-        )
-        margins = self.releaseQualityCard.hBoxLayout.contentsMargins()
-        self.releaseQualityCard.hBoxLayout.setContentsMargins(
-            margins.left(), margins.top(), 16, margins.bottom()
-        )
-        self.releaseGroup.addSettingCard(self.releaseQualityCard)
-
-        self.vBoxLayout.addWidget(self.releaseGroup)
-
-        # 8. Record Management Group
+        # 7. Record Management Group
         self.recordGroup = SettingCardGroup(self.tr("记录管理"), self.scrollWidget)
 
         self.exportRecordCard = SettingCard(
@@ -770,8 +750,8 @@ class SettingsInterface(ScrollArea):
                 self.fishingGroup,
                 self.saveResetButtonWidget,
                 self.baitGroup,
-                self.releaseGroup,
             ],
+            "release": [self.releaseGroup],
             "function": [self.globalGroup, self.unoGroup],
             "data": [self.recordGroup, self.accountGroup],
         }
@@ -800,6 +780,101 @@ class SettingsInterface(ScrollArea):
         attr_name = parts[0] + "".join(x.title() for x in parts[1:]) + "SpinBox"
         setattr(self, attr_name, spinbox)
         return card
+
+    QUALITY_COLORS = {
+        0: ("#666666", "不放生"),
+        1: ("#808080", "标准"),
+        2: ("#4CAF50", "非凡"),
+        3: ("#2196F3", "稀有"),
+        4: ("#9C27B0", "史诗"),
+        5: ("#FFD700", "传奇"),
+    }
+
+    def _create_release_quality_sliders(self):
+        self.releaseSliders = {}
+        self.releaseLabels = {}
+        
+        container = QWidget(self.releaseQualityCard)
+        containerLayout = QVBoxLayout(container)
+        containerLayout.setContentsMargins(0, 8, 0, 8)
+        containerLayout.setSpacing(12)
+        
+        release_settings = cfg.global_settings.get("release_settings", {})
+        
+        gridWidget = QWidget(container)
+        gridLayout = QGridLayout(gridWidget)
+        gridLayout.setContentsMargins(0, 0, 0, 0)
+        gridLayout.setHorizontalSpacing(40)
+        gridLayout.setVerticalSpacing(12)
+        
+        for level in range(1, 7):
+            row = (level - 1) // 3
+            col = (level - 1) % 3
+            
+            rowWidget = QWidget(gridWidget)
+            rowWidget.setMinimumWidth(240)
+            rowLayout = QHBoxLayout(rowWidget)
+            rowLayout.setContentsMargins(0, 0, 0, 0)
+            rowLayout.setSpacing(12)
+            
+            # 添加左侧弹簧，防止内容向左溢出
+            rowLayout.addStretch(1)
+            
+            levelLabel = QLabel(f"{level}级鱼类", rowWidget)
+            levelLabel.setFixedWidth(60)
+            rowLayout.addWidget(levelLabel)
+            
+            slider = Slider(Qt.Orientation.Horizontal, rowWidget)
+            slider.setRange(0, 5)
+            slider.setFixedWidth(100)
+            slider.setValue(release_settings.get(str(level), 0))
+            slider.valueChanged.connect(lambda v, l=level: self._on_release_slider_changed(l, v))
+            self.releaseSliders[level] = slider
+            rowLayout.addWidget(slider)
+            
+            qualityLabel = QLabel(rowWidget)
+            qualityLabel.setFixedWidth(100)
+            self._update_quality_label(qualityLabel, slider.value())
+            self.releaseLabels[level] = qualityLabel
+            rowLayout.addWidget(qualityLabel)
+            
+            rowLayout.addStretch(1)
+            
+            gridLayout.addWidget(rowWidget, row, col)
+        
+        # 设置列拉伸因子，确保三列均匀分布
+        gridLayout.setColumnStretch(0, 1)
+        gridLayout.setColumnStretch(1, 1)
+        gridLayout.setColumnStretch(2, 1)
+        
+        containerLayout.addWidget(gridWidget)
+        containerLayout.addStretch()
+        
+        self.releaseQualityCard.viewLayout.addWidget(container)
+        
+        # 设置暗黑模式样式
+        if cfg.theme == "Dark":
+            container.setStyleSheet("""
+                QWidget {
+                    color: rgba(255, 255, 255, 0.9);
+                }
+                QLabel {
+                    color: rgba(255, 255, 255, 0.9);
+                }
+            """)
+
+    def _on_release_slider_changed(self, level, value):
+        if level in self.releaseLabels:
+            self._update_quality_label(self.releaseLabels[level], value)
+        self._save_global_settings()
+
+    def _update_quality_label(self, label, value):
+        color, text = self.QUALITY_COLORS.get(value, ("#666666", "不放生"))
+        if value == 0:
+            label.setText("不放生")
+            label.setStyleSheet(f"color: {color};")
+        else:
+            label.setText(f'放生<span style="color:{color};border:1px solid {color};padding:1px 4px;border-radius:3px;">{text}</span>及以下')
 
     @staticmethod
     def _gamepad_mode_to_text(mode):
@@ -923,11 +998,6 @@ class SettingsInterface(ScrollArea):
 
         self.autoReleaseEnabledCard.toggled.connect(self._on_auto_release_changed)
         self.enableFishNameProtectionCard.toggled.connect(self._save_global_settings)
-        self.releaseStandardCard.toggled.connect(self._save_global_settings)
-        self.releaseUncommonCard.toggled.connect(self._save_global_settings)
-        self.releaseRareCard.toggled.connect(self._save_global_settings)
-        self.releaseEpicCard.toggled.connect(self._save_global_settings)
-        self.releaseLegendaryCard.toggled.connect(self._save_global_settings)
 
         # 鱼饵复选框信号
         for checkbox in self.baitCheckBoxes.values():
@@ -1027,20 +1097,21 @@ class SettingsInterface(ScrollArea):
         self.enableFishNameProtectionCard.setChecked(
             cfg.global_settings.get("enable_fish_name_protection", False)
         )
-        self.releaseStandardCard.setChecked(
-            cfg.global_settings.get("release_standard", True)
-        )
-        self.releaseUncommonCard.setChecked(
-            cfg.global_settings.get("release_uncommon", False)
-        )
-        self.releaseRareCard.setChecked(cfg.global_settings.get("release_rare", False))
-        self.releaseEpicCard.setChecked(cfg.global_settings.get("release_epic", False))
-        self.releaseLegendaryCard.setChecked(
-            cfg.global_settings.get("release_legendary", False)
-        )
         # 单条放生总开关
         release_mode = cfg.global_settings.get("release_mode", "off")
         self.singleReleaseEnabledCard.setChecked(release_mode == "single")
+        
+        # 加载放生品质滑块设置
+        release_settings = cfg.global_settings.get("release_settings", {})
+        for level in range(1, 7):
+            if level in self.releaseSliders:
+                value = release_settings.get(str(level), 0)
+                self.releaseSliders[level].blockSignals(True)
+                self.releaseSliders[level].setValue(value)
+                self.releaseSliders[level].blockSignals(False)
+                if level in self.releaseLabels:
+                    self._update_quality_label(self.releaseLabels[level], value)
+        
         jitter_value = cfg.global_settings.get("jitter_range", 0)
         self.jitterSlider.setValue(jitter_value)
         self.jitterLabel.setText(f"{jitter_value}%")
@@ -1179,11 +1250,15 @@ class SettingsInterface(ScrollArea):
             if checkbox.isChecked()
         ]
         cfg.global_settings["selected_baits"] = selected_baits
-        cfg.global_settings["release_standard"] = self.releaseStandardCard.isChecked()
-        cfg.global_settings["release_uncommon"] = self.releaseUncommonCard.isChecked()
-        cfg.global_settings["release_rare"] = self.releaseRareCard.isChecked()
-        cfg.global_settings["release_epic"] = self.releaseEpicCard.isChecked()
-        cfg.global_settings["release_legendary"] = self.releaseLegendaryCard.isChecked()
+        
+        # 保存放生品质滑块设置
+        if hasattr(self, 'releaseSliders'):
+            release_settings = {}
+            for level in range(1, 7):
+                if level in self.releaseSliders:
+                    release_settings[str(level)] = self.releaseSliders[level].value()
+            cfg.global_settings["release_settings"] = release_settings
+        
         cfg.global_settings["jitter_range"] = self.jitterSlider.value()
         cfg.global_settings["theme"] = self.themeComboBox.currentText()
 
@@ -1267,22 +1342,13 @@ class SettingsInterface(ScrollArea):
         self.autoReleaseEnabledCard.setEnabled(True)
         self.singleReleaseEnabledCard.setEnabled(True)
 
-        # 品质开关和放生保护在任意放生模式开启时都启用
-        if release_mode == "off":
-            self.releaseStandardCard.setEnabled(False)
-            self.releaseUncommonCard.setEnabled(False)
-            self.releaseRareCard.setEnabled(False)
-            self.releaseEpicCard.setEnabled(False)
-            self.releaseLegendaryCard.setEnabled(False)
-            self.enableFishNameProtectionCard.setEnabled(False)
-        else:
-            # 单条或自动放生模式都启用品质开关和放生保护
-            self.releaseStandardCard.setEnabled(True)
-            self.releaseUncommonCard.setEnabled(True)
-            self.releaseRareCard.setEnabled(True)
-            self.releaseEpicCard.setEnabled(True)
-            self.releaseLegendaryCard.setEnabled(True)
-            self.enableFishNameProtectionCard.setEnabled(True)
+        # 放生保护在任意放生模式开启时都启用
+        self.enableFishNameProtectionCard.setEnabled(release_mode != "off")
+        
+        # 控制滑块的启用状态
+        if hasattr(self, 'releaseSliders'):
+            for slider in self.releaseSliders.values():
+                slider.setEnabled(release_mode != "off")
 
     def _on_single_release_changed(self, checked):
         if self._loading_ui:
@@ -1643,3 +1709,19 @@ class SettingsInterface(ScrollArea):
         self.vBoxLayout.update()
         self.scrollWidget.updateGeometry()
         self.scrollWidget.adjustSize()
+
+    def refresh_theme(self):
+        """刷新主题相关的样式"""
+        keybinding_widgets = [
+            self.hotkeyLineEdit,
+            self.hotkeyGamepadLineEdit,
+            self.debugHotkeyLineEdit,
+            self.debugGamepadLineEdit,
+            self.sellHotkeyLineEdit,
+            self.sellGamepadLineEdit,
+            self.unoHotkeyLineEdit,
+            self.unoGamepadLineEdit,
+        ]
+        for widget in keybinding_widgets:
+            if hasattr(widget, "update_style"):
+                widget.update_style()

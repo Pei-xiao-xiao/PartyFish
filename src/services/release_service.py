@@ -6,6 +6,7 @@
 import time
 import ctypes
 from src.config import cfg
+from src.pokedex import pokedex
 
 
 class ReleaseService:
@@ -16,10 +17,71 @@ class ReleaseService:
         初始化放生服务
 
         Args:
-            worker: FishingWorker 实例，用于访问输入、视觉、OCR等功能
+            worker: FishingWorker 实例，用于访问输入、视觉、OCR 等功能
         """
         self.worker = worker
         self._last_bucket_close_button_detected = None
+    
+    def _get_fish_rarity_level(self, fish_name: str) -> int:
+        """
+        根据鱼类名称获取稀有度等级
+        
+        Args:
+            fish_name: 鱼类名称
+            
+        Returns:
+            int: 稀有度等级 (1-6)，如果找不到则返回 0
+        """
+        for fish in pokedex.get_all_fish():
+            if fish.get("name") == fish_name:
+                rarity_level = fish.get("rarity_level", 0)
+                if isinstance(rarity_level, int):
+                    return rarity_level
+                elif isinstance(rarity_level, str):
+                    try:
+                        return int(rarity_level)
+                    except ValueError:
+                        return 0
+        return 0
+    
+    def _should_release_by_rarity(self, fish_name: str, quality: str) -> bool:
+        """
+        根据鱼类稀有度和品质判断是否放生
+        
+        Args:
+            fish_name: 鱼类名称
+            quality: 品质名称（标准、非凡、稀有、史诗、传奇）
+            
+        Returns:
+            bool: True 表示应该放生，False 表示不应该放生
+        """
+        # 获取鱼类稀有度等级
+        rarity_level = self._get_fish_rarity_level(fish_name)
+        if rarity_level == 0:
+            # 找不到稀有度信息，默认放生
+            return True
+        
+        # 获取配置中的放生档位
+        release_settings = cfg.global_settings.get("release_settings", {})
+        release_threshold = release_settings.get(str(rarity_level), 0)
+        
+        if release_threshold == 0:
+            # 0 表示不放生
+            return False
+        
+        # 品质映射到数字
+        quality_map = {
+            "标准": 1,
+            "非凡": 2,
+            "稀有": 3,
+            "史诗": 4,
+            "传奇": 5,
+        }
+        
+        quality_value = quality_map.get(quality, 0)
+        
+        # 如果当前品质小于等于配置的档位，则放生
+        return quality_value <= release_threshold
 
     def _get_bucket_close_button_region(self):
         return cfg.get_rect("bucket_close_button")
@@ -215,7 +277,7 @@ class ReleaseService:
         }
         return quality_map.get(color, "标准")
 
-    def _check_fish_protection(self, fish_x, fish_y, quality, row, col, released_count):
+    def _check_fish_protection(self, fish_x, fish_y, quality, row, col, released_count, fish_name=None):
         """
         检查鱼是否受保护
 
@@ -226,6 +288,7 @@ class ReleaseService:
             row: 行号
             col: 列号
             released_count: 当前已放生数量
+            fish_name: 鱼类名称（可选，如果已获取则直接使用）
 
         Returns:
             bool: True 表示鱼受保护，False 表示不受保护，None 表示需要中止
@@ -233,6 +296,14 @@ class ReleaseService:
         if not cfg.global_settings.get("enable_fish_name_protection", False):
             return False  # 未启用保护，鱼不受保护
 
+        # 如果已经获取了鱼类名称，直接使用
+        if fish_name:
+            if cfg.is_fish_protected(fish_name, quality):
+                self.worker.log_updated.emit(f"检测到保护鱼:{fish_name}({quality})，锁定")
+                return True  # 鱼受保护
+            return False  # 鱼不受保护
+
+        # 否则重新获取鱼类名称
         self.worker.smart_sleep(0.5)
         self.worker.inputs.double_click(
             fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
@@ -410,26 +481,48 @@ class ReleaseService:
             if quality is None:
                 break  # 没有鱼，停止检测
 
-            release_map = {
-                "标准": "release_standard",
-                "非凡": "release_uncommon",
-                "稀有": "release_rare",
-                "史诗": "release_epic",
-                "传奇": "release_legendary",
-            }
-            should_release = cfg.global_settings.get(release_map.get(quality), False)
+            fish_x = scaled_zone_x + scaled_cell_width // 2
+            fish_y = scaled_zone_y + scaled_cell_height // 2
+
+            # 获取鱼类名称用于判断
+            fish_name = None
+            if cfg.global_settings.get("enable_fish_name_protection", False):
+                self.worker.smart_sleep(0.5)
+                self.worker.inputs.double_click(
+                    fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
+                )
+                self.worker.smart_sleep(0.5)
+
+                if self.worker._check_popup_and_abort_release(released_count):
+                    return None
+
+                fish_name_region = cfg.get_rect("fish_name_tooltip")
+                fish_name_img = self.worker.vision.screenshot(fish_name_region)
+                if fish_name_img is not None:
+                    fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
+
+            # 根据稀有度和品质判断是否放生
+            if fish_name:
+                should_release = self._should_release_by_rarity(fish_name, quality)
+            else:
+                # 没有鱼类名称信息时，使用旧逻辑
+                release_map = {
+                    "标准": "release_standard",
+                    "非凡": "release_uncommon",
+                    "稀有": "release_rare",
+                    "史诗": "release_epic",
+                    "传奇": "release_legendary",
+                }
+                should_release = cfg.global_settings.get(release_map.get(quality), False)
 
             if not self.worker.running or self.worker.paused:
                 break
 
             if self.worker._check_popup_and_abort_release(released_count):
-                return -1  # 返回-1表示弹窗中止，而非无鱼可放
-
-            fish_x = scaled_zone_x + scaled_cell_width // 2
-            fish_y = scaled_zone_y + scaled_cell_height // 2
+                return -1  # 返回 -1 表示弹窗中止，而非无鱼可放
 
             is_protected = self._check_fish_protection(
-                fish_x, fish_y, quality, row, col, released_count
+                fish_x, fish_y, quality, row, col, released_count, fish_name
             )
             if is_protected is None:
                 return released_count

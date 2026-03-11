@@ -21,6 +21,7 @@ class AccountService:
         "release_rare",
         "release_epic",
         "release_legendary",
+        "release_settings",
         "pokedex_filter_criteria",
     )
 
@@ -37,6 +38,14 @@ class AccountService:
         "release_rare": False,
         "release_epic": False,
         "release_legendary": False,
+        "release_settings": {
+            "1": 1,
+            "2": 1,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "6": 0,
+        },
         "pokedex_filter_criteria": {},
     }
 

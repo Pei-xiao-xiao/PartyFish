@@ -30,7 +30,7 @@ class SalesLimitManager:
         # 更新首页
         if hasattr(self.window, "home_interface"):
             self.window.home_interface.update_sales_progress(total_sales, 899)
-            self.window.home_interface.update_pokedex_progress()
+            self.window.home_interface._on_pokedex_data_changed()
 
     def _calculate_total_sales(self):
         """
