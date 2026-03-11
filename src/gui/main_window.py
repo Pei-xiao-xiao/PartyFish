@@ -1,11 +1,12 @@
 import sys
-from PySide6.QtCore import Qt, QSize, Signal, QUrl
+from PySide6.QtCore import Qt, QSize, Signal, QUrl, QTimer
 from PySide6.QtGui import QIcon, QPainter, QColor, QFont, QPixmap
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import (
     FluentIcon,
     FluentWindow,
     NavigationItemPosition,
+    qconfig,
     setTheme,
     Theme,
 )
@@ -209,6 +210,8 @@ class MainWindow(FluentWindow):
         else:
             setTheme(Theme.DARK)
 
+        self._watermark_cache = None
+
         # 主题切换后刷新各页面自定义样式
         if hasattr(self.records_interface, "refresh_table_colors"):
             self.records_interface.refresh_table_colors()
@@ -218,6 +221,7 @@ class MainWindow(FluentWindow):
 
         if hasattr(self.settings_interface, "refresh_theme"):
             self.settings_interface.refresh_theme()
+            QTimer.singleShot(0, self.settings_interface.refresh_theme)
 
         if hasattr(self.profit_interface, "refresh_theme"):
             self.profit_interface.refresh_theme()
@@ -344,7 +348,9 @@ class MainWindow(FluentWindow):
             cache.fill(Qt.transparent)
 
             cache_painter = QPainter(cache)
-            cache_painter.setPen(QColor(128, 128, 128, 60))
+            is_dark = qconfig.theme.value == "Dark"
+            watermark_alpha = 24 if is_dark else 60
+            cache_painter.setPen(QColor(128, 128, 128, watermark_alpha))
             cache_painter.setFont(QFont("Microsoft YaHei", 20))
             cache_painter.rotate(-30)
             text = "免费软件 禁止倒卖"

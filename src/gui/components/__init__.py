@@ -1,6 +1,6 @@
 import time
 
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal, QTimer, QEvent
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLineEdit
 from qfluentwidgets import qconfig
@@ -39,6 +39,7 @@ class KeyBindingWidget(QLineEdit):
             "hold_ms": cfg.GAMEPAD_HOLD_MS,
         }
         self._original_gamepad_binding = self._gamepad_binding.copy()
+        self._is_updating_style = False
         self._capture_timer = QTimer(self)
         self._capture_timer.setInterval(100)
         self._capture_timer.timeout.connect(self._update_capture_elapsed_text)
@@ -215,22 +216,74 @@ class KeyBindingWidget(QLineEdit):
         self.editingFinished.emit()
 
     def update_style(self):
-        color = qconfig.themeColor.name
+        if self._is_updating_style:
+            return
+
+        self._is_updating_style = True
+        theme_color = getattr(qconfig, "themeColor", "#009fe3")
+        if hasattr(theme_color, "value"):
+            theme_color = theme_color.value
+
+        color_name = getattr(theme_color, "name", None)
+        if callable(color_name):
+            color = color_name()
+        elif isinstance(color_name, str):
+            color = color_name
+        else:
+            color = str(theme_color)
         is_dark = qconfig.theme.value == "Dark"
         text_color = "#ffffff" if is_dark else "#000000"
         bg_color = "#374151" if is_dark else "#ffffff"
         border_color = "#4b5563" if is_dark else "#d1d5db"
-        
-        if self.property("isCapturing"):
-            self.setStyleSheet(
-                f"border: 2px solid {color}; background-color: rgba(0, 159, 227, 0.1); color: {text_color};"
-            )
-        else:
-            self.setStyleSheet(
-                f"background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 4px; color: {text_color};"
-            )
-        self.style().unpolish(self)
-        self.style().polish(self)
+
+        try:
+            if self.property("isCapturing"):
+                self.setStyleSheet(
+                    f"""
+                    QLineEdit {{
+                        min-height: 32px;
+                        padding: 0 10px;
+                        border: 2px solid {color};
+                        border-radius: 4px;
+                        background-color: rgba(0, 159, 227, 0.1);
+                        color: {text_color};
+                        selection-background-color: {color};
+                    }}
+                    """
+                )
+            else:
+                self.setStyleSheet(
+                    f"""
+                    QLineEdit {{
+                        min-height: 32px;
+                        padding: 0 10px;
+                        background-color: {bg_color};
+                        border: 1px solid {border_color};
+                        border-radius: 4px;
+                        color: {text_color};
+                        selection-background-color: {color};
+                    }}
+                    QLineEdit:read-only {{
+                        background-color: {bg_color};
+                        color: {text_color};
+                    }}
+                    """
+                )
+            self.style().unpolish(self)
+            self.style().polish(self)
+            self.update()
+        finally:
+            self._is_updating_style = False
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (
+            QEvent.Type.StyleChange,
+            QEvent.Type.PaletteChange,
+            QEvent.Type.ApplicationPaletteChange,
+            QEvent.Type.ThemeChange,
+        ):
+            self.update_style()
 
     def keyPressEvent(self, event):
         if not self.is_capturing:
