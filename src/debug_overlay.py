@@ -1,14 +1,74 @@
 import sys
 import os
+import math
 import cv2
 from datetime import datetime
 from pathlib import Path
 
 from src.vision import vision
 from src.config import cfg
+from src.services.fishing_service import FishingService
 
 
-def generate_debug_screenshot(show_image=True):
+def _angle_to_point(center_x, center_y, radius, angle_deg):
+    radians = math.radians(angle_deg)
+    point_x = int(center_x + (radius * math.cos(radians)))
+    point_y = int(center_y - (radius * math.sin(radians)))
+    return point_x, point_y
+
+
+def _draw_smart_tension_overlay(image, recognition_results):
+    gauge_region = cfg.get_rect("smart_tension_gauge")
+    x, y, w, h = gauge_region
+    gauge_image = image[y : y + h, x : x + w].copy()
+    geometry = FishingService.detect_smart_gauge_geometry(gauge_image, gauge_region)
+    pointer = FishingService.detect_smart_pointer(
+        vision, gauge_image, gauge_region, geometry
+    )
+
+    if geometry is not None:
+        center_x, center_y = map(int, geometry["center"])
+        line_radius = max(1, int(geometry["radius"]))
+    else:
+        center_x = x + (w // 2)
+        center_y = y + h
+        line_radius = int(max(w, h) * 0.45)
+
+    if pointer is not None:
+        pointer_x, pointer_y = map(int, pointer["center"])
+    else:
+        pointer_x = None
+        pointer_y = None
+
+    danger_angle = FishingService.SMART_DANGER_ANGLE
+    configured_release_angle = danger_angle + max(
+        0.0, float(getattr(cfg, "smart_release_angle", 18.0))
+    )
+    configured_release_angle = min(configured_release_angle, 170.0)
+    pointer_angle = None
+
+    if pointer is not None:
+        pointer_angle = math.degrees(
+            math.atan2(center_y - pointer_y, pointer_x - center_x)
+        )
+        if pointer_angle < 0:
+            pointer_angle += 360.0
+        pointer_end = _angle_to_point(center_x, center_y, line_radius, pointer_angle)
+    else:
+        pointer_end = None
+
+    danger_end = _angle_to_point(center_x, center_y, line_radius, danger_angle)
+
+    if pointer_end is not None:
+        cv2.line(image, (center_x, center_y), pointer_end, (0, 255, 0), 2)
+    configured_release_end = _angle_to_point(
+        center_x, center_y, line_radius + 14, configured_release_angle
+    )
+    cv2.line(image, (center_x, center_y), configured_release_end, (0, 165, 255), 2)
+    cv2.line(image, (center_x, center_y), danger_end, (0, 0, 255), 2)
+
+
+def generate_debug_screenshot(show_image=False):
     """
     Captures screen, draws debug overlays, and saves/shows the image.
     增强版：显示识别结果和置信度
@@ -114,6 +174,12 @@ def generate_debug_screenshot(show_image=True):
             recognition_results.append(f"鱼桶关闭按钮: {score:.2f} at {pos}")
     except:
         pass
+
+    # 9. 智能收线张力盘三条线
+    try:
+        _draw_smart_tension_overlay(screenshot, recognition_results)
+    except Exception as e:
+        recognition_results.append(f"张力盘调试绘制失败: {e}")
 
     print("Drawing debug overlay...")
     # 使用新的 vision 方法就地修改截图
@@ -286,7 +352,7 @@ def generate_debug_screenshot(show_image=True):
 def main():
     print("Starting Debug Overlay...")
     print(f"Screen Resolution: {cfg.screen_width}x{cfg.screen_height}")
-    generate_debug_screenshot(show_image=True)
+    generate_debug_screenshot(show_image=False)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ class RegionConfig:
             "wait_bite": {"coords": (975, 1318, 35, 42), "anchor": "bottom_center"},
             "shangyu": {"coords": (1143, 1313, 25, 28), "anchor": "bottom_center"},
             "reel_in_star": {"coords": (1167, 160, 44, 44), "anchor": "top_center"},
+            "smart_tension_gauge": {"coords": (932, 1187, 691, 195)},
             "bait_count": {"coords": (2316, 1294, 32, 26), "anchor": "bottom_right"},
             "bait_icon": {"coords": (2252, 1291, 91, 90), "anchor": "bottom_right"},
             "jiashi_popup": {"coords": (1237, 669, 40, 40), "anchor": "center"},

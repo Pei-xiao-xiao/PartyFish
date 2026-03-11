@@ -3,9 +3,12 @@
 负责处理钓鱼的核心流程：抛竿、等待咬钩、收竿、记录渔获
 """
 
+import math
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
+import cv2
+import numpy as np
 from src.config import cfg
 from src.services.ocr_service import OCRService
 from src.services.record_schema import infer_time_period_from_timestamp
@@ -15,6 +18,29 @@ from src.services.screenshot_service import ScreenshotService
 
 class FishingService:
     """钓鱼服务类"""
+
+    SMART_PRESET_NAME = "智能钓鱼"
+    SMART_DANGER_ANGLE = 34.0
+    SMART_DANGER_GUARD_ANGLE = 6.0
+    SMART_POINTER_MATCH_THRESHOLD = 0.35
+    SMART_POINTER_LOST_LIMIT = 20
+    SMART_REEL_TIMEOUT = 45.0
+    SMART_POLL_INTERVAL_MS = 20
+    SMART_POINTER_ROTATION_STEP = 3
+    SMART_GAUGE_WHITE_MAX_SAT = 80
+    SMART_GAUGE_WHITE_MIN_VALUE = 140
+    SMART_POINTER_EDGE_LOW = 40
+    SMART_POINTER_EDGE_HIGH = 120
+    SMART_POINTER_MIN_RADIUS_RATIO = 1.15
+    SMART_POINTER_MAX_RADIUS_RATIO = 1.95
+    SMART_POINTER_HUE_LOW = 10
+    SMART_POINTER_HUE_HIGH = 35
+    SMART_POINTER_SAT_MIN = 100
+    SMART_POINTER_VAL_MIN = 120
+    SMART_POINTER_AREA_MIN_RATIO = 0.18
+    SMART_POINTER_AREA_MAX_RATIO = 2.6
+    SMART_POINTER_SHAPE_MAX_SCORE = 0.65
+    SMART_POINTER_TEMPLATE_CACHE = {"scale": None, "templates": []}
 
     def __init__(self, worker):
         self.worker = worker
@@ -26,6 +52,7 @@ class FishingService:
         self._async_futures_lock = threading.Lock()
         # 使用默认 OCR 线程以提高后台识别吞吐量。
         self._async_ocr_service = OCRService()
+        self._smart_gauge_geometry = None
 
     def _build_signal_record(
         self,
@@ -512,11 +539,584 @@ class FishingService:
         )
         return False
 
+    def _is_smart_preset(self):
+        return cfg.current_preset_name == self.SMART_PRESET_NAME
+
+    @staticmethod
+    def _average_extreme_point(points, axis_index, pick_min=True, tolerance=3):
+        axis_values = points[:, axis_index]
+        extreme_value = axis_values.min() if pick_min else axis_values.max()
+        if pick_min:
+            selected_points = points[axis_values <= (extreme_value + tolerance)]
+        else:
+            selected_points = points[axis_values >= (extreme_value - tolerance)]
+
+        if len(selected_points) == 0:
+            selected_points = points
+
+        return (
+            float(selected_points[:, 0].mean()),
+            float(selected_points[:, 1].mean()),
+        )
+
+    @staticmethod
+    def _compute_circle_center_from_points(point1, point2, point3):
+        x1, y1 = point1
+        x2, y2 = point2
+        x3, y3 = point3
+
+        denominator = 2.0 * ((x1 * (y2 - y3)) + (x2 * (y3 - y1)) + (x3 * (y1 - y2)))
+        if abs(denominator) < 1e-6:
+            return None
+
+        x1_sq = (x1 * x1) + (y1 * y1)
+        x2_sq = (x2 * x2) + (y2 * y2)
+        x3_sq = (x3 * x3) + (y3 * y3)
+
+        center_x = (
+            (x1_sq * (y2 - y3)) + (x2_sq * (y3 - y1)) + (x3_sq * (y1 - y2))
+        ) / denominator
+        center_y = (
+            (x1_sq * (x3 - x2)) + (x2_sq * (x1 - x3)) + (x3_sq * (x2 - x1))
+        ) / denominator
+
+        return (float(center_x), float(center_y))
+
+    @classmethod
+    def _extract_smart_gauge_arc_contour(cls, gauge_image):
+        hsv_image = cv2.cvtColor(gauge_image, cv2.COLOR_BGR2HSV)
+        white_mask = cv2.inRange(
+            hsv_image,
+            (0, 0, cls.SMART_GAUGE_WHITE_MIN_VALUE),
+            (180, cls.SMART_GAUGE_WHITE_MAX_SAT, 255),
+        )
+
+        height, width = white_mask.shape[:2]
+        white_mask[: max(1, int(height * 0.08)), :] = 0
+        white_mask[max(1, int(height * 0.92)) :, :] = 0
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_OPEN, kernel)
+        white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel)
+
+        contours, _ = cv2.findContours(
+            white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+        )
+
+        best_contour = None
+        best_score = -1
+        min_area = max(60, int((width * height) * 0.01))
+        min_width = max(20, int(width * 0.18))
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area < min_area:
+                continue
+
+            bound_x, bound_y, bound_w, bound_h = cv2.boundingRect(contour)
+            if bound_w < min_width:
+                continue
+            if (bound_y + bound_h) < int(height * 0.35):
+                continue
+
+            contour_score = area + (bound_w * 2)
+            if contour_score > best_score:
+                best_score = contour_score
+                best_contour = contour
+
+        return best_contour
+
+    @classmethod
+    def detect_smart_gauge_geometry(cls, gauge_image, gauge_region):
+        contour = cls._extract_smart_gauge_arc_contour(gauge_image)
+        if contour is None:
+            return None
+
+        contour_points = contour.reshape(-1, 2)
+        left_point = cls._average_extreme_point(contour_points, 0, pick_min=True)
+        right_point = cls._average_extreme_point(contour_points, 0, pick_min=False)
+        top_point = cls._average_extreme_point(contour_points, 1, pick_min=True)
+
+        center = cls._compute_circle_center_from_points(
+            left_point, right_point, top_point
+        )
+        if center is None:
+            fallback_center, _ = cv2.minEnclosingCircle(contour)
+            center = (float(fallback_center[0]), float(fallback_center[1]))
+
+        radius = (math.dist(center, left_point) + math.dist(center, right_point)) / 2.0
+        if radius <= 1:
+            return None
+
+        region_x, region_y, _, _ = gauge_region
+
+        def _to_absolute(point):
+            return (point[0] + region_x, point[1] + region_y)
+
+        return {
+            "center": _to_absolute(center),
+            "left_point": _to_absolute(left_point),
+            "right_point": _to_absolute(right_point),
+            "top_point": _to_absolute(top_point),
+            "radius": radius,
+        }
+
+    @staticmethod
+    def _rotate_template_with_alpha(template, angle):
+        height, width = template.shape[:2]
+        center = (width / 2, height / 2)
+        matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+
+        cos_value = abs(matrix[0, 0])
+        sin_value = abs(matrix[0, 1])
+        bound_w = max(1, int((height * sin_value) + (width * cos_value)))
+        bound_h = max(1, int((height * cos_value) + (width * sin_value)))
+
+        matrix[0, 2] += (bound_w / 2) - center[0]
+        matrix[1, 2] += (bound_h / 2) - center[1]
+
+        border_value = (0, 0, 0, 0) if template.shape[2] == 4 else (0, 0, 0)
+        rotated = cv2.warpAffine(
+            template,
+            matrix,
+            (bound_w, bound_h),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=border_value,
+        )
+
+        if rotated.ndim == 3 and rotated.shape[2] == 4:
+            alpha = rotated[:, :, 3]
+            non_zero = cv2.findNonZero(alpha)
+            if non_zero is None:
+                return None
+            crop_x, crop_y, crop_w, crop_h = cv2.boundingRect(non_zero)
+            return rotated[crop_y : crop_y + crop_h, crop_x : crop_x + crop_w]
+
+        return rotated
+
+    @classmethod
+    def _extract_pointer_edges(cls, image):
+        gray_image = (
+            cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image.copy()
+        )
+        return cv2.Canny(
+            gray_image, cls.SMART_POINTER_EDGE_LOW, cls.SMART_POINTER_EDGE_HIGH
+        )
+
+    @classmethod
+    def _build_pointer_position_mask(
+        cls, result_shape, template_width, template_height, gauge_geometry, gauge_region
+    ):
+        center_x = gauge_geometry["center"][0] - gauge_region[0]
+        center_y = gauge_geometry["center"][1] - gauge_region[1]
+
+        x_coords = np.arange(result_shape[1], dtype=np.float32) + (template_width / 2.0)
+        y_coords = np.arange(result_shape[0], dtype=np.float32) + (
+            template_height / 2.0
+        )
+        grid_x, grid_y = np.meshgrid(x_coords, y_coords)
+
+        delta_x = grid_x - center_x
+        delta_y = grid_y - center_y
+        distances = np.sqrt((delta_x * delta_x) + (delta_y * delta_y))
+
+        angles = np.degrees(np.arctan2(center_y - grid_y, delta_x))
+        angles[angles < 0] += 360.0
+
+        min_radius = gauge_geometry["radius"] * cls.SMART_POINTER_MIN_RADIUS_RATIO
+        max_radius = gauge_geometry["radius"] * cls.SMART_POINTER_MAX_RADIUS_RATIO
+
+        return (
+            (distances >= min_radius)
+            & (distances <= max_radius)
+            & (angles >= 0.0)
+            & (angles <= 180.0)
+        )
+
+    @classmethod
+    def _get_smart_pointer_templates(cls, vision_obj):
+        vision_obj._ensure_loaded()
+
+        cached_scale = cls.SMART_POINTER_TEMPLATE_CACHE.get("scale")
+        cached_templates = cls.SMART_POINTER_TEMPLATE_CACHE.get("templates", [])
+        if cached_scale == cfg.scale and cached_templates:
+            return cached_templates
+
+        raw_template = vision_obj.raw_templates.get("pointer")
+        if raw_template is None:
+            raise ValueError("Template 'pointer' not found.")
+
+        if cfg.scale != 1.0:
+            scaled_width = max(1, int(raw_template.shape[1] * cfg.scale))
+            scaled_height = max(1, int(raw_template.shape[0] * cfg.scale))
+            interpolation = cv2.INTER_LINEAR if cfg.scale > 1.0 else cv2.INTER_AREA
+            base_template = cv2.resize(
+                raw_template, (scaled_width, scaled_height), interpolation=interpolation
+            )
+        else:
+            base_template = raw_template.copy()
+
+        rotated_templates = []
+        for angle in range(0, 181, cls.SMART_POINTER_ROTATION_STEP):
+            rotated_template = cls._rotate_template_with_alpha(base_template, angle)
+            if rotated_template is None:
+                continue
+            template_mask = None
+            template_image = rotated_template
+            if rotated_template.ndim == 3 and rotated_template.shape[2] == 4:
+                template_mask = rotated_template[:, :, 3]
+                template_image = rotated_template[:, :, :3]
+
+            template_image = cls._extract_pointer_edges(template_image)
+            if template_mask is not None:
+                template_mask = cv2.threshold(template_mask, 1, 255, cv2.THRESH_BINARY)[
+                    1
+                ]
+
+            rotated_templates.append((template_image, template_mask))
+
+        cls.SMART_POINTER_TEMPLATE_CACHE = {
+            "scale": cfg.scale,
+            "templates": rotated_templates,
+        }
+        return rotated_templates
+
+    @classmethod
+    def _get_pointer_shape_reference(cls, vision_obj):
+        vision_obj._ensure_loaded()
+        raw_template = vision_obj.raw_templates.get("pointer")
+        if raw_template is None:
+            return None
+
+        if cfg.scale != 1.0:
+            scaled_width = max(1, int(raw_template.shape[1] * cfg.scale))
+            scaled_height = max(1, int(raw_template.shape[0] * cfg.scale))
+            interpolation = cv2.INTER_LINEAR if cfg.scale > 1.0 else cv2.INTER_AREA
+            template_image = cv2.resize(
+                raw_template, (scaled_width, scaled_height), interpolation=interpolation
+            )
+        else:
+            template_image = raw_template.copy()
+
+        if template_image.ndim != 3 or template_image.shape[2] != 4:
+            return None
+
+        template_mask = cv2.threshold(
+            template_image[:, :, 3], 1, 255, cv2.THRESH_BINARY
+        )[1]
+        contours, _ = cv2.findContours(
+            template_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        if not contours:
+            return None
+
+        reference_contour = max(contours, key=cv2.contourArea)
+        return {
+            "contour": reference_contour,
+            "area": cv2.contourArea(reference_contour),
+        }
+
+    @classmethod
+    def _detect_smart_pointer_by_color(
+        cls, vision_obj, gauge_image, gauge_region, gauge_geometry
+    ):
+        hsv_image = cv2.cvtColor(gauge_image, cv2.COLOR_BGR2HSV)
+        pointer_mask = cv2.inRange(
+            hsv_image,
+            (
+                cls.SMART_POINTER_HUE_LOW,
+                cls.SMART_POINTER_SAT_MIN,
+                cls.SMART_POINTER_VAL_MIN,
+            ),
+            (cls.SMART_POINTER_HUE_HIGH, 255, 255),
+        )
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        pointer_mask = cv2.morphologyEx(pointer_mask, cv2.MORPH_OPEN, kernel)
+        pointer_mask = cv2.morphologyEx(pointer_mask, cv2.MORPH_CLOSE, kernel)
+
+        reference = cls._get_pointer_shape_reference(vision_obj)
+        if reference is None:
+            return None
+
+        expected_area = max(reference["area"], 1.0)
+        contours, _ = cv2.findContours(
+            pointer_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        best_candidate = None
+        best_score = -1.0
+        center_x = gauge_geometry["center"][0] - gauge_region[0]
+        center_y = gauge_geometry["center"][1] - gauge_region[1]
+        min_radius = gauge_geometry["radius"] * cls.SMART_POINTER_MIN_RADIUS_RATIO
+        max_radius = gauge_geometry["radius"] * cls.SMART_POINTER_MAX_RADIUS_RATIO
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area < expected_area * cls.SMART_POINTER_AREA_MIN_RATIO:
+                continue
+            if area > expected_area * cls.SMART_POINTER_AREA_MAX_RATIO:
+                continue
+
+            moments = cv2.moments(contour)
+            if abs(moments["m00"]) < 1e-6:
+                continue
+
+            local_x = moments["m10"] / moments["m00"]
+            local_y = moments["m01"] / moments["m00"]
+            distance = math.dist((center_x, center_y), (local_x, local_y))
+            if not (min_radius <= distance <= max_radius):
+                continue
+
+            angle = math.degrees(math.atan2(center_y - local_y, local_x - center_x))
+            if angle < 0:
+                angle += 360.0
+            if not (0.0 <= angle <= 180.0):
+                continue
+
+            shape_score = cv2.matchShapes(
+                contour, reference["contour"], cv2.CONTOURS_MATCH_I1, 0.0
+            )
+            if shape_score > cls.SMART_POINTER_SHAPE_MAX_SCORE:
+                continue
+
+            area_similarity = 1.0 - min(abs(area - expected_area) / expected_area, 1.0)
+            candidate_score = (1.0 / (1.0 + shape_score)) + area_similarity
+            if candidate_score <= best_score:
+                continue
+
+            best_score = candidate_score
+            best_candidate = {
+                "score": candidate_score / 2.0,
+                "shape_score": shape_score,
+                "center": (
+                    gauge_region[0] + local_x,
+                    gauge_region[1] + local_y,
+                ),
+                "method": "color",
+            }
+
+        return best_candidate
+
+    @classmethod
+    def _match_smart_pointer(
+        cls, vision_obj, gauge_image, gauge_region, gauge_geometry
+    ):
+        best_score = -1.0
+        best_center = None
+        edge_gauge_image = cls._extract_pointer_edges(gauge_image)
+
+        for template_image, template_mask in cls._get_smart_pointer_templates(
+            vision_obj
+        ):
+            template_height, template_width = template_image.shape[:2]
+            image_height, image_width = edge_gauge_image.shape[:2]
+            if template_height > image_height or template_width > image_width:
+                continue
+
+            if template_mask is not None:
+                result = cv2.matchTemplate(
+                    edge_gauge_image,
+                    template_image,
+                    cv2.TM_CCORR_NORMED,
+                    mask=template_mask,
+                )
+            else:
+                result = cv2.matchTemplate(
+                    edge_gauge_image, template_image, cv2.TM_CCOEFF_NORMED
+                )
+
+            valid_mask = cls._build_pointer_position_mask(
+                result.shape,
+                template_width,
+                template_height,
+                gauge_geometry,
+                gauge_region,
+            )
+            if not np.any(valid_mask):
+                continue
+
+            result = result.copy()
+            result[~valid_mask] = -1.0
+
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+            if max_val <= best_score:
+                continue
+
+            best_score = max_val
+            best_center = (
+                max_loc[0] + (template_width / 2),
+                max_loc[1] + (template_height / 2),
+            )
+
+        if best_score < cls.SMART_POINTER_MATCH_THRESHOLD or best_center is None:
+            return None
+
+        return {"score": best_score, "center": best_center}
+
+    @classmethod
+    def detect_smart_pointer(
+        cls, vision_obj, gauge_image, gauge_region, gauge_geometry=None
+    ):
+        if gauge_geometry is None:
+            gauge_geometry = cls.detect_smart_gauge_geometry(gauge_image, gauge_region)
+        if gauge_geometry is None:
+            return None
+
+        color_result = cls._detect_smart_pointer_by_color(
+            vision_obj, gauge_image, gauge_region, gauge_geometry
+        )
+        if color_result is not None:
+            return color_result
+
+        match_result = cls._match_smart_pointer(
+            vision_obj, gauge_image, gauge_region, gauge_geometry
+        )
+        if match_result is None:
+            return None
+
+        return {
+            "score": match_result["score"],
+            "center": (
+                gauge_region[0] + match_result["center"][0],
+                gauge_region[1] + match_result["center"][1],
+            ),
+            "method": "template",
+        }
+
+    def _get_smart_pointer_state(self):
+        gauge_region = cfg.get_rect("smart_tension_gauge")
+        gauge_image = self.worker.vision.screenshot(gauge_region)
+        if gauge_image is None or getattr(gauge_image, "size", 0) == 0:
+            return None
+
+        if self._smart_gauge_geometry is None:
+            self._smart_gauge_geometry = self.detect_smart_gauge_geometry(
+                gauge_image, gauge_region
+            )
+        if self._smart_gauge_geometry is None:
+            return None
+
+        match_result = self.detect_smart_pointer(
+            self.worker.vision,
+            gauge_image,
+            gauge_region,
+            self._smart_gauge_geometry,
+        )
+        if match_result is None:
+            return None
+
+        gauge_center_x, gauge_center_y = self._smart_gauge_geometry["center"]
+        pointer_x, pointer_y = match_result["center"]
+
+        angle = math.degrees(
+            math.atan2(gauge_center_y - pointer_y, pointer_x - gauge_center_x)
+        )
+        if angle < 0:
+            angle += 360
+
+        return {
+            "angle": angle,
+            "score": match_result["score"],
+            "pointer": (pointer_x, pointer_y),
+        }
+
+    def _smart_reel_in(self):
+        star_region = cfg.get_rect("reel_in_star")
+        cast_rod_region = cfg.get_rect("cast_rod")
+        cast_rod_ice_region = cfg.get_rect("cast_rod_ice")
+        configured_release_angle = self.SMART_DANGER_ANGLE + max(
+            0.0, float(getattr(cfg, "smart_release_angle", 18.0))
+        )
+        configured_release_angle = min(configured_release_angle, 170.0)
+        smart_release_time = max(0.0, float(getattr(cfg, "smart_release_time", 0.2)))
+        guard_release_angle = min(
+            self.SMART_DANGER_ANGLE + self.SMART_DANGER_GUARD_ANGLE,
+            170.0,
+        )
+
+        pointer_missing_count = 0
+        is_holding = True
+        release_until = 0.0
+        start_time = time.time()
+        self._smart_gauge_geometry = None
+
+        self.worker.log_updated.emit("进入智能收线模式...")
+
+        try:
+            self.worker.inputs.press_mouse_button()
+
+            while time.time() - start_time < self.SMART_REEL_TIMEOUT:
+                if not self.worker.running or self.worker.paused:
+                    return False
+
+                if self.worker.vision.find_template(
+                    "star_grayscale", region=star_region, threshold=0.7
+                ):
+                    self.worker.log_updated.emit("检测到星星，成功！")
+                    return True
+
+                for key in ["F1_grayscale", "F2_grayscale"]:
+                    if self.worker.vision.find_template(
+                        key, region=cast_rod_region, threshold=0.8
+                    ) or self.worker.vision.find_template(
+                        key, region=cast_rod_ice_region, threshold=0.8
+                    ):
+                        self.worker.log_updated.emit(
+                            "未检测到星星，抛竿提示出现，判定为鱼跑了！"
+                        )
+                        self.worker.status_updated.emit("鱼跑了")
+                        self._record_event("鱼跑了")
+                        return False
+
+                if not is_holding:
+                    if time.time() >= release_until:
+                        self.worker.inputs.press_mouse_button()
+                        is_holding = True
+                    self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
+                    continue
+
+                pointer_state = self._get_smart_pointer_state()
+                if pointer_state is None:
+                    pointer_missing_count += 1
+                    if pointer_missing_count >= self.SMART_POINTER_LOST_LIMIT:
+                        self.worker.log_updated.emit(
+                            "智能收线未能稳定识别指针，已中止本轮。"
+                        )
+                        return False
+                    self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
+                    continue
+
+                pointer_missing_count = 0
+                current_angle = pointer_state["angle"]
+
+                if is_holding and current_angle <= guard_release_angle:
+                    self.worker.log_updated.emit("智能收线：到达危险区兜底，松手")
+                    self.worker.inputs.release_mouse_button()
+                    is_holding = False
+                    release_until = time.time() + smart_release_time
+                elif is_holding and current_angle <= configured_release_angle:
+                    self.worker.log_updated.emit("智能收线：到达配置阈值，松手")
+                    self.worker.inputs.release_mouse_button()
+                    is_holding = False
+                    release_until = time.time() + smart_release_time
+
+                self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
+        finally:
+            self.worker.inputs.ensure_mouse_up()
+
+        self.worker.log_updated.emit("智能收线超时，未能完成本轮。")
+        return False
+
     def reel_in(self):
         """收竿阶段"""
         if not self.worker.running:
             return False
         self.worker.status_updated.emit("上鱼了! 开始收竿!")
+        if self._is_smart_preset():
+            return self._smart_reel_in()
+
         self.worker.log_updated.emit("进入收放线循环...")
 
         star_region = cfg.get_rect("reel_in_star")
