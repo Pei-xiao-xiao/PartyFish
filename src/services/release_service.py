@@ -679,24 +679,13 @@ class ReleaseService:
                 self._ensure_esc_closed(emit_debug=False)
                 return "done"
 
-            release_map = {
-                "标准": "release_standard",
-                "非凡": "release_uncommon",
-                "稀有": "release_rare",
-                "史诗": "release_epic",
-                "传奇": "release_legendary",
-            }
-            should_release = cfg.global_settings.get(release_map.get(quality), False)
-
-            if not should_release:
-                self._ensure_esc_closed(emit_debug=False)
-                return "done"
-
             fish_pos = cfg.REGIONS["fish_inventory"]["single_release_fish_pos"]
             fish_rect = cfg.get_bottom_right_rect((fish_pos[0], fish_pos[1], 1, 1))
             fish_x = fish_rect[0]
             fish_y = fish_rect[1]
 
+            # 获取鱼类名称用于判断
+            fish_name = None
             if cfg.global_settings.get("enable_fish_name_protection", False):
                 self.worker.msleep(200)
                 attempt_state = _check_attempt_state()
@@ -713,9 +702,15 @@ class ReleaseService:
 
                 fish_name_region = cfg.get_rect("fish_name_tooltip")
                 fish_name_img = self.worker.vision.screenshot(fish_name_region)
-                fish_name = None
                 if fish_name_img is not None:
                     fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
+
+            # 使用基于稀有度的判断逻辑
+            should_release = self._should_release_by_rarity(fish_name, quality)
+
+            if not should_release:
+                self._ensure_esc_closed(emit_debug=False)
+                return "done"
 
                 if fish_name and cfg.is_fish_protected(fish_name, quality):
                     self._ensure_esc_closed(emit_debug=False)
