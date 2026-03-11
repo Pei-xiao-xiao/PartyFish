@@ -9,6 +9,8 @@ import json
 class ConfigManager:
     """配置管理服务类"""
 
+    REMOVED_PRESET_NAMES = {"智能钓鱼"}
+
     def __init__(self, config):
         """
         初始化配置管理服务
@@ -63,6 +65,19 @@ class ConfigManager:
             },
         }
 
+    def _sanitize_presets(self, presets):
+        """Remove deprecated presets and ensure at least one preset exists."""
+        sanitized = {
+            self._normalize_preset_name(name): preset
+            for name, preset in presets.items()
+            if self._normalize_preset_name(name) not in self.REMOVED_PRESET_NAMES
+        }
+
+        if sanitized:
+            return sanitized
+
+        return self.get_default_presets()
+
     def load_config_from_json(self):
         """从 JSON 文件加载配置"""
         config_path = self.config.user_data_dir / "config.json"
@@ -82,10 +97,11 @@ class ConfigManager:
             config_data.get("current_preset", "路亚轻竿")
         )
         loaded_presets = config_data.get("presets", self.get_default_presets())
-        self.config.presets = {
-            self._normalize_preset_name(name): preset
-            for name, preset in loaded_presets.items()
-        }
+        self.config.presets = self._sanitize_presets(loaded_presets)
+        if self.config.current_preset_name not in self.config.presets:
+            self.config.current_preset_name = next(
+                iter(self.config.presets), "路亚轻竿"
+            )
 
         default_global_settings = self._get_default_global_settings()
         loaded_global_settings = config_data.get("global_settings", {})
@@ -111,7 +127,7 @@ class ConfigManager:
 
     def _create_default_config(self):
         """创建默认配置"""
-        self.config.presets = self.get_default_presets()
+        self.config.presets = self._sanitize_presets(self.get_default_presets())
         self.config.global_settings = self._get_default_global_settings()
         self.config.qfluent_settings = {"ThemeMode": "Light"}
         self.save()
