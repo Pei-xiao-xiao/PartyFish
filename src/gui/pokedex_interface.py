@@ -660,6 +660,11 @@ class PokedexInterface(QWidget):
         self.current_sort_key = "default"
         self.current_sort_reverse = False
 
+        # 实时更新定时器
+        self._time_update_timer = QTimer(self)
+        self._time_update_timer.timeout.connect(self._check_time_update)
+        self._last_game_time = None  # 缓存上次游戏时段
+
         self._init_ui()
         self._sync_filter_button_state()
         self._load_fish_list()
@@ -900,6 +905,23 @@ class PokedexInterface(QWidget):
         """时段筛选变化"""
         self._update_time_filter_style(checked)
         self._refresh_cards()
+
+        # 实时更新定时器控制
+        if checked:
+            # 记录当前时段并启动定时器
+            self._last_game_time = pokedex.get_current_game_time()
+            self._time_update_timer.start(30000)  # 每30秒检查一次
+        else:
+            # 停止定时器
+            self._time_update_timer.stop()
+            self._last_game_time = None
+
+    def _check_time_update(self):
+        """定时检查游戏时段是否变化，若变化则刷新卡片"""
+        current_time = pokedex.get_current_game_time()
+        if current_time != self._last_game_time:
+            self._last_game_time = current_time
+            self._refresh_cards()
 
     def _update_time_filter_style(self, checked):
         """更新按钮样式 - 现代胶囊风格"""
