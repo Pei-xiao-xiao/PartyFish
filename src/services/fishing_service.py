@@ -59,6 +59,43 @@ class FishingService:
             "is_new_record": is_new_record,
         }
 
+    def _build_single_release_decision(self, fish_name: str, quality: str) -> dict:
+        """Build the single-release decision from catch recognition results."""
+        if (
+            cfg.global_settings.get("enable_fish_name_protection", False)
+            and fish_name
+            and cfg.is_fish_protected(fish_name, quality)
+        ):
+            self.worker.log_updated.emit(
+                f"检测到保护鱼: {fish_name}({quality})，继续钓鱼"
+            )
+            return {
+                "fish_name": fish_name,
+                "quality": quality,
+                "should_release": False,
+                "is_protected": True,
+            }
+
+        if not fish_name:
+            self.worker.log_updated.emit("未识别到鱼名，跳过单条放生")
+            return {
+                "fish_name": fish_name,
+                "quality": quality,
+                "should_release": False,
+                "is_protected": False,
+            }
+
+        should_release = self.worker.release_service._should_release_by_rarity(
+            fish_name, quality
+        )
+
+        return {
+            "fish_name": fish_name,
+            "quality": quality,
+            "should_release": should_release,
+            "is_protected": False,
+        }
+
     def _try_switch_bait(self):
         """
         尝试切换到下一个鱼饵
@@ -534,7 +571,7 @@ class FishingService:
     def record_catch(self):
         """截图识别渔获信息"""
         if not self.worker.running:
-            return False
+            return None
 
         if not cfg.global_settings.get("enable_fish_recognition", True):
             self.worker.log_updated.emit("鱼类识别已关闭，等待并关闭渔获弹窗")
@@ -567,7 +604,7 @@ class FishingService:
                     "警告: 未检测到'收起'按钮，尝试直接点击关闭"
                 )
 
-            return False
+            return None
 
         release_mode = cfg.global_settings.get("release_mode", "off")
         if release_mode == "single":
@@ -592,7 +629,7 @@ class FishingService:
         )
 
         if not success:
-            return False
+            return None
 
         fish_name = catch_data["name"]
         quality = catch_data["quality"]
@@ -614,20 +651,11 @@ class FishingService:
         )
         self.worker.record_added.emit(catch_data)
 
-        # 使用统一的放生品质配置
-        if fish_name:
-            # 有鱼类名称时，使用基于稀有度的判断
-            should_release = self.worker.release_service._should_release_by_rarity(fish_name, quality)
-        else:
-            # 没有鱼类名称信息时，使用旧逻辑
-            release_map = {
-                "标准": "release_standard",
-                "非凡": "release_uncommon",
-                "稀有": "release_rare",
-                "史诗": "release_epic",
-                "传奇": "release_legendary",
-            }
-            should_release = cfg.global_settings.get(release_map.get(quality), False)
+        single_release_decision = None
+        if release_mode == "single":
+            single_release_decision = self._build_single_release_decision(
+                fish_name, quality
+            )
 
         if is_new_record and cfg.global_settings.get(
             "enable_first_catch_screenshot", True
@@ -651,7 +679,7 @@ class FishingService:
             else:
                 self.worker.log_updated.emit(f"截图失败: {result}")
 
-        return should_release
+        return single_release_decision
 
     def _should_run_async_catch_processing(self) -> bool:
         """当渔获识别可以异步运行时返回 True。"""
@@ -843,7 +871,7 @@ class FishingService:
         - 回退路径：运行现有的同步 record_catch()。
         """
         if not self.worker.running:
-            return False
+            return None
 
         if not cfg.global_settings.get("enable_fish_recognition", True):
             return self.record_catch()
@@ -862,7 +890,7 @@ class FishingService:
 
         if snapshots and self._submit_async_catch_processing(snapshots):
             self.worker.log_updated.emit("渔获识别已转入后台...")
-            return False
+            return None
 
         self.worker.log_updated.emit("后台处理启动失败，回退到同步识别。")
         return self.record_catch()

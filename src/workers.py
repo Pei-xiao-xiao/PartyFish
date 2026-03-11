@@ -164,7 +164,7 @@ class FishingWorker(QThread):
                         # 收线失败（鱼跑了），重置状态机重新开始
                         self._reset_fishing_cycle()
                     else:
-                        should_release = (
+                        single_release_decision = (
                             self.fishing_service.record_catch_non_blocking()
                         )
                         self.log_updated.emit("收起渔获, 准备下一轮。")
@@ -173,8 +173,15 @@ class FishingWorker(QThread):
 
                         # 在关闭弹窗后、重新抛竿前执行单条放生
                         release_mode = cfg.global_settings.get("release_mode", "off")
-                        if release_mode == "single" and should_release and popup_closed:
-                            self.release_service.execute_single_release()
+                        if (
+                            release_mode == "single"
+                            and popup_closed
+                            and single_release_decision
+                            and single_release_decision.get("should_release")
+                        ):
+                            self.release_service.execute_single_release(
+                                single_release_decision
+                            )
 
                         # 确保弹窗完全关闭后再同步钓鱼状态
                         if popup_closed:

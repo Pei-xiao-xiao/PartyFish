@@ -552,6 +552,15 @@ class SettingsInterface(ScrollArea):
         )
         self.releaseGroup.addSettingCard(self.releaseModeCard)
 
+        self.autoReleaseQualityCard = SettingCard(
+            FluentIcon.TAG,
+            self.tr("放生品质"),
+            self.tr("勾选后会自动放生对应品质"),
+            parent=self.releaseGroup,
+        )
+        self._create_auto_release_quality_checks()
+        self.releaseGroup.addSettingCard(self.autoReleaseQualityCard)
+
         self.releaseQualityCard = ExpandGroupSettingCard(
             FluentIcon.CANCEL,
             self.tr("按稀有度设置放生规则"),
@@ -869,6 +878,34 @@ class SettingsInterface(ScrollArea):
             """
             )
 
+    def _create_auto_release_quality_checks(self):
+        self.autoReleaseQualityChecks = {}
+
+        container = QWidget(self.autoReleaseQualityCard)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
+        quality_options = [
+            ("release_standard", "标准"),
+            ("release_uncommon", "非凡"),
+            ("release_rare", "稀有"),
+            ("release_epic", "史诗"),
+            ("release_legendary", "传奇"),
+        ]
+
+        for key, label in quality_options:
+            checkbox = CheckBox(self.tr(label), self.autoReleaseQualityCard)
+            self.autoReleaseQualityChecks[key] = checkbox
+            layout.addWidget(checkbox)
+
+        layout.addStretch(1)
+        self.autoReleaseQualityCard.hBoxLayout.addWidget(container, 0, Qt.AlignRight)
+        margins = self.autoReleaseQualityCard.hBoxLayout.contentsMargins()
+        self.autoReleaseQualityCard.hBoxLayout.setContentsMargins(
+            margins.left(), margins.top(), 16, margins.bottom()
+        )
+
     def _on_release_slider_changed(self, level, value):
         if level in self.releaseLabels:
             self._update_quality_label(self.releaseLabels[level], value)
@@ -1006,6 +1043,8 @@ class SettingsInterface(ScrollArea):
 
         self.autoReleaseEnabledCard.toggled.connect(self._on_auto_release_changed)
         self.enableFishNameProtectionCard.toggled.connect(self._save_global_settings)
+        for checkbox in self.autoReleaseQualityChecks.values():
+            checkbox.toggled.connect(self._save_global_settings)
 
         # 鱼饵复选框信号
         for checkbox in self.baitCheckBoxes.values():
@@ -1105,6 +1144,8 @@ class SettingsInterface(ScrollArea):
         self.enableFishNameProtectionCard.setChecked(
             cfg.global_settings.get("enable_fish_name_protection", False)
         )
+        for key, checkbox in self.autoReleaseQualityChecks.items():
+            checkbox.setChecked(cfg.global_settings.get(key, False))
         # 单条放生总开关
         release_mode = cfg.global_settings.get("release_mode", "off")
         self.singleReleaseEnabledCard.setChecked(release_mode == "single")
@@ -1250,6 +1291,8 @@ class SettingsInterface(ScrollArea):
         cfg.global_settings["enable_fish_name_protection"] = (
             self.enableFishNameProtectionCard.isChecked()
         )
+        for key, checkbox in self.autoReleaseQualityChecks.items():
+            cfg.global_settings[key] = checkbox.isChecked()
 
         # 保存鱼饵选择
         selected_baits = [
@@ -1345,6 +1388,8 @@ class SettingsInterface(ScrollArea):
     def _update_release_cards_state(self):
         """根据放生模式更新放生相关卡片的启用状态"""
         release_mode = cfg.global_settings.get("release_mode", "off")
+        is_auto_mode = release_mode == "auto"
+        is_single_mode = release_mode == "single"
 
         # 自动放生和单条放生开关始终可点击，用于切换模式
         self.autoReleaseEnabledCard.setEnabled(True)
@@ -1352,11 +1397,19 @@ class SettingsInterface(ScrollArea):
 
         # 放生保护在任意放生模式开启时都启用
         self.enableFishNameProtectionCard.setEnabled(release_mode != "off")
+        self.autoReleaseQualityCard.setVisible(is_auto_mode)
+        self.releaseQualityCard.setVisible(is_single_mode)
+
+        for checkbox in self.autoReleaseQualityChecks.values():
+            checkbox.setEnabled(is_auto_mode)
 
         # 控制滑块的启用状态
         if hasattr(self, "releaseSliders"):
             for slider in self.releaseSliders.values():
-                slider.setEnabled(release_mode != "off")
+                slider.setEnabled(is_single_mode)
+
+        if not is_single_mode and self.releaseQualityCard.isExpand:
+            self.releaseQualityCard.setExpand(False)
 
     def _on_single_release_changed(self, checked):
         if self._loading_ui:

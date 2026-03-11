@@ -21,14 +21,14 @@ class ReleaseService:
         """
         self.worker = worker
         self._last_bucket_close_button_detected = None
-    
+
     def _get_fish_rarity_level(self, fish_name: str) -> int:
         """
         根据鱼类名称获取稀有度等级
-        
+
         Args:
             fish_name: 鱼类名称
-            
+
         Returns:
             int: 稀有度等级 (1-6)，如果找不到则返回 0
         """
@@ -43,15 +43,15 @@ class ReleaseService:
                     except ValueError:
                         return 0
         return 0
-    
+
     def _should_release_by_rarity(self, fish_name: str, quality: str) -> bool:
         """
         根据鱼类稀有度和品质判断是否放生
-        
+
         Args:
             fish_name: 鱼类名称
             quality: 品质名称（标准、非凡、稀有、史诗、传奇）
-            
+
         Returns:
             bool: True 表示应该放生，False 表示不应该放生
         """
@@ -60,15 +60,15 @@ class ReleaseService:
         if rarity_level == 0:
             # 找不到稀有度信息，默认放生
             return True
-        
+
         # 获取配置中的放生档位
         release_settings = cfg.global_settings.get("release_settings", {})
         release_threshold = release_settings.get(str(rarity_level), 0)
-        
+
         if release_threshold == 0:
             # 0 表示不放生
             return False
-        
+
         # 品质映射到数字
         quality_map = {
             "标准": 1,
@@ -77,9 +77,9 @@ class ReleaseService:
             "史诗": 4,
             "传奇": 5,
         }
-        
+
         quality_value = quality_map.get(quality, 0)
-        
+
         # 如果当前品质小于等于配置的档位，则放生
         return quality_value <= release_threshold
 
@@ -277,7 +277,9 @@ class ReleaseService:
         }
         return quality_map.get(color, "标准")
 
-    def _check_fish_protection(self, fish_x, fish_y, quality, row, col, released_count, fish_name=None):
+    def _check_fish_protection(
+        self, fish_x, fish_y, quality, row, col, released_count, fish_name=None
+    ):
         """
         检查鱼是否受保护
 
@@ -299,7 +301,9 @@ class ReleaseService:
         # 如果已经获取了鱼类名称，直接使用
         if fish_name:
             if cfg.is_fish_protected(fish_name, quality):
-                self.worker.log_updated.emit(f"检测到保护鱼:{fish_name}({quality})，锁定")
+                self.worker.log_updated.emit(
+                    f"检测到保护鱼:{fish_name}({quality})，锁定"
+                )
                 return True  # 鱼受保护
             return False  # 鱼不受保护
 
@@ -513,7 +517,9 @@ class ReleaseService:
                     "史诗": "release_epic",
                     "传奇": "release_legendary",
                 }
-                should_release = cfg.global_settings.get(release_map.get(quality), False)
+                should_release = cfg.global_settings.get(
+                    release_map.get(quality), False
+                )
 
             if not self.worker.running or self.worker.paused:
                 break
@@ -602,7 +608,7 @@ class ReleaseService:
 
         return released_count
 
-    def execute_single_release(self):
+    def execute_single_release(self, single_release_decision=None):
         """执行单条放生操作"""
 
         def _abort_if_paused_or_stopped() -> bool:
@@ -662,59 +668,10 @@ class ReleaseService:
             if bucket_state != "opened":
                 return bucket_state
 
-            zone = cfg.REGIONS["fish_inventory"]["zones"][0]
-            grid = zone["grid"]
-            zone_rect = cfg.get_bottom_right_rect(zone["coords"])
-            star_x = zone_rect[0] + int(grid["star_offset"][0] * cfg.scale)
-            star_y = zone_rect[1] + int(grid["star_offset"][1] * cfg.scale)
-            star_region = (
-                star_x,
-                star_y,
-                int(grid["star_size"][0] * cfg.scale),
-                int(grid["star_size"][1] * cfg.scale),
-            )
-
-            quality = self._detect_fish_quality(star_region, 0, 0)
-            if quality is None:
-                self._ensure_esc_closed(emit_debug=False)
-                return "done"
-
             fish_pos = cfg.REGIONS["fish_inventory"]["single_release_fish_pos"]
             fish_rect = cfg.get_bottom_right_rect((fish_pos[0], fish_pos[1], 1, 1))
             fish_x = fish_rect[0]
             fish_y = fish_rect[1]
-
-            # 获取鱼类名称用于判断
-            fish_name = None
-            if cfg.global_settings.get("enable_fish_name_protection", False):
-                self.worker.msleep(200)
-                attempt_state = _check_attempt_state()
-                if attempt_state:
-                    return attempt_state
-
-                self.worker.inputs.double_click(
-                    fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
-                )
-                self.worker.msleep(500)
-                attempt_state = _check_attempt_state()
-                if attempt_state:
-                    return attempt_state
-
-                fish_name_region = cfg.get_rect("fish_name_tooltip")
-                fish_name_img = self.worker.vision.screenshot(fish_name_region)
-                if fish_name_img is not None:
-                    fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
-
-            # 使用基于稀有度的判断逻辑
-            should_release = self._should_release_by_rarity(fish_name, quality)
-
-            if not should_release:
-                self._ensure_esc_closed(emit_debug=False)
-                return "done"
-
-                if fish_name and cfg.is_fish_protected(fish_name, quality):
-                    self._ensure_esc_closed(emit_debug=False)
-                    return "done"
 
             self.worker.msleep(200)
             attempt_state = _check_attempt_state()
@@ -758,7 +715,17 @@ class ReleaseService:
             return
 
         self.worker.status_updated.emit("自动放生中")
-        self.worker.log_updated.emit("正在执行单条放生...")
+        if single_release_decision:
+            fish_name = single_release_decision.get("fish_name", "")
+            quality = single_release_decision.get("quality", "")
+            if fish_name and quality:
+                self.worker.log_updated.emit(
+                    f"正在执行单条放生: {fish_name}({quality})"
+                )
+            else:
+                self.worker.log_updated.emit("正在执行单条放生...")
+        else:
+            self.worker.log_updated.emit("正在执行单条放生...")
 
         try:
             max_retry_attempts = 2
