@@ -555,7 +555,9 @@ class SettingsInterface(ScrollArea):
         self.releaseQualityCard = ExpandGroupSettingCard(
             FluentIcon.CANCEL,
             self.tr("按稀有度设置放生规则"),
-            self.tr("滑动滑块，为不同稀有度（1 级 - 6 级）的鱼类独立设置最高放生品质阈值。如果滑块在最左侧则表示不放生。"),
+            self.tr(
+                "滑动滑块，为不同稀有度（1 级 - 6 级）的鱼类独立设置最高放生品质阈值。如果滑块在最左侧则表示不放生。"
+            ),
             parent=self.releaseGroup,
         )
         self._create_release_quality_sliders()
@@ -793,75 +795,79 @@ class SettingsInterface(ScrollArea):
     def _create_release_quality_sliders(self):
         self.releaseSliders = {}
         self.releaseLabels = {}
-        
+
         container = QWidget(self.releaseQualityCard)
         containerLayout = QVBoxLayout(container)
         containerLayout.setContentsMargins(0, 8, 0, 8)
         containerLayout.setSpacing(12)
-        
+
         release_settings = cfg.global_settings.get("release_settings", {})
-        
+
         gridWidget = QWidget(container)
         gridLayout = QGridLayout(gridWidget)
         gridLayout.setContentsMargins(0, 0, 0, 0)
         gridLayout.setHorizontalSpacing(40)
         gridLayout.setVerticalSpacing(12)
-        
+
         for level in range(1, 7):
             row = (level - 1) // 3
             col = (level - 1) % 3
-            
+
             rowWidget = QWidget(gridWidget)
             rowWidget.setMinimumWidth(240)
             rowLayout = QHBoxLayout(rowWidget)
             rowLayout.setContentsMargins(0, 0, 0, 0)
             rowLayout.setSpacing(12)
-            
+
             # 添加左侧弹簧，防止内容向左溢出
             rowLayout.addStretch(1)
-            
+
             levelLabel = QLabel(f"{level}级鱼类", rowWidget)
             levelLabel.setFixedWidth(60)
             rowLayout.addWidget(levelLabel)
-            
+
             slider = Slider(Qt.Orientation.Horizontal, rowWidget)
             slider.setRange(0, 5)
             slider.setFixedWidth(100)
             slider.setValue(release_settings.get(str(level), 0))
-            slider.valueChanged.connect(lambda v, l=level: self._on_release_slider_changed(l, v))
+            slider.valueChanged.connect(
+                lambda v, l=level: self._on_release_slider_changed(l, v)
+            )
             self.releaseSliders[level] = slider
             rowLayout.addWidget(slider)
-            
+
             qualityLabel = QLabel(rowWidget)
             qualityLabel.setFixedWidth(100)
             self._update_quality_label(qualityLabel, slider.value())
             self.releaseLabels[level] = qualityLabel
             rowLayout.addWidget(qualityLabel)
-            
+
             rowLayout.addStretch(1)
-            
+
             gridLayout.addWidget(rowWidget, row, col)
-        
+
         # 设置列拉伸因子，确保三列均匀分布
         gridLayout.setColumnStretch(0, 1)
         gridLayout.setColumnStretch(1, 1)
         gridLayout.setColumnStretch(2, 1)
-        
+
         containerLayout.addWidget(gridWidget)
         containerLayout.addStretch()
-        
-        self.releaseQualityCard.viewLayout.addWidget(container)
-        
+
+        self.releaseQualityCard.addGroupWidget(container)
+
         # 设置暗黑模式样式
         if cfg.theme == "Dark":
-            container.setStyleSheet("""
+            container.setStyleSheet(
+                """
                 QWidget {
                     color: rgba(255, 255, 255, 0.9);
                 }
                 QLabel {
                     color: rgba(255, 255, 255, 0.9);
                 }
-            """)
+            """
+            )
 
     def _on_release_slider_changed(self, level, value):
         if level in self.releaseLabels:
@@ -874,7 +880,9 @@ class SettingsInterface(ScrollArea):
             label.setText("不放生")
             label.setStyleSheet(f"color: {color};")
         else:
-            label.setText(f'放生<span style="color:{color};border:1px solid {color};padding:1px 4px;border-radius:3px;">{text}</span>及以下')
+            label.setText(
+                f'放生<span style="color:{color};border:1px solid {color};padding:1px 4px;border-radius:3px;">{text}</span>及以下'
+            )
 
     @staticmethod
     def _gamepad_mode_to_text(mode):
@@ -1100,7 +1108,7 @@ class SettingsInterface(ScrollArea):
         # 单条放生总开关
         release_mode = cfg.global_settings.get("release_mode", "off")
         self.singleReleaseEnabledCard.setChecked(release_mode == "single")
-        
+
         # 加载放生品质滑块设置
         release_settings = cfg.global_settings.get("release_settings", {})
         for level in range(1, 7):
@@ -1111,7 +1119,7 @@ class SettingsInterface(ScrollArea):
                 self.releaseSliders[level].blockSignals(False)
                 if level in self.releaseLabels:
                     self._update_quality_label(self.releaseLabels[level], value)
-        
+
         jitter_value = cfg.global_settings.get("jitter_range", 0)
         self.jitterSlider.setValue(jitter_value)
         self.jitterLabel.setText(f"{jitter_value}%")
@@ -1250,15 +1258,15 @@ class SettingsInterface(ScrollArea):
             if checkbox.isChecked()
         ]
         cfg.global_settings["selected_baits"] = selected_baits
-        
+
         # 保存放生品质滑块设置
-        if hasattr(self, 'releaseSliders'):
+        if hasattr(self, "releaseSliders"):
             release_settings = {}
             for level in range(1, 7):
                 if level in self.releaseSliders:
                     release_settings[str(level)] = self.releaseSliders[level].value()
             cfg.global_settings["release_settings"] = release_settings
-        
+
         cfg.global_settings["jitter_range"] = self.jitterSlider.value()
         cfg.global_settings["theme"] = self.themeComboBox.currentText()
 
@@ -1344,9 +1352,9 @@ class SettingsInterface(ScrollArea):
 
         # 放生保护在任意放生模式开启时都启用
         self.enableFishNameProtectionCard.setEnabled(release_mode != "off")
-        
+
         # 控制滑块的启用状态
-        if hasattr(self, 'releaseSliders'):
+        if hasattr(self, "releaseSliders"):
             for slider in self.releaseSliders.values():
                 slider.setEnabled(release_mode != "off")
 
