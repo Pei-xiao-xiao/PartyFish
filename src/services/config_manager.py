@@ -63,6 +63,18 @@ class ConfigManager:
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
             },
+<<<<<<< HEAD
+=======
+            "智能钓鱼": {
+                "cast_time": 0.1,
+                "reel_in_time": 0.2,
+                "release_time": 0.1,
+                "max_pulls": 99,
+                "cycle_interval": 0.1,
+                "smart_release_angle": 18.0,
+                "smart_release_time": 0.8,
+            },
+>>>>>>> origin/fix/smart-fishing-popup-ocr
         }
 
     def _sanitize_presets(self, presets):

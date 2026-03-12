@@ -273,14 +273,15 @@ class OCRService:
                     fish_name = matched_name
                 else:
                     if re.search(r"[\u4e00-\u9fa5]", fish_name):
-                        fish_name = re.sub(r"[^\u4e00-\u9fa5]+$", "", fish_name)
+                        fish_name = re.sub(r"[^\u4e00-\u9fa50-9]+$", "", fish_name)
                     else:
-                        fish_name = re.sub(r"[a-zA-Z0-9]+$", "", fish_name)
+                        fish_name = ""
             else:
                 if re.search(r"[\u4e00-\u9fa5]", fish_name):
-                    fish_name = re.sub(r"[^\u4e00-\u9fa5]+$", "", fish_name)
+                    fish_name = re.sub(r"[^\u4e00-\u9fa50-9]+$", "", fish_name)
                 else:
-                    fish_name = re.sub(r"[a-zA-Z0-9]+$", "", fish_name)
+                    cleaned_non_chinese = re.sub(r"[^a-zA-Z0-9]+", "", fish_name)
+                    fish_name = cleaned_non_chinese if len(cleaned_non_chinese) >= 2 else ""
 
             fish_name = fish_name.strip()
 

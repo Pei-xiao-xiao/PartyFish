@@ -168,6 +168,18 @@ class SettingsInterface(ScrollArea):
         )
         self.fishingGroup.addSettingCard(self.castTimeCard)
 
+        self.smartReleaseTimeCard = self._create_double_spinbox_card(
+            icon=FluentIcon.SPEED_OFF,
+            title=self.tr("放线时间"),
+            content=self.tr("智能钓鱼松手后的持续时间 (秒)"),
+            config_key="smart_release_time",
+            minimum=0.01,
+            maximum=3.0,
+            step=0.01,
+            decimals=2,
+        )
+        self.fishingGroup.addSettingCard(self.smartReleaseTimeCard)
+
         self.reelInTimeCard = self._create_double_spinbox_card(
             icon=FluentIcon.SPEED_HIGH,
             title=self.tr("收线时间"),
@@ -184,6 +196,23 @@ class SettingsInterface(ScrollArea):
         )
         self.fishingGroup.addSettingCard(self.releaseTimeCard)
 
+<<<<<<< HEAD
+=======
+        self.smartReleaseAngleCard = self._create_double_spinbox_card(
+            icon=FluentIcon.SPEED_HIGH,
+            title=self.tr("智能松手阈值"),
+            content=self.tr(
+                "距离红色危险区左边界的提前松手角度，0 表示贴边。默认橙色区域，数字越大越安全 (度)"
+            ),
+            config_key="smart_release_angle",
+            minimum=0.0,
+            maximum=60.0,
+            step=1.0,
+            decimals=2,
+        )
+        self.fishingGroup.addSettingCard(self.smartReleaseAngleCard)
+
+>>>>>>> origin/fix/smart-fishing-popup-ocr
         self.cycleIntervalCard = self._create_double_spinbox_card(
             icon=FluentIcon.HISTORY,
             title=self.tr("循环间隔"),
@@ -792,6 +821,24 @@ class SettingsInterface(ScrollArea):
         setattr(self, attr_name, spinbox)
         return card
 
+<<<<<<< HEAD
+=======
+    def _is_smart_preset(self, preset_name=None):
+        preset_name = preset_name or self.presetComboBox.currentText()
+        return preset_name == self.SMART_PRESET_NAME
+
+    def _update_preset_fishing_cards(self, preset_name=None):
+        is_smart_preset = self._is_smart_preset(preset_name)
+
+        self.castTimeCard.setVisible(True)
+        self.smartReleaseTimeCard.setVisible(is_smart_preset)
+        self.smartReleaseAngleCard.setVisible(is_smart_preset)
+        self.reelInTimeCard.setVisible(not is_smart_preset)
+        self.releaseTimeCard.setVisible(not is_smart_preset)
+        self.cycleIntervalCard.setVisible(not is_smart_preset)
+        self.maxPullsCard.setVisible(not is_smart_preset)
+
+>>>>>>> origin/fix/smart-fishing-popup-ocr
     QUALITY_COLORS = {
         0: ("#666666", "不放生"),
         1: ("#808080", "标准"),
@@ -1108,6 +1155,15 @@ class SettingsInterface(ScrollArea):
         self.castTimeSpinBox.setValue(current_preset.get("cast_time", 2.0))
         self.reelInTimeSpinBox.setValue(current_preset.get("reel_in_time", 2.0))
         self.releaseTimeSpinBox.setValue(current_preset.get("release_time", 1.0))
+<<<<<<< HEAD
+=======
+        self.smartReleaseAngleSpinBox.setValue(
+            current_preset.get("smart_release_angle", 18.0)
+        )
+        self.smartReleaseTimeSpinBox.setValue(
+            current_preset.get("smart_release_time", 0.8)
+        )
+>>>>>>> origin/fix/smart-fishing-popup-ocr
         self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
         self.maxPullsSpinBox.setValue(current_preset.get("max_pulls", 20))
 
@@ -1677,6 +1733,15 @@ class SettingsInterface(ScrollArea):
             self.castTimeSpinBox.setValue(default_config["cast_time"])
             self.reelInTimeSpinBox.setValue(default_config["reel_in_time"])
             self.releaseTimeSpinBox.setValue(default_config["release_time"])
+<<<<<<< HEAD
+=======
+            self.smartReleaseAngleSpinBox.setValue(
+                default_config.get("smart_release_angle", 18.0)
+            )
+            self.smartReleaseTimeSpinBox.setValue(
+                default_config.get("smart_release_time", 0.8)
+            )
+>>>>>>> origin/fix/smart-fishing-popup-ocr
             self.cycleIntervalSpinBox.setValue(default_config["cycle_interval"])
             self.maxPullsSpinBox.setValue(default_config["max_pulls"])
 
