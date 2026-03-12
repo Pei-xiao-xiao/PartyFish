@@ -150,7 +150,6 @@ class VisionUtilsService:
             "sell_price_area": "鱼干价格",
             "bucket_close_button": "鱼桶关闭按钮",
             "fish_inventory_lock_slot_1": "第一格锁区域",
-            "smart_tension_gauge": "张力盘区域",
         }
 
         font_cjk = None

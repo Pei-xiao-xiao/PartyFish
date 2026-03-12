@@ -508,7 +508,7 @@ class MainWindow(FluentWindow):
             # Import from src.debug_overlay
             from src.debug_overlay import generate_debug_screenshot
 
-            filepath = generate_debug_screenshot(show_image=False)
+            filepath = generate_debug_screenshot(show_image=True)
             self.append_log(f"调试截图已保存: {filepath}")
             self.update_status("调试截图已生成")
 
