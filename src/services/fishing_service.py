@@ -3,13 +3,10 @@
 负责处理钓鱼的核心流程：抛竿、等待咬钩、收竿、记录渔获
 """
 
-import math
 import time
 import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-import cv2
-import numpy as np
 from src.config import cfg
 from src.services.ocr_service import OCRService
 from src.services.record_schema import infer_time_period_from_timestamp
@@ -21,28 +18,6 @@ from src.services.smart_pointer_debug_service import SmartPointerDebugService
 class FishingService:
     """钓鱼服务类"""
 
-    SMART_PRESET_NAME = "智能钓鱼"
-    SMART_DANGER_ANGLE = 34.0
-    SMART_DANGER_GUARD_ANGLE = 6.0
-    SMART_POINTER_MATCH_THRESHOLD = 0.35
-    SMART_POINTER_LOST_LIMIT = 20
-    SMART_REEL_TIMEOUT = 45.0
-    SMART_POLL_INTERVAL_MS = 20
-    SMART_POINTER_ROTATION_STEP = 3
-    SMART_GAUGE_WHITE_MAX_SAT = 80
-    SMART_GAUGE_WHITE_MIN_VALUE = 140
-    SMART_POINTER_EDGE_LOW = 40
-    SMART_POINTER_EDGE_HIGH = 120
-    SMART_POINTER_MIN_RADIUS_RATIO = 1.15
-    SMART_POINTER_MAX_RADIUS_RATIO = 1.95
-    SMART_POINTER_HUE_LOW = 10
-    SMART_POINTER_HUE_HIGH = 35
-    SMART_POINTER_SAT_MIN = 100
-    SMART_POINTER_VAL_MIN = 120
-    SMART_POINTER_AREA_MIN_RATIO = 0.18
-    SMART_POINTER_AREA_MAX_RATIO = 2.6
-    SMART_POINTER_SHAPE_MAX_SCORE = 0.65
-    SMART_POINTER_TEMPLATE_CACHE = {"scale": None, "templates": []}
     SMART_POINTER_FRAME_COUNT = 4
     SMART_RELEASE_TRIGGER_TOLERANCE = 1.5
     SMART_RUNTIME_LOG_INTERVAL = 0.25
@@ -70,7 +45,6 @@ class FishingService:
         self._async_futures_lock = threading.Lock()
         # 使用默认 OCR 线程以提高后台识别吞吐量。
         self._async_ocr_service = OCRService()
-        self._smart_gauge_geometry = None
         self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
 
     def _build_signal_record(
@@ -1627,9 +1601,6 @@ class FishingService:
         if not self.worker.running:
             return False
         self.worker.status_updated.emit("上鱼了! 开始收竿!")
-        if self._is_smart_preset():
-            return self._smart_reel_in()
-
         self.worker.log_updated.emit("进入收放线循环...")
 
         star_region = cfg.get_rect("reel_in_star")

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QDialog,
 )
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QPixmap, QFont, QColor
+from PySide6.QtGui import QPixmap, QFont, QColor, QPainter
 from qfluentwidgets import (
     CardWidget,
     BodyLabel,
@@ -35,12 +35,35 @@ from qfluentwidgets import (
     FlowLayout,
     RoundMenu,
     Action,
+    isDarkTheme,
 )
 from src.config import cfg
 from src.pokedex import pokedex, QUALITIES
 from src.gui.fish_detail_dialog import FishDetailDialog
 from src.gui.components import QUALITY_COLORS
 from src.gui.components.filter_panel import FilterPanel
+
+
+class TransparentDialog(QDialog):
+    """透明背景对话框，用于解决暗黑模式下白屏问题"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        is_dark = isDarkTheme()
+        if is_dark:
+            painter.fillRect(self.rect(), Qt.transparent)
+        else:
+            color = QColor(0, 0, 0, 80)
+            painter.fillRect(self.rect(), color)
+
+    def refresh_theme(self):
+        self.update()
 
 
 class SortOption(QLabel):
@@ -1188,10 +1211,9 @@ class PokedexInterface(QWidget):
         from PySide6.QtGui import QColor, QFont
 
         # 创建自定义对话框
-        dialog = QDialog(self)
+        dialog = TransparentDialog(self)
         dialog.setWindowTitle("选择图鉴类型")
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
         dialog.setFixedSize(400, 250)
 
         # 主容器

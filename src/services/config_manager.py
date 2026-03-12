@@ -9,7 +9,7 @@ import json
 class ConfigManager:
     """配置管理服务类"""
 
-    REMOVED_PRESET_NAMES = set()
+    REMOVED_PRESET_NAMES = {"智能钓鱼"}
 
     def __init__(self, config):
         """
@@ -75,27 +75,17 @@ class ConfigManager:
         }
 
     def _sanitize_presets(self, presets):
-        """Remove deprecated presets, merge defaults, and ensure presets exist."""
+        """Remove deprecated presets and ensure at least one preset exists."""
         sanitized = {
             self._normalize_preset_name(name): preset
             for name, preset in presets.items()
             if self._normalize_preset_name(name) not in self.REMOVED_PRESET_NAMES
         }
 
-        if not sanitized:
-            return self.get_default_presets()
+        if sanitized:
+            return sanitized
 
-        default_presets = self.get_default_presets()
-        for name, default_preset in default_presets.items():
-            existing_preset = sanitized.get(name, {})
-            if not isinstance(existing_preset, dict):
-                existing_preset = {}
-
-            merged_preset = default_preset.copy()
-            merged_preset.update(existing_preset)
-            sanitized[name] = merged_preset
-
-        return sanitized
+        return self.get_default_presets()
 
     def load_config_from_json(self):
         """从 JSON 文件加载配置"""

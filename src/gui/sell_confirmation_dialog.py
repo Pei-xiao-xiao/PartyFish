@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QFrame
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPainter, QColor
 from qfluentwidgets import setTheme, Theme, isDarkTheme
 
 
@@ -31,7 +31,7 @@ class SellConfirmationDialog(QDialog):
         super().__init__(parent)
         self.price = price
         self.current_progress = current_progress
-        self.should_continue = False  # 用户是否选择继续
+        self.should_continue = False
 
         self._init_ui()
 
@@ -42,12 +42,10 @@ class SellConfirmationDialog(QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
-        # 主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 内容容器
         content_frame = QFrame(self)
         content_frame.setObjectName("contentFrame")
         content_frame.setStyleSheet("""
@@ -62,7 +60,6 @@ class SellConfirmationDialog(QDialog):
         content_layout.setContentsMargins(30, 30, 30, 30)
         content_layout.setSpacing(20)
 
-        # 标题
         title_label = QLabel("⚠️ 卖鱼确认", content_frame)
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
@@ -75,7 +72,6 @@ class SellConfirmationDialog(QDialog):
         """)
         content_layout.addWidget(title_label)
 
-        # 信息标签
         total = self.price + self.current_progress
         info_text = f"当前卖鱼价格: {self.price}\n今日已卖进度: {self.current_progress}\n合计: {total} (超过899)"
         info_label = QLabel(info_text, content_frame)
@@ -89,11 +85,9 @@ class SellConfirmationDialog(QDialog):
         """)
         content_layout.addWidget(info_label)
 
-        # 按钮布局
         button_layout = QHBoxLayout()
         button_layout.setSpacing(15)
 
-        # 取消按钮
         cancel_button = QPushButton("取消", content_frame)
         cancel_button.setFixedSize(120, 36)
         cancel_button.setStyleSheet("""
@@ -114,7 +108,6 @@ class SellConfirmationDialog(QDialog):
         """)
         cancel_button.clicked.connect(self._on_cancel)
 
-        # 继续按钮
         continue_button = QPushButton("继续", content_frame)
         continue_button.setFixedSize(120, 36)
         continue_button.setStyleSheet("""
@@ -145,21 +138,27 @@ class SellConfirmationDialog(QDialog):
 
         main_layout.addWidget(content_frame)
 
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        is_dark = isDarkTheme()
+        if is_dark:
+            painter.fillRect(self.rect(), Qt.transparent)
+        else:
+            color = QColor(0, 0, 0, 80)
+            painter.fillRect(self.rect(), color)
+
+    def refresh_theme(self):
+        self.update()
+
     def _on_cancel(self):
-        """取消按钮点击事件"""
         self.should_continue = False
         self.accept()
 
     def _on_continue(self):
-        """继续按钮点击事件"""
         self.should_continue = True
         self.accept()
 
     def get_user_choice(self) -> bool:
-        """
-        获取用户选择
-
-        Returns:
-            bool: True表示继续，False表示取消
-        """
         return self.should_continue

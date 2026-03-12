@@ -10,6 +10,8 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QColor, QPainter
 
+from qfluentwidgets import isDarkTheme
+
 from src.gui.components.filter_panel import FilterPanel
 
 
@@ -116,6 +118,7 @@ class FilterDrawer(QWidget):
     def refresh_theme(self):
         if hasattr(self.panel, "refresh_theme"):
             self.panel.refresh_theme()
+        self.update()
 
     # 更加稳健的方式：重写 eventFilter
     def eventFilter(self, obj, event):
@@ -127,10 +130,14 @@ class FilterDrawer(QWidget):
         return super().eventFilter(obj, event)
 
     def paintEvent(self, event):
-        """绘制透明背景"""
-        # 虽然 user 要求全透明，但这里保留 paintEvent 结构以便未来扩展（如半透明）
-        # 目前不做任何绘制，保持完全透明
-        pass
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        is_dark = isDarkTheme()
+        if is_dark:
+            painter.fillRect(self.rect(), Qt.transparent)
+        else:
+            color = QColor(0, 0, 0, 80)
+            painter.fillRect(self.rect(), color)
 
     def mousePressEvent(self, event):
         """点击遮罩关闭"""

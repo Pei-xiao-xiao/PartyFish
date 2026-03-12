@@ -99,7 +99,6 @@ class ImportWorker(QThread):
 
 
 class SettingsInterface(ScrollArea):
-    SMART_PRESET_NAME = "智能钓鱼"
     hotkey_changed_signal = Signal(str)
     debug_hotkey_changed_signal = Signal(str)
     sell_hotkey_changed_signal = Signal(str)
@@ -801,22 +800,12 @@ class SettingsInterface(ScrollArea):
         self.setStyleSheet("QScrollArea {background-color: transparent; border: none;}")
         self.scrollWidget.setStyleSheet("QWidget {background-color: transparent;}")
 
-    def _create_double_spinbox_card(
-        self,
-        icon,
-        title,
-        content,
-        config_key,
-        minimum=0.01,
-        maximum=10.0,
-        step=0.1,
-        decimals=2,
-    ):
+    def _create_double_spinbox_card(self, icon, title, content, config_key):
         card = SettingCard(icon, title, content, parent=self.fishingGroup)
         spinbox = SmartDoubleSpinBox(card)
-        spinbox.setRange(minimum, maximum)
-        spinbox.setSingleStep(step)
-        spinbox.setDecimals(decimals)
+        spinbox.setRange(0.01, 10.0)
+        spinbox.setSingleStep(0.1)
+        spinbox.setDecimals(2)
         card.hBoxLayout.addWidget(spinbox, 0, Qt.AlignRight)
         margins = card.hBoxLayout.contentsMargins()
         card.hBoxLayout.setContentsMargins(
@@ -857,14 +846,14 @@ class SettingsInterface(ScrollArea):
         self.releaseSliders = {}
         self.releaseLabels = {}
 
-        container = QWidget(self.releaseQualityCard)
-        containerLayout = QVBoxLayout(container)
+        self._release_quality_container = QWidget(self.releaseQualityCard)
+        containerLayout = QVBoxLayout(self._release_quality_container)
         containerLayout.setContentsMargins(0, 8, 0, 8)
         containerLayout.setSpacing(12)
 
         release_settings = cfg.global_settings.get("release_settings", {})
 
-        gridWidget = QWidget(container)
+        gridWidget = QWidget(self._release_quality_container)
         gridLayout = QGridLayout(gridWidget)
         gridLayout.setContentsMargins(0, 0, 0, 0)
         gridLayout.setHorizontalSpacing(40)
@@ -915,11 +904,10 @@ class SettingsInterface(ScrollArea):
         containerLayout.addWidget(gridWidget)
         containerLayout.addStretch()
 
-        self.releaseQualityCard.addGroupWidget(container)
+        self.releaseQualityCard.addGroupWidget(self._release_quality_container)
 
-        # 设置暗黑模式样式
         if cfg.theme == "Dark":
-            container.setStyleSheet(
+            self._release_quality_container.setStyleSheet(
                 """
                 QWidget {
                     color: rgba(255, 255, 255, 0.9);
@@ -1169,7 +1157,6 @@ class SettingsInterface(ScrollArea):
         )
         self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
         self.maxPullsSpinBox.setValue(current_preset.get("max_pulls", 20))
-        self._update_preset_fishing_cards(preset_name)
 
         # 加载全局设置
         self.hotkeyLineEdit.setText(cfg.global_settings.get("hotkey", "F2"))
@@ -1280,12 +1267,6 @@ class SettingsInterface(ScrollArea):
             cfg.presets[preset_name]["cast_time"] = self.castTimeSpinBox.value()
             cfg.presets[preset_name]["reel_in_time"] = self.reelInTimeSpinBox.value()
             cfg.presets[preset_name]["release_time"] = self.releaseTimeSpinBox.value()
-            cfg.presets[preset_name][
-                "smart_release_angle"
-            ] = self.smartReleaseAngleSpinBox.value()
-            cfg.presets[preset_name][
-                "smart_release_time"
-            ] = self.smartReleaseTimeSpinBox.value()
             cfg.presets[preset_name][
                 "cycle_interval"
             ] = self.cycleIntervalSpinBox.value()
@@ -1857,3 +1838,18 @@ class SettingsInterface(ScrollArea):
         for widget in keybinding_widgets:
             if hasattr(widget, "update_style"):
                 widget.update_style()
+
+        if hasattr(self, "_release_quality_container"):
+            if cfg.theme == "Dark":
+                self._release_quality_container.setStyleSheet(
+                    """
+                    QWidget {
+                        color: rgba(255, 255, 255, 0.9);
+                    }
+                    QLabel {
+                        color: rgba(255, 255, 255, 0.9);
+                    }
+                """
+                )
+            else:
+                self._release_quality_container.setStyleSheet("")

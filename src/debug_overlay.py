@@ -443,12 +443,6 @@ def generate_debug_screenshot(show_image=False):
     except:
         pass
 
-    # 9. 智能收线张力盘三条线
-    try:
-        _draw_smart_tension_overlay(screenshot, recognition_results)
-    except Exception as e:
-        recognition_results.append(f"张力盘调试绘制失败: {e}")
-
     print("Drawing debug overlay...")
     # 使用新的 vision 方法就地修改截图
     # 传递识别结果给绘图函数
@@ -620,7 +614,7 @@ def generate_debug_screenshot(show_image=False):
 def main():
     print("Starting Debug Overlay...")
     print(f"Screen Resolution: {cfg.screen_width}x{cfg.screen_height}")
-    generate_debug_screenshot(show_image=False)
+    generate_debug_screenshot(show_image=True)
 
 
 if __name__ == "__main__":
