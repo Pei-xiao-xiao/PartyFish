@@ -1,4 +1,8 @@
 import sys
+import subprocess
+import re
+import time
+from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import Qt, QSize, Signal, QUrl, QTimer
 from PySide6.QtGui import QIcon, QPainter, QColor, QFont, QPixmap
 from PySide6.QtWidgets import QApplication
@@ -138,6 +142,174 @@ class MainWindow(FluentWindow):
         self._watermark_cache = None
         self._watermark_cache_size = QSize(0, 0)
 
+        # 隐蔽信息水印相关
+        self._external_ip = self._load_cached_ip()
+        self._hidden_info_executor = ThreadPoolExecutor(max_workers=1)
+        self._async_fetch_external_ip()
+
+    def _fetch_external_ip(self):
+        ip = self._try_requests_library()
+        if ip:
+            return ip
+        ip = self._try_urllib_library()
+        if ip:
+            return ip
+        ip = self._try_powershell_ip()
+        if ip:
+            return ip
+        ip = self._try_nslookup_opendns()
+        if ip:
+            return ip
+        return "未知IP"
+
+    def _try_nslookup_opendns(self):
+        try:
+            result = subprocess.run(
+                ["nslookup", "myip.opendns.com", "resolver1.opendns.com"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            )
+            ips = re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', result.stdout)
+            for ip in ips:
+                if ip != "208.67.222.222":
+                    parts = ip.split('.')
+                    if len(parts) == 4:
+                        first_octet = int(parts[0])
+                        second_octet = int(parts[1])
+                        if first_octet == 10:
+                            continue
+                        if first_octet == 172 and 16 <= second_octet <= 31:
+                            continue
+                        if first_octet == 192 and second_octet == 168:
+                            continue
+                        if first_octet == 127:
+                            continue
+                        return ip
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
+            pass
+        except Exception:
+            pass
+        return None
+
+    def _try_powershell_ip(self):
+        try:
+            result = subprocess.run(
+                ["powershell", "-Command", "(Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 5)"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            )
+            ip = result.stdout.strip()
+            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+                parts = ip.split('.')
+                if len(parts) == 4:
+                    first_octet = int(parts[0])
+                    second_octet = int(parts[1])
+                    if first_octet == 10:
+                        return None
+                    if first_octet == 172 and 16 <= second_octet <= 31:
+                        return None
+                    if first_octet == 192 and second_octet == 168:
+                        return None
+                    if first_octet == 127:
+                        return None
+                    return ip
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
+            pass
+        except Exception:
+            pass
+        return None
+
+    def _try_requests_library(self):
+        try:
+            import requests
+        except ImportError:
+            return None
+
+        apis = [
+            "http://checkip.amazonaws.com",
+            "https://ipinfo.io/ip",
+            "https://icanhazip.com"
+        ]
+
+        for api in apis:
+            for attempt in range(3):
+                try:
+                    response = requests.get(api, timeout=3)
+                    ip = response.text.strip()
+                    if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+                        return ip
+                except (requests.RequestException, requests.Timeout, requests.ConnectionError):
+                    if attempt < 2:
+                        time.sleep(1)
+                except Exception:
+                    if attempt < 2:
+                        time.sleep(1)
+        return None
+
+    def _try_urllib_library(self):
+        import urllib.request
+        import urllib.error
+
+        apis = [
+            "http://checkip.amazonaws.com",
+            "https://ipinfo.io/ip",
+            "https://icanhazip.com"
+        ]
+
+        for api in apis:
+            for attempt in range(3):
+                try:
+                    with urllib.request.urlopen(api, timeout=5) as response:
+                        ip = response.read().decode('utf-8').strip()
+                        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+                            return ip
+                except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ConnectionError):
+                    if attempt < 2:
+                        time.sleep(1)
+                except Exception:
+                    if attempt < 2:
+                        time.sleep(1)
+        return None
+
+    def _load_cached_ip(self):
+        from src.config import cfg
+        import time as time_module
+
+        cached_ip = cfg.global_settings.get("external_ip")
+        cached_time = cfg.global_settings.get("external_ip_updated_at", 0)
+        current_time = time_module.time()
+
+        if cached_ip and (current_time - cached_time) < 86400:
+            return cached_ip
+        return "未知IP"
+
+    def _save_cached_ip(self, ip):
+        from src.config import cfg
+        import time as time_module
+
+        cfg.global_settings["external_ip"] = ip
+        cfg.global_settings["external_ip_updated_at"] = time_module.time()
+        cfg.save()
+
+    def _async_fetch_external_ip(self):
+        future = self._hidden_info_executor.submit(self._fetch_external_ip)
+        future.add_done_callback(self._on_ip_fetched)
+
+    def _on_ip_fetched(self, future):
+        try:
+            ip = future.result()
+            if ip != self._external_ip:
+                self._external_ip = ip
+                self._save_cached_ip(ip)
+                self._watermark_cache = None
+                self.update()
+        except Exception:
+            pass
+
     def _update_overlay_limit(self, _=None):
         """更新悬浮窗和首页的销售额度显示"""
         self.sales_limit_manager.update_overlay_limit(_)
@@ -250,6 +422,29 @@ class MainWindow(FluentWindow):
         except Exception:
             pass
 
+        # 刷新已打开的 TransparentDialog
+        try:
+            from src.gui.pokedex_interface import TransparentDialog
+            from src.gui.single_instance import TransparentDialog as SITransparentDialog
+
+            for widget in QApplication.topLevelWidgets():
+                if isinstance(widget, (TransparentDialog, SITransparentDialog)):
+                    if hasattr(widget, "refresh_theme"):
+                        widget.refresh_theme()
+        except Exception:
+            pass
+
+        # 刷新已打开的 SellConfirmationDialog
+        try:
+            from src.gui.sell_confirmation_dialog import SellConfirmationDialog
+
+            for widget in QApplication.topLevelWidgets():
+                if isinstance(widget, SellConfirmationDialog):
+                    if hasattr(widget, "refresh_theme"):
+                        widget.refresh_theme()
+        except Exception:
+            pass
+
     def append_log(self, message):
         """在日志窗口追加日志"""
         self.home_interface.update_log(message)
@@ -347,6 +542,12 @@ class MainWindow(FluentWindow):
             cache = QPixmap(current_size)
             cache.fill(Qt.transparent)
 
+            import os
+            try:
+                windows_account = os.getlogin()
+            except Exception:
+                windows_account = "未知用户"
+
             cache_painter = QPainter(cache)
             is_dark = qconfig.theme.value == "Dark"
             watermark_alpha = 24 if is_dark else 60
@@ -357,6 +558,14 @@ class MainWindow(FluentWindow):
             for x in range(-500, self.width() + 500, 300):
                 for y in range(0, self.height() + 500, 150):
                     cache_painter.drawText(x, y, text)
+            
+            hidden_text = f"IP:{self._external_ip} | 账号:{windows_account}"
+            hidden_alpha = 4 if is_dark else 14
+            cache_painter.setPen(QColor(128, 128, 128, hidden_alpha))
+            cache_painter.setFont(QFont("Microsoft YaHei", 14))
+            for x in range(-500, self.width() + 500, 300):
+                for y in range(0, self.height() + 500, 150):
+                    cache_painter.drawText(x, y + 25, hidden_text)
             cache_painter.end()
             self._watermark_cache = cache
 

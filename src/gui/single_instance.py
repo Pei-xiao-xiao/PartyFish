@@ -9,7 +9,31 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QFrame
 )
 from PySide6.QtCore import QFile, QIODevice, Qt
+from PySide6.QtGui import QPainter, QColor
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
+from qfluentwidgets import isDarkTheme
+
+
+class TransparentDialog(QDialog):
+    """透明背景对话框，用于解决暗黑模式下白屏问题"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        is_dark = isDarkTheme()
+        if is_dark:
+            painter.fillRect(self.rect(), Qt.transparent)
+        else:
+            color = QColor(0, 0, 0, 80)
+            painter.fillRect(self.rect(), color)
+
+    def refresh_theme(self):
+        self.update()
 
 
 class SingleInstance:
@@ -114,11 +138,10 @@ class SingleInstance:
             print(f"加载应用图标失败：{e}")
 
         # 创建自定义对话框
-        dialog = QDialog()
+        dialog = TransparentDialog()
         dialog.setWindowTitle("提示")
         dialog.setFixedSize(320, 160)
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
 
         # 主布局
         main_layout = QVBoxLayout(dialog)

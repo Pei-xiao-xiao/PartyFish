@@ -855,14 +855,14 @@ class SettingsInterface(ScrollArea):
         self.releaseSliders = {}
         self.releaseLabels = {}
 
-        container = QWidget(self.releaseQualityCard)
-        containerLayout = QVBoxLayout(container)
+        self._release_quality_container = QWidget(self.releaseQualityCard)
+        containerLayout = QVBoxLayout(self._release_quality_container)
         containerLayout.setContentsMargins(0, 8, 0, 8)
         containerLayout.setSpacing(12)
 
         release_settings = cfg.global_settings.get("release_settings", {})
 
-        gridWidget = QWidget(container)
+        gridWidget = QWidget(self._release_quality_container)
         gridLayout = QGridLayout(gridWidget)
         gridLayout.setContentsMargins(0, 0, 0, 0)
         gridLayout.setHorizontalSpacing(40)
@@ -913,11 +913,10 @@ class SettingsInterface(ScrollArea):
         containerLayout.addWidget(gridWidget)
         containerLayout.addStretch()
 
-        self.releaseQualityCard.addGroupWidget(container)
+        self.releaseQualityCard.addGroupWidget(self._release_quality_container)
 
-        # 设置暗黑模式样式
         if cfg.theme == "Dark":
-            container.setStyleSheet(
+            self._release_quality_container.setStyleSheet(
                 """
                 QWidget {
                     color: rgba(255, 255, 255, 0.9);
@@ -1855,3 +1854,18 @@ class SettingsInterface(ScrollArea):
         for widget in keybinding_widgets:
             if hasattr(widget, "update_style"):
                 widget.update_style()
+
+        if hasattr(self, "_release_quality_container"):
+            if cfg.theme == "Dark":
+                self._release_quality_container.setStyleSheet(
+                    """
+                    QWidget {
+                        color: rgba(255, 255, 255, 0.9);
+                    }
+                    QLabel {
+                        color: rgba(255, 255, 255, 0.9);
+                    }
+                """
+                )
+            else:
+                self._release_quality_container.setStyleSheet("")
