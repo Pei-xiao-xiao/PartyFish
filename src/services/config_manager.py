@@ -9,7 +9,7 @@ import json
 class ConfigManager:
     """配置管理服务类"""
 
-    REMOVED_PRESET_NAMES = {"智能钓鱼"}
+    REMOVED_PRESET_NAMES = set()
 
     def __init__(self, config):
         """
@@ -63,11 +63,6 @@ class ConfigManager:
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
             },
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
             "智能钓鱼": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.2,
@@ -77,24 +72,30 @@ class ConfigManager:
                 "smart_release_angle": 18.0,
                 "smart_release_time": 0.8,
             },
-<<<<<<< HEAD
->>>>>>> origin/fix/smart-fishing-popup-ocr
-=======
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
         }
 
     def _sanitize_presets(self, presets):
-        """Remove deprecated presets and ensure at least one preset exists."""
+        """Remove deprecated presets, merge defaults, and ensure presets exist."""
         sanitized = {
             self._normalize_preset_name(name): preset
             for name, preset in presets.items()
             if self._normalize_preset_name(name) not in self.REMOVED_PRESET_NAMES
         }
 
-        if sanitized:
-            return sanitized
+        if not sanitized:
+            return self.get_default_presets()
 
-        return self.get_default_presets()
+        default_presets = self.get_default_presets()
+        for name, default_preset in default_presets.items():
+            existing_preset = sanitized.get(name, {})
+            if not isinstance(existing_preset, dict):
+                existing_preset = {}
+
+            merged_preset = default_preset.copy()
+            merged_preset.update(existing_preset)
+            sanitized[name] = merged_preset
+
+        return sanitized
 
     def load_config_from_json(self):
         """从 JSON 文件加载配置"""

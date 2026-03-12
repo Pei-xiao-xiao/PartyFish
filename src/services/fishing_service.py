@@ -3,10 +3,13 @@
 负责处理钓鱼的核心流程：抛竿、等待咬钩、收竿、记录渔获
 """
 
+import math
 import time
 import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+import cv2
+import numpy as np
 from src.config import cfg
 from src.services.ocr_service import OCRService
 from src.services.record_schema import infer_time_period_from_timestamp
@@ -18,9 +21,6 @@ from src.services.smart_pointer_debug_service import SmartPointerDebugService
 class FishingService:
     """钓鱼服务类"""
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
     SMART_PRESET_NAME = "智能钓鱼"
     SMART_DANGER_ANGLE = 34.0
     SMART_DANGER_GUARD_ANGLE = 6.0
@@ -43,8 +43,6 @@ class FishingService:
     SMART_POINTER_AREA_MAX_RATIO = 2.6
     SMART_POINTER_SHAPE_MAX_SCORE = 0.65
     SMART_POINTER_TEMPLATE_CACHE = {"scale": None, "templates": []}
-=======
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     SMART_POINTER_FRAME_COUNT = 4
     SMART_RELEASE_TRIGGER_TOLERANCE = 1.5
     SMART_RUNTIME_LOG_INTERVAL = 0.25
@@ -62,10 +60,6 @@ class FishingService:
     SMART_POINTER_LOSS_RELEASE_COUNT = 2
     SMART_POINTER_LOSS_RELEASE_MARGIN = 3.0
 
-<<<<<<< HEAD
->>>>>>> origin/fix/smart-fishing-popup-ocr
-=======
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def __init__(self, worker):
         self.worker = worker
         # 保持异步捕获任务串行执行，避免并发记录写入。
@@ -76,16 +70,9 @@ class FishingService:
         self._async_futures_lock = threading.Lock()
         # 使用默认 OCR 线程以提高后台识别吞吐量。
         self._async_ocr_service = OCRService()
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
         self._smart_gauge_geometry = None
         self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
         self._last_reel_success_signal = None
->>>>>>> origin/fix/smart-fishing-popup-ocr
-=======
-        self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
 
     def _build_signal_record(
         self,
@@ -572,11 +559,6 @@ class FishingService:
         )
         return False
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def _is_smart_preset(self):
         return cfg.current_preset_name == self.SMART_PRESET_NAME
 
@@ -1655,16 +1637,15 @@ class FishingService:
 
         return False
 
-<<<<<<< HEAD
->>>>>>> origin/fix/smart-fishing-popup-ocr
-=======
->>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def reel_in(self):
         """收竿阶段"""
         if not self.worker.running:
             return False
         self._last_reel_success_signal = None
         self.worker.status_updated.emit("上鱼了! 开始收竿!")
+        if self._is_smart_preset():
+            return self._smart_reel_in()
+
         self.worker.log_updated.emit("进入收放线循环...")
 
         star_region = cfg.get_rect("reel_in_star")
