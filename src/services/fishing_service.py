@@ -72,6 +72,7 @@ class FishingService:
         self._async_ocr_service = OCRService()
         self._smart_gauge_geometry = None
         self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
+        self._last_reel_success_signal = None
 
     def _build_signal_record(
         self,
@@ -1372,16 +1373,27 @@ class FishingService:
         return list(self._smart_gauge_frame_history)
 
     @staticmethod
-    def _has_reel_in_success_signal(vision, star_region, shangyu_region):
+    def _detect_reel_in_success_signal(vision, star_region, shangyu_region):
         if vision.find_template("star_grayscale", region=star_region, threshold=0.7):
-            return True
+            return "star"
 
         if shangyu_region:
             for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
                 if vision.find_template(key, region=shangyu_region, threshold=0.8):
-                    return True
+                    return "popup"
 
-        return False
+        return None
+
+    @classmethod
+    def _has_reel_in_success_signal(cls, vision, star_region, shangyu_region):
+        return (
+            cls._detect_reel_in_success_signal(
+                vision=vision,
+                star_region=star_region,
+                shangyu_region=shangyu_region,
+            )
+            is not None
+        )
 
     def _get_smart_pointer_state(self):
         gauge_region = cfg.get_rect("smart_tension_gauge")
@@ -1478,6 +1490,7 @@ class FishingService:
         hold_session_angle = None
         self._smart_gauge_geometry = None
         self._smart_gauge_frame_history.clear()
+        self._last_reel_success_signal = None
 
         self.worker.log_updated.emit("智能收线中...")
 
@@ -1488,11 +1501,13 @@ class FishingService:
                 if not self.worker.running or self.worker.paused:
                     return False
 
-                if self._has_reel_in_success_signal(
+                success_signal = self._detect_reel_in_success_signal(
                     vision=self.worker.vision,
                     star_region=star_region,
                     shangyu_region=shangyu_region,
-                ):
+                )
+                if success_signal is not None:
+                    self._last_reel_success_signal = success_signal
                     self.worker.log_updated.emit("检测到收线成功信号，判定为上鱼成功。")
                     return True
 
@@ -1626,6 +1641,7 @@ class FishingService:
         """收竿阶段"""
         if not self.worker.running:
             return False
+        self._last_reel_success_signal = None
         self.worker.status_updated.emit("上鱼了! 开始收竿!")
         if self._is_smart_preset():
             return self._smart_reel_in()
@@ -1658,11 +1674,13 @@ class FishingService:
             sleep_duration = self.worker.inputs.add_jitter(cfg.release_time)
             self.worker.smart_sleep(sleep_duration)
 
-            if self._has_reel_in_success_signal(
+            success_signal = self._detect_reel_in_success_signal(
                 vision=self.worker.vision,
                 star_region=star_region,
                 shangyu_region=shangyu_region,
-            ):
+            )
+            if success_signal is not None:
+                self._last_reel_success_signal = success_signal
                 self.worker.log_updated.emit("检测到收线成功信号，判定为上鱼成功。")
                 return True
 
@@ -1811,18 +1829,25 @@ class FishingService:
         """在弹窗关闭前快速捕获 OCR 帧。"""
         ocr_area = cfg.get_rect("ocr_area")
         if not ocr_area:
+            self._last_reel_success_signal = None
             return []
 
-        self.worker.smart_sleep(0.15)
+        success_signal = self._last_reel_success_signal
+        settle_delay = 0.35 if success_signal == "popup" else 0.15
+        frame_count = 3 if success_signal == "popup" else 2
+        frame_interval_ms = 100 if success_signal == "popup" else 80
+
+        self.worker.smart_sleep(settle_delay)
 
         snapshots = []
-        for index in range(2):
+        for index in range(frame_count):
             frame = self.worker.vision.screenshot(ocr_area)
             if frame is not None:
                 snapshots.append(frame)
-            if index == 0:
-                self.worker.msleep(80)
+            if index < frame_count - 1:
+                self.worker.msleep(frame_interval_ms)
 
+        self._last_reel_success_signal = None
         return snapshots
 
     def _maybe_trigger_steam_screenshot_early(self, ocr_snapshots):
