@@ -19,6 +19,7 @@ class FishingService:
     """钓鱼服务类"""
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     SMART_PRESET_NAME = "智能钓鱼"
     SMART_DANGER_ANGLE = 34.0
@@ -42,6 +43,8 @@ class FishingService:
     SMART_POINTER_AREA_MAX_RATIO = 2.6
     SMART_POINTER_SHAPE_MAX_SCORE = 0.65
     SMART_POINTER_TEMPLATE_CACHE = {"scale": None, "templates": []}
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     SMART_POINTER_FRAME_COUNT = 4
     SMART_RELEASE_TRIGGER_TOLERANCE = 1.5
     SMART_RUNTIME_LOG_INTERVAL = 0.25
@@ -59,7 +62,10 @@ class FishingService:
     SMART_POINTER_LOSS_RELEASE_COUNT = 2
     SMART_POINTER_LOSS_RELEASE_MARGIN = 3.0
 
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def __init__(self, worker):
         self.worker = worker
         # 保持异步捕获任务串行执行，避免并发记录写入。
@@ -71,11 +77,15 @@ class FishingService:
         # 使用默认 OCR 线程以提高后台识别吞吐量。
         self._async_ocr_service = OCRService()
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         self._smart_gauge_geometry = None
         self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
         self._last_reel_success_signal = None
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+        self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
 
     def _build_signal_record(
         self,
@@ -563,7 +573,10 @@ class FishingService:
         return False
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def _is_smart_preset(self):
         return cfg.current_preset_name == self.SMART_PRESET_NAME
 
@@ -1642,7 +1655,10 @@ class FishingService:
 
         return False
 
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def reel_in(self):
         """收竿阶段"""
         if not self.worker.running:

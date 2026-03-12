@@ -64,7 +64,10 @@ class ConfigManager:
                 "cycle_interval": 0.1,
             },
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
             "智能钓鱼": {
                 "cast_time": 0.1,
                 "reel_in_time": 0.2,
@@ -74,7 +77,10 @@ class ConfigManager:
                 "smart_release_angle": 18.0,
                 "smart_release_time": 0.8,
             },
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
         }
 
     def _sanitize_presets(self, presets):

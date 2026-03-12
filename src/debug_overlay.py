@@ -1,10 +1,15 @@
 import sys
 import os
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 import time
 import math
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+import time
+import math
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
 import cv2
 from datetime import datetime
 from pathlib import Path
@@ -12,10 +17,13 @@ from pathlib import Path
 from src.vision import vision
 from src.config import cfg
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 
 def generate_debug_screenshot(show_image=True):
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
 from src.services.fishing_service import FishingService
 from src.services.smart_pointer_debug_service import SmartPointerDebugService
 
@@ -345,7 +353,10 @@ def _draw_smart_tension_overlay(image, recognition_results):
 
 
 def generate_debug_screenshot(show_image=False):
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     """
     Captures screen, draws debug overlays, and saves/shows the image.
     增强版：显示识别结果和置信度

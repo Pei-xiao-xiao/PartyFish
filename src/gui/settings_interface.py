@@ -197,7 +197,10 @@ class SettingsInterface(ScrollArea):
         self.fishingGroup.addSettingCard(self.releaseTimeCard)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
         self.smartReleaseAngleCard = self._create_double_spinbox_card(
             icon=FluentIcon.SPEED_HIGH,
             title=self.tr("智能松手阈值"),
@@ -212,7 +215,10 @@ class SettingsInterface(ScrollArea):
         )
         self.fishingGroup.addSettingCard(self.smartReleaseAngleCard)
 
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
         self.cycleIntervalCard = self._create_double_spinbox_card(
             icon=FluentIcon.HISTORY,
             title=self.tr("循环间隔"),
@@ -822,7 +828,10 @@ class SettingsInterface(ScrollArea):
         return card
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     def _is_smart_preset(self, preset_name=None):
         preset_name = preset_name or self.presetComboBox.currentText()
         return preset_name == self.SMART_PRESET_NAME
@@ -838,7 +847,10 @@ class SettingsInterface(ScrollArea):
         self.cycleIntervalCard.setVisible(not is_smart_preset)
         self.maxPullsCard.setVisible(not is_smart_preset)
 
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
     QUALITY_COLORS = {
         0: ("#666666", "不放生"),
         1: ("#808080", "标准"),
@@ -1156,14 +1168,20 @@ class SettingsInterface(ScrollArea):
         self.reelInTimeSpinBox.setValue(current_preset.get("reel_in_time", 2.0))
         self.releaseTimeSpinBox.setValue(current_preset.get("release_time", 1.0))
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
         self.smartReleaseAngleSpinBox.setValue(
             current_preset.get("smart_release_angle", 18.0)
         )
         self.smartReleaseTimeSpinBox.setValue(
             current_preset.get("smart_release_time", 0.8)
         )
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
         self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
         self.maxPullsSpinBox.setValue(current_preset.get("max_pulls", 20))
 
@@ -1734,14 +1752,20 @@ class SettingsInterface(ScrollArea):
             self.reelInTimeSpinBox.setValue(default_config["reel_in_time"])
             self.releaseTimeSpinBox.setValue(default_config["release_time"])
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
             self.smartReleaseAngleSpinBox.setValue(
                 default_config.get("smart_release_angle", 18.0)
             )
             self.smartReleaseTimeSpinBox.setValue(
                 default_config.get("smart_release_time", 0.8)
             )
+<<<<<<< HEAD
 >>>>>>> origin/fix/smart-fishing-popup-ocr
+=======
+>>>>>>> 69095f99a551c4f800d8cdea5601a9c7d57732a4
             self.cycleIntervalSpinBox.setValue(default_config["cycle_interval"])
             self.maxPullsSpinBox.setValue(default_config["max_pulls"])
 
