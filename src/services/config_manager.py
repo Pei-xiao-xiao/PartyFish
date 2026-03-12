@@ -70,7 +70,7 @@ class ConfigManager:
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
                 "smart_release_angle": 18.0,
-                "smart_release_time": 0.2,
+                "smart_release_time": 0.8,
             },
         }
 

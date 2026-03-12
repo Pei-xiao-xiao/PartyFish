@@ -6,6 +6,7 @@
 import math
 import time
 import threading
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
@@ -14,6 +15,7 @@ from src.services.ocr_service import OCRService
 from src.services.record_schema import infer_time_period_from_timestamp
 from src.services.record_service import RecordService
 from src.services.screenshot_service import ScreenshotService
+from src.services.smart_pointer_debug_service import SmartPointerDebugService
 
 
 class FishingService:
@@ -41,6 +43,22 @@ class FishingService:
     SMART_POINTER_AREA_MAX_RATIO = 2.6
     SMART_POINTER_SHAPE_MAX_SCORE = 0.65
     SMART_POINTER_TEMPLATE_CACHE = {"scale": None, "templates": []}
+    SMART_POINTER_FRAME_COUNT = 4
+    SMART_RELEASE_TRIGGER_TOLERANCE = 1.5
+    SMART_RUNTIME_LOG_INTERVAL = 0.25
+    SMART_RUNTIME_LOG_ANGLE_DELTA = 1.5
+    SMART_HOLD_REVERSE_JUMP_LIMIT = 4.0
+    SMART_HOLD_FORWARD_DROP_LIMIT = 60.0
+    SMART_NEAR_THRESHOLD_RELEASE_MARGIN = 3.0
+    SMART_THRESHOLD_GUARD_RELEASE_TIME = 0.12
+    SMART_DANGER_FAST_DROP_THRESHOLD = 4.0
+    SMART_THRESHOLD_GUARD_ANGLE = 8.0
+    SMART_THRESHOLD_FAST_DROP_THRESHOLD = 6.0
+    SMART_INITIAL_RELEASE_ARM_MARGIN = 3.0
+    SMART_INITIAL_RELEASE_SUPPRESS_TIME = 0.45
+    SMART_INITIAL_THRESHOLD_LOG_SUPPRESS_TIME = 1.20
+    SMART_POINTER_LOSS_RELEASE_COUNT = 2
+    SMART_POINTER_LOSS_RELEASE_MARGIN = 3.0
 
     def __init__(self, worker):
         self.worker = worker
@@ -53,6 +71,7 @@ class FishingService:
         # 使用默认 OCR 线程以提高后台识别吞吐量。
         self._async_ocr_service = OCRService()
         self._smart_gauge_geometry = None
+        self._smart_gauge_frame_history = deque(maxlen=self.SMART_POINTER_FRAME_COUNT)
 
     def _build_signal_record(
         self,
@@ -985,6 +1004,385 @@ class FishingService:
             "method": "template",
         }
 
+    @classmethod
+    def _compute_smart_release_angle(cls, release_angle_offset):
+        configured_release_angle = cls.SMART_DANGER_ANGLE + max(
+            0.0, float(release_angle_offset)
+        )
+        return min(configured_release_angle, 170.0)
+
+    @classmethod
+    def _compute_smart_release_duration(cls, smart_release_time, release_reason):
+        smart_release_time = max(0.0, float(smart_release_time))
+        if release_reason in {"threshold_guard", "threshold_loss_guard"}:
+            return min(
+                smart_release_time,
+                float(cls.SMART_THRESHOLD_GUARD_RELEASE_TIME),
+            )
+        return smart_release_time
+
+    @classmethod
+    def _should_arm_initial_threshold_release(
+        cls,
+        current_angle,
+        configured_release_angle,
+        hold_started_at,
+        now=None,
+        arm_margin=None,
+        suppress_time=None,
+    ):
+        if hold_started_at is None:
+            return True
+
+        now = time.time() if now is None else float(now)
+        arm_margin = (
+            cls.SMART_INITIAL_RELEASE_ARM_MARGIN
+            if arm_margin is None
+            else max(0.0, float(arm_margin))
+        )
+        suppress_time = (
+            cls.SMART_INITIAL_RELEASE_SUPPRESS_TIME
+            if suppress_time is None
+            else max(0.0, float(suppress_time))
+        )
+        if now - float(hold_started_at) >= suppress_time:
+            return True
+        if current_angle is None:
+            return False
+        return float(current_angle) >= float(configured_release_angle) + arm_margin
+
+    @classmethod
+    def _should_log_initial_threshold_release(
+        cls,
+        reel_started_at,
+        now=None,
+        suppress_time=None,
+    ):
+        if reel_started_at is None:
+            return True
+
+        now = time.time() if now is None else float(now)
+        suppress_time = (
+            cls.SMART_INITIAL_THRESHOLD_LOG_SUPPRESS_TIME
+            if suppress_time is None
+            else max(0.0, float(suppress_time))
+        )
+        return (now - float(reel_started_at)) >= suppress_time
+
+    @classmethod
+    def _should_release_smart_pointer(
+        cls,
+        current_angle,
+        configured_release_angle,
+        danger_release_angle=None,
+        release_tolerance=None,
+        suppressed_reverse_jump=False,
+        near_threshold_release_margin=None,
+        previous_angle=None,
+        danger_guard_angle=None,
+        fast_drop_threshold=None,
+        threshold_guard_angle=None,
+        threshold_fast_drop_threshold=None,
+    ):
+        if current_angle is None:
+            return None
+
+        danger_release_angle = (
+            cls.SMART_DANGER_ANGLE
+            if danger_release_angle is None
+            else float(danger_release_angle)
+        )
+        release_tolerance = (
+            cls.SMART_RELEASE_TRIGGER_TOLERANCE
+            if release_tolerance is None
+            else max(0.0, float(release_tolerance))
+        )
+        near_threshold_release_margin = (
+            cls.SMART_NEAR_THRESHOLD_RELEASE_MARGIN
+            if near_threshold_release_margin is None
+            else max(0.0, float(near_threshold_release_margin))
+        )
+        danger_guard_angle = (
+            cls.SMART_DANGER_GUARD_ANGLE
+            if danger_guard_angle is None
+            else max(0.0, float(danger_guard_angle))
+        )
+        fast_drop_threshold = (
+            cls.SMART_DANGER_FAST_DROP_THRESHOLD
+            if fast_drop_threshold is None
+            else max(0.0, float(fast_drop_threshold))
+        )
+        threshold_guard_angle = (
+            cls.SMART_THRESHOLD_GUARD_ANGLE
+            if threshold_guard_angle is None
+            else max(0.0, float(threshold_guard_angle))
+        )
+        threshold_fast_drop_threshold = (
+            cls.SMART_THRESHOLD_FAST_DROP_THRESHOLD
+            if threshold_fast_drop_threshold is None
+            else max(0.0, float(threshold_fast_drop_threshold))
+        )
+        current_angle = float(current_angle)
+        configured_release_angle = float(configured_release_angle)
+        previous_angle = None if previous_angle is None else float(previous_angle)
+
+        if current_angle <= danger_release_angle:
+            return "danger"
+        if (
+            previous_angle is not None
+            and (previous_angle - current_angle) >= fast_drop_threshold
+            and current_angle <= danger_release_angle + danger_guard_angle
+        ):
+            return "danger_guard"
+        if (
+            previous_angle is not None
+            and configured_release_angle > danger_release_angle
+            and (previous_angle - current_angle) >= threshold_fast_drop_threshold
+            and current_angle <= configured_release_angle + threshold_guard_angle
+        ):
+            return "threshold_fast_guard"
+        if current_angle <= configured_release_angle + release_tolerance:
+            return "threshold"
+        if (
+            suppressed_reverse_jump
+            and current_angle
+            <= configured_release_angle + near_threshold_release_margin
+        ):
+            return "threshold_guard"
+        return None
+
+    @classmethod
+    def _should_release_on_pointer_loss(
+        cls,
+        last_angle,
+        configured_release_angle,
+        pointer_missing_count,
+        missing_release_count=None,
+        missing_release_margin=None,
+    ):
+        if last_angle is None:
+            return None
+
+        missing_release_count = (
+            cls.SMART_POINTER_LOSS_RELEASE_COUNT
+            if missing_release_count is None
+            else max(1, int(missing_release_count))
+        )
+        missing_release_margin = (
+            cls.SMART_POINTER_LOSS_RELEASE_MARGIN
+            if missing_release_margin is None
+            else max(0.0, float(missing_release_margin))
+        )
+        if int(pointer_missing_count) < missing_release_count:
+            return None
+
+        last_angle = float(last_angle)
+        configured_release_angle = float(configured_release_angle)
+        if last_angle <= configured_release_angle + missing_release_margin:
+            return "threshold_loss_guard"
+        return None
+
+    @classmethod
+    def _build_smart_pointer_runtime_log(
+        cls,
+        pointer_state,
+        configured_release_angle,
+        danger_release_angle,
+        release_reason=None,
+    ):
+        if pointer_state is None:
+            return (
+                "智能收线检测: angle=None "
+                f"threshold={configured_release_angle:.1f} "
+                f"danger={danger_release_angle:.1f}"
+            )
+
+        source = pointer_state.get("source", "unknown")
+        score = float(pointer_state.get("score", 0.0) or 0.0)
+        raw_angle = pointer_state.get("raw_angle")
+        sources = pointer_state.get("sources") or []
+        filter_reason = pointer_state.get("filter_reason")
+        message = (
+            "智能收线检测: "
+            f"angle={float(pointer_state['angle']):.1f} "
+            f"threshold={float(configured_release_angle):.1f} "
+            f"danger={float(danger_release_angle):.1f} "
+            f"source={source} "
+            f"score={score:.2f}"
+        )
+        if raw_angle is not None:
+            message += f" raw={float(raw_angle):.1f}"
+        if sources:
+            message += f" sources={'+'.join(sources)}"
+        if filter_reason:
+            message += f" filtered={filter_reason}"
+        if release_reason is not None:
+            message += f" release={release_reason}"
+        return message
+
+    @classmethod
+    def _apply_hold_direction_filter(
+        cls,
+        current_angle,
+        previous_angle,
+        reverse_jump_limit=None,
+        forward_drop_limit=None,
+    ):
+        if current_angle is None:
+            return None, None
+        if previous_angle is None:
+            return float(current_angle), None
+
+        reverse_jump_limit = (
+            cls.SMART_HOLD_REVERSE_JUMP_LIMIT
+            if reverse_jump_limit is None
+            else max(0.0, float(reverse_jump_limit))
+        )
+        forward_drop_limit = (
+            cls.SMART_HOLD_FORWARD_DROP_LIMIT
+            if forward_drop_limit is None
+            else max(0.0, float(forward_drop_limit))
+        )
+        current_angle = float(current_angle)
+        previous_angle = float(previous_angle)
+
+        if current_angle > previous_angle + reverse_jump_limit:
+            return previous_angle, "reverse_jump"
+        if current_angle < previous_angle - forward_drop_limit:
+            return previous_angle, "forward_jump"
+        return current_angle, None
+
+    @staticmethod
+    def _to_absolute_gauge_point(gauge_region, local_point):
+        if local_point is None:
+            return None
+        return (
+            float(gauge_region[0] + local_point[0]),
+            float(gauge_region[1] + local_point[1]),
+        )
+
+    @classmethod
+    def _resolve_smart_pointer_state(
+        cls,
+        gauge_region,
+        legacy_state=None,
+        debug_result=None,
+        motion_result=None,
+    ):
+        legacy_candidate = None
+        if legacy_state is not None and legacy_state.get("angle") is not None:
+            legacy_pointer = legacy_state.get("pointer")
+            legacy_candidate = {
+                "source": (
+                    "legacy_color"
+                    if legacy_state.get("method") == "color"
+                    else "legacy_template"
+                ),
+                "angle": legacy_state["angle"],
+                "score": legacy_state.get("score", 0.0),
+                "point": (
+                    (
+                        float(legacy_pointer[0] - gauge_region[0]),
+                        float(legacy_pointer[1] - gauge_region[1]),
+                    )
+                    if legacy_pointer is not None
+                    else None
+                ),
+            }
+
+        template_candidates = []
+        debug_best = None
+        if debug_result is not None:
+            debug_best = debug_result.get("best_candidate")
+            for candidate in debug_result.get("candidates", []):
+                template_candidates.append(
+                    {
+                        "source": "template",
+                        "angle": candidate["angle"],
+                        "score": candidate["score"],
+                        "point": candidate.get("tip_point"),
+                    }
+                )
+
+        motion_best = None
+        motion_candidate = None
+        if motion_result is not None:
+            motion_best = motion_result.get("best_candidate")
+        if motion_best is not None:
+            motion_candidate = {
+                "source": "motion",
+                "angle": motion_best["angle"],
+                "score": motion_best["score"],
+                "point": motion_best.get("tip_point"),
+            }
+
+        fused_result = SmartPointerDebugService.fuse_pointer_candidates(
+            legacy_candidate=legacy_candidate,
+            template_candidates=template_candidates,
+            motion_candidate=motion_candidate,
+        )
+
+        if fused_result is not None and fused_result.get("angle") is not None:
+            return {
+                "angle": fused_result["angle"],
+                "score": fused_result.get("score", 0.0),
+                "pointer": cls._to_absolute_gauge_point(
+                    gauge_region, fused_result.get("point")
+                )
+                or (legacy_state or {}).get("pointer"),
+                "source": "fused",
+                "sources": fused_result.get("sources", []),
+            }
+
+        if motion_best is not None:
+            return {
+                "angle": motion_best["angle"],
+                "score": motion_best.get("score", 0.0),
+                "pointer": cls._to_absolute_gauge_point(
+                    gauge_region, motion_best.get("tip_point")
+                ),
+                "source": "motion",
+                "sources": ["motion"],
+            }
+
+        if debug_best is not None:
+            return {
+                "angle": debug_best["angle"],
+                "score": debug_best.get("score", 0.0),
+                "pointer": cls._to_absolute_gauge_point(
+                    gauge_region, debug_best.get("tip_point")
+                ),
+                "source": "template",
+                "sources": ["template"],
+            }
+
+        if legacy_state is not None and legacy_state.get("angle") is not None:
+            return {
+                "angle": legacy_state["angle"],
+                "score": legacy_state.get("score", 0.0),
+                "pointer": legacy_state.get("pointer"),
+                "source": legacy_state.get("method", "legacy"),
+                "sources": [legacy_state.get("method", "legacy")],
+            }
+
+        return None
+
+    def _capture_smart_gauge_frames(self, gauge_region, initial_frame):
+        self._smart_gauge_frame_history.append(initial_frame.copy())
+        return list(self._smart_gauge_frame_history)
+
+    @staticmethod
+    def _has_reel_in_success_signal(vision, star_region, shangyu_region):
+        if vision.find_template("star_grayscale", region=star_region, threshold=0.7):
+            return True
+
+        if shangyu_region:
+            for key in ["shangyu_grayscale", "shoubing_shangyu_grayscale"]:
+                if vision.find_template(key, region=shangyu_region, threshold=0.8):
+                    return True
+
+        return False
+
     def _get_smart_pointer_state(self):
         gauge_region = cfg.get_rect("smart_tension_gauge")
         gauge_image = self.worker.vision.screenshot(gauge_region)
@@ -998,51 +1396,90 @@ class FishingService:
         if self._smart_gauge_geometry is None:
             return None
 
-        match_result = self.detect_smart_pointer(
+        gauge_center_x, gauge_center_y = self._smart_gauge_geometry["center"]
+        gauge_radius = float(self._smart_gauge_geometry["radius"])
+        local_center = (
+            gauge_center_x - gauge_region[0],
+            gauge_center_y - gauge_region[1],
+        )
+        gauge_frames = self._capture_smart_gauge_frames(gauge_region, gauge_image)
+
+        legacy_match_result = self.detect_smart_pointer(
             self.worker.vision,
             gauge_image,
             gauge_region,
             self._smart_gauge_geometry,
         )
-        if match_result is None:
-            return None
+        legacy_state = None
+        if legacy_match_result is not None:
+            pointer_x, pointer_y = legacy_match_result["center"]
+            angle = math.degrees(
+                math.atan2(gauge_center_y - pointer_y, pointer_x - gauge_center_x)
+            )
+            if angle < 0:
+                angle += 360.0
+            legacy_state = {
+                "angle": angle,
+                "score": legacy_match_result.get("score", 0.0),
+                "pointer": (pointer_x, pointer_y),
+                "method": legacy_match_result.get("method", "template"),
+            }
 
-        gauge_center_x, gauge_center_y = self._smart_gauge_geometry["center"]
-        pointer_x, pointer_y = match_result["center"]
+        debug_result = None
+        try:
+            self.worker.vision._ensure_loaded()
+            pointer_template = self.worker.vision.raw_templates.get("pointer")
+            if pointer_template is not None:
+                debug_result = SmartPointerDebugService.analyze_pointer(
+                    gauge_image,
+                    pointer_template,
+                    local_center,
+                    gauge_radius,
+                )
+        except Exception:
+            debug_result = None
 
-        angle = math.degrees(
-            math.atan2(gauge_center_y - pointer_y, pointer_x - gauge_center_x)
+        motion_result = None
+        try:
+            motion_result = SmartPointerDebugService.analyze_motion_pointer(
+                gauge_frames,
+                local_center,
+                gauge_radius,
+            )
+        except Exception:
+            motion_result = None
+
+        return self._resolve_smart_pointer_state(
+            gauge_region=gauge_region,
+            legacy_state=legacy_state,
+            debug_result=debug_result,
+            motion_result=motion_result,
         )
-        if angle < 0:
-            angle += 360
-
-        return {
-            "angle": angle,
-            "score": match_result["score"],
-            "pointer": (pointer_x, pointer_y),
-        }
 
     def _smart_reel_in(self):
         star_region = cfg.get_rect("reel_in_star")
+        shangyu_region = cfg.get_rect("shangyu")
         cast_rod_region = cfg.get_rect("cast_rod")
         cast_rod_ice_region = cfg.get_rect("cast_rod_ice")
-        configured_release_angle = self.SMART_DANGER_ANGLE + max(
-            0.0, float(getattr(cfg, "smart_release_angle", 18.0))
+        danger_release_angle = self.SMART_DANGER_ANGLE
+        configured_release_angle = self._compute_smart_release_angle(
+            getattr(cfg, "smart_release_angle", 18.0)
         )
-        configured_release_angle = min(configured_release_angle, 170.0)
-        smart_release_time = max(0.0, float(getattr(cfg, "smart_release_time", 0.2)))
-        guard_release_angle = min(
-            self.SMART_DANGER_ANGLE + self.SMART_DANGER_GUARD_ANGLE,
-            170.0,
-        )
+        smart_release_time = max(0.0, float(getattr(cfg, "smart_release_time", 0.8)))
 
         pointer_missing_count = 0
         is_holding = True
         release_until = 0.0
         start_time = time.time()
+        hold_started_at = start_time
+        hold_release_armed = False
+        last_pointer_log_time = 0.0
+        last_logged_angle = None
+        hold_session_angle = None
         self._smart_gauge_geometry = None
+        self._smart_gauge_frame_history.clear()
 
-        self.worker.log_updated.emit("进入智能收线模式...")
+        self.worker.log_updated.emit("智能收线中...")
 
         try:
             self.worker.inputs.press_mouse_button()
@@ -1051,10 +1488,12 @@ class FishingService:
                 if not self.worker.running or self.worker.paused:
                     return False
 
-                if self.worker.vision.find_template(
-                    "star_grayscale", region=star_region, threshold=0.7
+                if self._has_reel_in_success_signal(
+                    vision=self.worker.vision,
+                    star_region=star_region,
+                    shangyu_region=shangyu_region,
                 ):
-                    self.worker.log_updated.emit("检测到星星，成功！")
+                    self.worker.log_updated.emit("检测到收线成功信号，判定为上鱼成功。")
                     return True
 
                 for key in ["F1_grayscale", "F2_grayscale"]:
@@ -1074,39 +1513,113 @@ class FishingService:
                     if time.time() >= release_until:
                         self.worker.inputs.press_mouse_button()
                         is_holding = True
+                        hold_started_at = time.time()
+                        hold_release_armed = False
+                        hold_session_angle = None
+                        pointer_missing_count = 0
                     self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
                     continue
 
                 pointer_state = self._get_smart_pointer_state()
                 if pointer_state is None:
                     pointer_missing_count += 1
-                    if pointer_missing_count >= self.SMART_POINTER_LOST_LIMIT:
-                        self.worker.log_updated.emit(
-                            "智能收线未能稳定识别指针，已中止本轮。"
+                    release_reason = self._should_release_on_pointer_loss(
+                        last_angle=hold_session_angle,
+                        configured_release_angle=configured_release_angle,
+                        pointer_missing_count=pointer_missing_count,
+                    )
+                    if is_holding and release_reason is not None:
+                        release_duration = self._compute_smart_release_duration(
+                            smart_release_time=smart_release_time,
+                            release_reason=release_reason,
                         )
+                        self.worker.inputs.release_mouse_button()
+                        is_holding = False
+                        hold_session_angle = None
+                        pointer_missing_count = 0
+                        release_until = time.time() + release_duration
+                        self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
+                        continue
+                    if pointer_missing_count >= self.SMART_POINTER_LOST_LIMIT:
                         return False
                     self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
                     continue
 
                 pointer_missing_count = 0
-                current_angle = pointer_state["angle"]
+                raw_angle = pointer_state["angle"]
+                previous_hold_angle = hold_session_angle
+                current_angle, filter_reason = self._apply_hold_direction_filter(
+                    current_angle=raw_angle,
+                    previous_angle=previous_hold_angle,
+                )
+                pointer_state = dict(pointer_state)
+                pointer_state["raw_angle"] = raw_angle
+                pointer_state["angle"] = current_angle
+                if filter_reason is not None:
+                    pointer_state["filter_reason"] = filter_reason
+                hold_session_angle = current_angle
 
-                if is_holding and current_angle <= guard_release_angle:
-                    self.worker.log_updated.emit("智能收线：到达危险区兜底，松手")
+                release_reason = self._should_release_smart_pointer(
+                    current_angle=current_angle,
+                    configured_release_angle=configured_release_angle,
+                    danger_release_angle=danger_release_angle,
+                    suppressed_reverse_jump=(filter_reason == "reverse_jump"),
+                    previous_angle=previous_hold_angle,
+                )
+                now = time.time()
+                if not hold_release_armed:
+                    hold_release_armed = self._should_arm_initial_threshold_release(
+                        current_angle=current_angle,
+                        configured_release_angle=configured_release_angle,
+                        hold_started_at=hold_started_at,
+                        now=now,
+                    )
+                    if not hold_release_armed and release_reason is not None:
+                        release_reason = None
+                last_pointer_log_time = now
+                last_logged_angle = current_angle
+
+                release_duration = self._compute_smart_release_duration(
+                    smart_release_time=smart_release_time,
+                    release_reason=release_reason,
+                )
+                if is_holding and release_reason == "danger":
+                    self.worker.log_updated.emit("智能收线：进入红色危险区，立即松手")
                     self.worker.inputs.release_mouse_button()
                     is_holding = False
-                    release_until = time.time() + smart_release_time
-                elif is_holding and current_angle <= configured_release_angle:
-                    self.worker.log_updated.emit("智能收线：到达配置阈值，松手")
+                    hold_session_angle = None
+                    release_until = time.time() + release_duration
+                elif is_holding and release_reason == "danger_guard":
+                    self.worker.log_updated.emit("智能收线：快速逼近红区，提前松手")
                     self.worker.inputs.release_mouse_button()
                     is_holding = False
-                    release_until = time.time() + smart_release_time
+                    hold_session_angle = None
+                    release_until = time.time() + release_duration
+                elif is_holding and release_reason == "threshold_fast_guard":
+                    self.worker.inputs.release_mouse_button()
+                    is_holding = False
+                    hold_session_angle = None
+                    release_until = time.time() + release_duration
+                elif is_holding and release_reason == "threshold":
+                    if self._should_log_initial_threshold_release(
+                        reel_started_at=start_time,
+                        now=now,
+                    ):
+                        self.worker.log_updated.emit("智能收线：到达配置阈值，松手")
+                    self.worker.inputs.release_mouse_button()
+                    is_holding = False
+                    hold_session_angle = None
+                    release_until = time.time() + release_duration
+                elif is_holding and release_reason == "threshold_guard":
+                    self.worker.inputs.release_mouse_button()
+                    is_holding = False
+                    hold_session_angle = None
+                    release_until = time.time() + release_duration
 
                 self.worker.msleep(self.SMART_POLL_INTERVAL_MS)
         finally:
             self.worker.inputs.ensure_mouse_up()
 
-        self.worker.log_updated.emit("智能收线超时，未能完成本轮。")
         return False
 
     def reel_in(self):
@@ -1120,6 +1633,7 @@ class FishingService:
         self.worker.log_updated.emit("进入收放线循环...")
 
         star_region = cfg.get_rect("reel_in_star")
+        shangyu_region = cfg.get_rect("shangyu")
 
         for i in range(cfg.max_pulls):
             if not self.worker.running or self.worker.paused:
@@ -1144,10 +1658,12 @@ class FishingService:
             sleep_duration = self.worker.inputs.add_jitter(cfg.release_time)
             self.worker.smart_sleep(sleep_duration)
 
-            if self.worker.vision.find_template(
-                "star_grayscale", region=star_region, threshold=0.7
+            if self._has_reel_in_success_signal(
+                vision=self.worker.vision,
+                star_region=star_region,
+                shangyu_region=shangyu_region,
             ):
-                self.worker.log_updated.emit("检测到星星，成功！")
+                self.worker.log_updated.emit("检测到收线成功信号，判定为上鱼成功。")
                 return True
 
             cast_rod_region = cfg.get_rect("cast_rod")
