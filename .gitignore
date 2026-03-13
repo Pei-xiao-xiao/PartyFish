@@ -192,6 +192,9 @@ cython_debug/
 # Claude Code
 .claude/
 
+# Trae IDE
+.trae/
+
 # Ruff stuff:
 .ruff_cache/
 
