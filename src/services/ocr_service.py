@@ -243,45 +243,55 @@ class OCRService:
             # 剩下的是鱼名
             fish_name = text_after_prefix.strip()
 
-            # 鱼名清理与模糊匹配
+            # 鱼名清理与匹配
             if hasattr(cfg, "fish_names_list") and cfg.fish_names_list:
                 search_name = fish_name
                 if re.search(r"[\u4e00-\u9fa5]", fish_name):
                     search_name = "".join(re.findall(r"[\u4e00-\u9fa5]+", fish_name))
 
-                matches = process.extract(
-                    search_name,
-                    cfg.fish_names_list,
-                    scorer=fuzz.ratio,
-                    limit=1,
-                    score_cutoff=60,
-                )
-
-                if not matches and search_name != fish_name:
+                # 第一步：精确匹配（O(1) 使用 set）
+                fish_names_set = getattr(cfg, "fish_names_set", set())
+                if search_name in fish_names_set:
+                    fish_name = search_name
+                elif fish_name in fish_names_set:
+                    pass
+                else:
+                    # 第二步：模糊匹配（仅在精确匹配失败时执行）
                     matches = process.extract(
-                        fish_name,
+                        search_name,
                         cfg.fish_names_list,
-                        scorer=fuzz.ratio,
+                        scorer=fuzz.WRatio,
                         limit=1,
                         score_cutoff=60,
                     )
 
-                if matches:
-                    matched_name = matches[0][0]
-                    if fish_name != matched_name and log_callback:
-                        log_callback(f"鱼名校正: '{fish_name}' -> '{matched_name}'")
-                    fish_name = matched_name
-                else:
-                    if re.search(r"[\u4e00-\u9fa5]", fish_name):
-                        fish_name = re.sub(r"[^\u4e00-\u9fa50-9]+$", "", fish_name)
+                    if not matches and search_name != fish_name:
+                        matches = process.extract(
+                            fish_name,
+                            cfg.fish_names_list,
+                            scorer=fuzz.WRatio,
+                            limit=1,
+                            score_cutoff=60,
+                        )
+
+                    if matches:
+                        matched_name = matches[0][0]
+                        if fish_name != matched_name and log_callback:
+                            log_callback(f"鱼名校正: '{fish_name}' -> '{matched_name}'")
+                        fish_name = matched_name
                     else:
-                        fish_name = ""
+                        if re.search(r"[\u4e00-\u9fa5]", fish_name):
+                            fish_name = re.sub(r"[^\u4e00-\u9fa50-9]+$", "", fish_name)
+                        else:
+                            fish_name = ""
             else:
                 if re.search(r"[\u4e00-\u9fa5]", fish_name):
                     fish_name = re.sub(r"[^\u4e00-\u9fa50-9]+$", "", fish_name)
                 else:
                     cleaned_non_chinese = re.sub(r"[^a-zA-Z0-9]+", "", fish_name)
-                    fish_name = cleaned_non_chinese if len(cleaned_non_chinese) >= 2 else ""
+                    fish_name = (
+                        cleaned_non_chinese if len(cleaned_non_chinese) >= 2 else ""
+                    )
 
             fish_name = fish_name.strip()
 
