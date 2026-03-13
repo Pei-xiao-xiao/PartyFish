@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "partyfish"
+version = "2.0.0"
+description = "Party Animals fishing helper for Windows"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "PySide6",
+    "PySide6-Fluent-Widgets",
+    "opencv-python",
+    "mss",
+    "rapidocr-onnxruntime",
+    "rapidfuzz",
+    "pynput",
+    "numpy",
+    "Pillow",
+    "psutil",
+    "wmi",
+    "pygame",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black==24.10.0",
+    "pre-commit>=4,<5",
+    "pytest>=8,<9",
+]
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+namespaces = true
+
+[tool.black]
+target-version = ["py311"]

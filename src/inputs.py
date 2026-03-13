@@ -12,26 +12,161 @@ MOUSEEVENTF_WHEEL = 0x0800
 WHEEL_DELTA = 120
 
 
-class InputController(QObject):
+class InputActions:
+    """轻量输入执行器，仅负责发送按键/鼠标操作，不启动任何监听。"""
+
+    def __init__(self):
+        self.is_mouse_down = False
+
+    def add_jitter(self, base_time):
+        jitter_range = cfg.get_global_setting("jitter_range", 0)
+        if jitter_range <= 0:
+            return base_time
+
+        multiplier = random.uniform(1 - jitter_range / 100, 1 + jitter_range / 100)
+        jittered_time = round(base_time * multiplier, 3)
+
+        return max(0.01, jittered_time)
+
+    @staticmethod
+    def jitter_click(x, y):
+        ctypes.windll.user32.SetCursorPos(x, y)
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.12))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+    def click(self, x, y):
+        self.jitter_click(x, y)
+
+    @staticmethod
+    def press_key(key_name):
+        """使用虚拟键码模拟按下和释放按键。"""
+        key_name = key_name.upper()
+        vk_map = {
+            "F1": (0x70, 0x3B),
+            "F2": (0x71, 0x3C),
+            "F3": (0x72, 0x3D),
+            "F4": (0x73, 0x3E),
+            "F12": (0x7B, 0x58),
+            "E": (0x45, 0x12),
+            "R": (0x52, 0x13),
+            "SPACE": (0x20, 0x39),
+            "ESC": (0x1B, 0x01),
+        }
+        key_info = vk_map.get(key_name)
+        if key_info:
+            vk, scan = key_info
+            ctypes.windll.user32.keybd_event(vk, scan, 0, 0)
+            time.sleep(random.uniform(0.05, 0.1))
+            ctypes.windll.user32.keybd_event(vk, scan, 2, 0)
+        else:
+            print(f"Unknown key for simulation: {key_name}")
+
+    @staticmethod
+    def double_click(x, y):
+        ctypes.windll.user32.SetCursorPos(x, y)
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.08))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.08))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(random.uniform(0.05, 0.08))
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+    def press_mouse_button(self):
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        self.is_mouse_down = True
+
+    def release_mouse_button(self):
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        self.is_mouse_down = False
+
+    def hold_mouse(self, duration, sleep_fn=time.sleep):
+        actual_duration = self.add_jitter(duration)
+        self.press_mouse_button()
+        try:
+            sleep_fn(actual_duration)
+        finally:
+            self.release_mouse_button()
+
+    def left_click(self):
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        self.is_mouse_down = True
+        time.sleep(0.1)
+        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        self.is_mouse_down = False
+
+    def ensure_mouse_up(self):
+        if self.is_mouse_down:
+            ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+            self.is_mouse_down = False
+
+    @staticmethod
+    def hold_key(key_name):
+        key_name = key_name.upper()
+        vk_map = {"C": 0x43, "ESC": 0x1B}
+        vk = vk_map.get(key_name)
+        if vk:
+            ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
+
+    @staticmethod
+    def release_key(key_name):
+        key_name = key_name.upper()
+        vk_map = {"C": 0x43, "ESC": 0x1B}
+        vk = vk_map.get(key_name)
+        if vk:
+            ctypes.windll.user32.keybd_event(vk, 0, 2, 0)
+
+    @staticmethod
+    def scroll_wheel(clicks):
+        for _ in range(abs(clicks)):
+            delta = WHEEL_DELTA if clicks > 0 else -WHEEL_DELTA
+            ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+            time.sleep(0.1)
+
+    @staticmethod
+    def switch_bait(scroll_count, sleep_fn=time.sleep):
+        def sleep_or_continue(duration):
+            result = sleep_fn(duration)
+            return result is not False
+
+        VK_B = 0x42
+        ctypes.windll.user32.keybd_event(VK_B, 0, 0, 0)
+        try:
+            if not sleep_or_continue(0.8):
+                return False
+
+            for _ in range(abs(scroll_count)):
+                delta = WHEEL_DELTA if scroll_count > 0 else -WHEEL_DELTA
+                ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+                if not sleep_or_continue(0.5):
+                    return False
+
+            return sleep_or_continue(0.8)
+        finally:
+            ctypes.windll.user32.keybd_event(VK_B, 0, 2, 0)
+
+
+class InputController(QObject, InputActions):
     toggle_script_signal = Signal()
     debug_screenshot_signal = Signal()
     sell_hotkey_signal = Signal()
     uno_hotkey_signal = Signal()
 
     def __init__(self):
-        super().__init__()
+        QObject.__init__(self)
+        InputActions.__init__(self)
         self.running = False
         self.keyboard_listener = None
         self._hotkey_handler = None
         self._debug_hotkey_handler = None
         self._sell_hotkey_handler = None
         self._uno_hotkey_handler = None
-        self.is_mouse_down = False
 
-        self._main_hotkey_str = cfg.hotkey
-        self._debug_hotkey_str = cfg.global_settings.get("debug_hotkey", "F10")
-        self._sell_hotkey_str = cfg.global_settings.get("sell_hotkey", "F4")
-        self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
+        self._main_hotkey_str = cfg.get_global_setting("hotkey", "F2")
+        self._debug_hotkey_str = cfg.get_global_setting("debug_hotkey", "F10")
+        self._sell_hotkey_str = cfg.get_global_setting("sell_hotkey", "F4")
+        self._uno_hotkey_str = cfg.get_global_setting("uno_hotkey", "F3")
 
         self._update_hotkey_handler()
         self._update_debug_hotkey_handler()
@@ -112,7 +247,7 @@ class InputController(QObject):
         """
         从配置解析主热键并创建 pynput HotKey 处理器。
         """
-        self._main_hotkey_str = cfg.hotkey
+        self._main_hotkey_str = cfg.get_global_setting("hotkey", "F2")
 
         # 鼠标按钮跳过 keyboard.HotKey
         if self._main_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
@@ -120,19 +255,22 @@ class InputController(QObject):
             return
 
         try:
-            formatted_hotkey = self._parse_hotkey_string(cfg.hotkey)
+            formatted_hotkey = self._parse_hotkey_string(self._main_hotkey_str)
             self._hotkey_handler = keyboard.HotKey(
                 keyboard.HotKey.parse(formatted_hotkey), self.toggle_script_signal.emit
             )
         except Exception as e:
-            print(f"Error parsing hotkey '{cfg.hotkey}': {e}")
+            print(f"Error parsing hotkey '{self._main_hotkey_str}': {e}")
             self._hotkey_handler = None
+
+    def refresh_main_hotkey(self):
+        self._update_hotkey_handler()
 
     def _update_debug_hotkey_handler(self):
         """
         从配置解析调试热键并创建 pynput HotKey 处理器。
         """
-        self._debug_hotkey_str = cfg.global_settings.get("debug_hotkey", "F10")
+        self._debug_hotkey_str = cfg.get_global_setting("debug_hotkey", "F10")
 
         # 鼠标按钮跳过 keyboard.HotKey
         if self._debug_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
@@ -149,11 +287,14 @@ class InputController(QObject):
             print(f"Error parsing debug hotkey '{self._debug_hotkey_str}': {e}")
             self._debug_hotkey_handler = None
 
+    def refresh_debug_hotkey(self):
+        self._update_debug_hotkey_handler()
+
     def _update_sell_hotkey_handler(self):
         """
         从配置解析卖鱼热键并创建 pynput HotKey 处理器。
         """
-        self._sell_hotkey_str = cfg.global_settings.get("sell_hotkey", "F4")
+        self._sell_hotkey_str = cfg.get_global_setting("sell_hotkey", "F4")
 
         # 鼠标按钮跳过 keyboard.HotKey
         if self._sell_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
@@ -169,11 +310,14 @@ class InputController(QObject):
             print(f"Error parsing sell hotkey '{self._sell_hotkey_str}': {e}")
             self._sell_hotkey_handler = None
 
+    def refresh_sell_hotkey(self):
+        self._update_sell_hotkey_handler()
+
     def _update_uno_hotkey_handler(self):
         """
         从配置解析 UNO 热键并创建 pynput HotKey 处理器。
         """
-        self._uno_hotkey_str = cfg.global_settings.get("uno_hotkey", "F3")
+        self._uno_hotkey_str = cfg.get_global_setting("uno_hotkey", "F3")
 
         if self._uno_hotkey_str in ["Mouse1", "Mouse2", "Mouse3", "Mouse4", "Mouse5"]:
             self._uno_hotkey_handler = None
@@ -188,11 +332,14 @@ class InputController(QObject):
             print(f"Error parsing uno hotkey '{self._uno_hotkey_str}': {e}")
             self._uno_hotkey_handler = None
 
+    def refresh_uno_hotkey(self):
+        self._update_uno_hotkey_handler()
+
     def _init_gamepad(self):
         """
         如果启用，初始化手柄控制器。
         """
-        if not cfg.global_settings.get("enable_gamepad", False):
+        if not cfg.get_global_setting("enable_gamepad", False):
             return
 
         try:
@@ -234,12 +381,15 @@ class InputController(QObject):
         self._clear_gamepad_hold_state()
         self._init_gamepad()
 
+    def refresh_gamepad_bindings(self):
+        self._reinit_gamepad()
+
     def _on_gamepad_button(self, button_name):
         """
         处理手柄按钮按下事件。
         """
         mappings = cfg.normalize_gamepad_mappings(
-            cfg.global_settings.get("gamepad_mappings", {})
+            cfg.get_global_setting("gamepad_mappings", {})
         )
 
         for action_name, mapping in mappings.items():
@@ -297,9 +447,9 @@ class InputController(QObject):
             self._active_gamepad_buttons.discard(button_name)
 
         mappings = cfg.normalize_gamepad_mappings(
-            cfg.global_settings.get("gamepad_mappings", {})
+            cfg.get_global_setting("gamepad_mappings", {})
         )
-        cfg.global_settings["gamepad_mappings"] = mappings
+        cfg.set_global_setting("gamepad_mappings", mappings)
 
         for action_name, mapping in mappings.items():
             if mapping.get("button") != button_name:
@@ -316,110 +466,6 @@ class InputController(QObject):
                     self._cancel_gamepad_hold(action_name)
             elif pressed:
                 self._emit_gamepad_action(action_name)
-
-    def add_jitter(self, base_time):
-        jitter_range = cfg.jitter_range
-        if jitter_range <= 0:
-            return base_time
-
-        multiplier = random.uniform(1 - jitter_range / 100, 1 + jitter_range / 100)
-        jittered_time = round(base_time * multiplier, 3)
-
-        return max(0.01, jittered_time)
-
-    @staticmethod
-    def press_key(key_name):
-        """
-        使用虚拟键码模拟按下和释放按键。
-        """
-        key_name = key_name.upper()
-        # 常用虚拟键码和扫描码
-        vk_map = {
-            "F1": (0x70, 0x3B),
-            "F2": (0x71, 0x3C),
-            "F3": (0x72, 0x3D),
-            "F4": (0x73, 0x3E),
-            "F12": (0x7B, 0x58),
-            "E": (0x45, 0x12),
-            "R": (0x52, 0x13),
-            "SPACE": (0x20, 0x39),
-            "ESC": (0x1B, 0x01),
-        }
-        key_info = vk_map.get(key_name)
-        if key_info:
-            vk, scan = key_info
-            ctypes.windll.user32.keybd_event(vk, scan, 0, 0)  # 按下
-            time.sleep(random.uniform(0.05, 0.1))
-            ctypes.windll.user32.keybd_event(vk, scan, 2, 0)  # 释放
-        else:
-            print(f"Unknown key for simulation: {key_name}")
-
-    @staticmethod
-    def jitter_click(x, y):
-        """
-        模拟更像人类的鼠标点击，带有随机延迟。
-        """
-        ctypes.windll.user32.SetCursorPos(x, y)
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(random.uniform(0.05, 0.12))
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-
-    def click(self, x, y):
-        """
-        在给定坐标模拟鼠标左键点击。
-        """
-        self.jitter_click(x, y)
-
-    @staticmethod
-    def double_click(x, y):
-        """
-        在给定坐标模拟双击。
-        """
-        ctypes.windll.user32.SetCursorPos(x, y)
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(random.uniform(0.05, 0.08))
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        time.sleep(random.uniform(0.05, 0.08))
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(random.uniform(0.05, 0.08))
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-
-    def press_mouse_button(self):
-        """模拟按下鼠标左键但不释放。"""
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        self.is_mouse_down = True
-
-    def release_mouse_button(self):
-        """模拟释放鼠标左键。"""
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        self.is_mouse_down = False
-
-    def hold_mouse(self, duration):
-        """
-        模拟按住鼠标左键指定时长。
-        """
-        actual_duration = self.add_jitter(duration)
-        self.press_mouse_button()
-        time.sleep(actual_duration)
-        self.release_mouse_button()
-
-    def left_click(self):
-        """
-        模拟鼠标左键点击。
-        """
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        self.is_mouse_down = True
-        time.sleep(0.1)
-        ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        self.is_mouse_down = False
-
-    def ensure_mouse_up(self):
-        """
-        确保鼠标左键已释放（如果当前按下）。
-        """
-        if self.is_mouse_down:
-            ctypes.windll.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-            self.is_mouse_down = False
 
     def _on_press(self, key):
         """
@@ -521,15 +567,6 @@ class InputController(QObject):
             self._gamepad_controller.stop_listening()
         self._clear_gamepad_hold_state()
 
-    @staticmethod
-    def hold_key(key_name):
-        """按住按键"""
-        key_name = key_name.upper()
-        vk_map = {"C": 0x43, "ESC": 0x1B}
-        vk = vk_map.get(key_name)
-        if vk:
-            ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
-
     def _on_mouse_click(self, x, y, button, pressed):
         """
         鼠标点击事件处理，支持侧键热键
@@ -560,43 +597,3 @@ class InputController(QObject):
             self.sell_hotkey_signal.emit()
         elif button_str == self._uno_hotkey_str:
             self.uno_hotkey_signal.emit()
-
-    @staticmethod
-    def release_key(key_name):
-        """释放按键"""
-        key_name = key_name.upper()
-        vk_map = {"C": 0x43, "ESC": 0x1B}
-        vk = vk_map.get(key_name)
-        if vk:
-            ctypes.windll.user32.keybd_event(vk, 0, 2, 0)
-
-    @staticmethod
-    def scroll_wheel(clicks):
-        """滚动鼠标滚轮"""
-        for _ in range(abs(clicks)):
-            delta = WHEEL_DELTA if clicks > 0 else -WHEEL_DELTA
-            ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
-            time.sleep(0.1)
-
-    @staticmethod
-    def switch_bait(scroll_count):
-        """
-        切换鱼饵：按住B键，滚动鼠标滚轮，然后松开B键
-
-        Args:
-            scroll_count: 滚动次数，正数向上滚动，负数向下滚动
-        """
-        VK_B = 0x42
-        # 按住B键
-        ctypes.windll.user32.keybd_event(VK_B, 0, 0, 0)
-        time.sleep(0.8)
-
-        # 滚动鼠标滚轮
-        for _ in range(abs(scroll_count)):
-            delta = WHEEL_DELTA if scroll_count > 0 else -WHEEL_DELTA
-            ctypes.windll.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
-            time.sleep(0.5)
-
-        time.sleep(0.8)
-        # 松开B键
-        ctypes.windll.user32.keybd_event(VK_B, 0, 2, 0)

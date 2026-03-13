@@ -61,7 +61,7 @@ class RecordService:
         Returns:
             鱼饵组合字符串，如 "蜂蜜+蘑菇"
         """
-        selected_baits = cfg.global_settings.get("selected_baits", [])
+        selected_baits = cfg.get_global_setting("selected_baits", [])
         if selected_baits:
             return "+".join(selected_baits)
         return cfg.current_bait
@@ -111,7 +111,7 @@ class RecordService:
         Returns:
             成功返回记录字典，失败返回 None
         """
-        if not cfg.global_settings.get("enable_fish_recognition", True):
+        if not cfg.get_global_setting("enable_fish_recognition", True):
             return {"skipped": True}
 
         try:

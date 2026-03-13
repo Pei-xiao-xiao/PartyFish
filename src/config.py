@@ -9,6 +9,9 @@ from src.configs.game_config import GameConfig
 from src.configs.region_config import RegionConfig
 
 
+_MISSING = object()
+
+
 class SingletonMeta(type):
     _instances = {}
 
@@ -335,21 +338,94 @@ class Config(metaclass=SingletonMeta):
         )
         self.global_settings["gamepad_mappings"] = mappings
 
+    def get_global_setting(self, name, default=_MISSING):
+        """Return one global setting with fallback to default settings."""
+        if name in self.global_settings:
+            return self.global_settings[name]
+
+        default_settings = self._get_default_global_settings()
+        if name in default_settings:
+            return default_settings[name]
+
+        if default is not _MISSING:
+            return default
+        raise KeyError(name)
+
+    def set_global_setting(self, name, value):
+        """Update one global setting explicitly."""
+        self.global_settings[name] = value
+        return value
+
+    def update_global_settings(self, updates):
+        """Update multiple global settings explicitly."""
+        for name, value in updates.items():
+            self.set_global_setting(name, value)
+        return updates
+
+    def pop_global_setting(self, name, default=_MISSING):
+        """Remove one global setting explicitly."""
+        if default is _MISSING:
+            return self.global_settings.pop(name)
+        return self.global_settings.pop(name, default)
+
+    def get_preset(self, preset_name, default=None):
+        """Return one preset dict without mutating storage."""
+        preset = self.presets.get(preset_name)
+        if isinstance(preset, dict):
+            return preset
+        return default
+
+    def ensure_preset(self, preset_name):
+        """Return one preset dict, creating it from defaults if needed."""
+        preset = self.get_preset(preset_name)
+        if preset is None:
+            preset = self._get_default_presets().get(preset_name, {}).copy()
+            self.presets[preset_name] = preset
+        return preset
+
+    def get_preset_value_for(self, preset_name, name, default=_MISSING):
+        """Return one preset value for a specific preset name."""
+        preset = self.get_preset(preset_name, {})
+        if name in preset:
+            return preset[name]
+
+        default_preset = self._get_default_presets().get(preset_name, {})
+        if name in default_preset:
+            return default_preset[name]
+
+        if default is not _MISSING:
+            return default
+        raise KeyError(name)
+
+    def get_preset_value(self, name, default=_MISSING):
+        """Return one preset value with fallback to default preset values."""
+        return self.get_preset_value_for(self.current_preset_name, name, default)
+
+    def set_preset_value_for(self, preset_name, name, value):
+        """Update one preset value for a specific preset name explicitly."""
+        preset = self.ensure_preset(preset_name)
+        preset[name] = value
+        return value
+
+    def set_preset_value(self, name, value):
+        """Update one preset value explicitly."""
+        return self.set_preset_value_for(self.current_preset_name, name, value)
+
     def __getattr__(self, name):
         """
         动态从当前预设或全局设置获取属性。
         这确保了与使用 cfg.attribute 的代码的向后兼容性。
         """
-        # 首先，尝试从当前预设的设置中获取
-        current_preset = self.get_current_preset()
-        if current_preset and name in current_preset:
-            return current_preset[name]
+        try:
+            return self.get_preset_value(name)
+        except KeyError:
+            pass
 
-        # 如果不在预设中，尝试从全局设置中获取
-        if name in self.global_settings:
-            return self.global_settings[name]
+        try:
+            return self.get_global_setting(name)
+        except KeyError:
+            pass
 
-        # 如果仍未找到，抛出 AttributeError
         raise AttributeError(f"'Config' object has no attribute '{name}'")
 
     def __setattr__(self, name, value):
@@ -404,12 +480,11 @@ class Config(metaclass=SingletonMeta):
         # 检查是否为预设设置
         current_preset = self.get_current_preset()
         if current_preset and name in current_preset:
-            current_preset[name] = value
+            self.set_preset_value(name, value)
             return
 
-        # 检查是否为全局设置
-        if hasattr(self, "global_settings") and name in self.global_settings:
-            self.global_settings[name] = value
+        if "global_settings" in self.__dict__ and name in self.global_settings:
+            self.set_global_setting(name, value)
             return
 
         # 其他属性的默认行为
@@ -417,6 +492,9 @@ class Config(metaclass=SingletonMeta):
 
     def _get_default_presets(self):
         return self.config_manager.get_default_presets()
+
+    def _get_default_global_settings(self):
+        return self.config_manager._get_default_global_settings()
 
     def _load_fish_data(self):
         self.data_loader_service.load_fish_data()

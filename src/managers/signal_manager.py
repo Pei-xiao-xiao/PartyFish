@@ -80,19 +80,19 @@ class SignalManager:
             self.window.home_interface.update_debug_hotkey_display
         )
         self.window.settings_interface.hotkey_changed_signal.connect(
-            self.window.input_controller._update_hotkey_handler
+            self.window.input_controller.refresh_main_hotkey
         )
         self.window.settings_interface.debug_hotkey_changed_signal.connect(
-            self.window.input_controller._update_debug_hotkey_handler
+            self.window.input_controller.refresh_debug_hotkey
         )
         self.window.settings_interface.sell_hotkey_changed_signal.connect(
-            self.window.input_controller._update_sell_hotkey_handler
+            self.window.input_controller.refresh_sell_hotkey
         )
         self.window.settings_interface.sell_hotkey_changed_signal.connect(
             self.window.home_interface.update_sell_hotkey_display
         )
         self.window.settings_interface.uno_hotkey_changed_signal.connect(
-            self.window.input_controller._update_uno_hotkey_handler
+            self.window.input_controller.refresh_uno_hotkey
         )
         self.window.settings_interface.theme_changed_signal.connect(
             self.window._on_theme_changed
@@ -154,5 +154,5 @@ class SignalManager:
         """连接快捷键相关信号"""
         self.window.preset_should_change.connect(self.window.worker.update_preset)
         self.window.settings_interface.gamepad_mapping_changed_signal.connect(
-            self.window.input_controller._reinit_gamepad
+            self.window.input_controller.refresh_gamepad_bindings
         )

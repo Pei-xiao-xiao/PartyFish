@@ -35,7 +35,7 @@ from qfluentwidgets import (
     SegmentedWidget,
 )
 from src.config import cfg
-from src.gui.components import KeyBindingWidget
+from src.gui.components.key_binding_widget import KeyBindingWidget
 from src.services.record_manager import record_manager
 
 
@@ -584,7 +584,7 @@ class SettingsInterface(ScrollArea):
             parent=self.unoGroup,
         )
         self.unoHotkeyLineEdit = KeyBindingWidget(self.unoHotkeyCard)
-        self.unoHotkeyLineEdit.setText(cfg.global_settings.get("uno_hotkey", "F3"))
+        self.unoHotkeyLineEdit.setText(cfg.get_global_setting("uno_hotkey", "F3"))
         self.unoHotkeyCard.hBoxLayout.addWidget(
             self.unoHotkeyLineEdit, 0, Qt.AlignRight
         )
@@ -628,7 +628,7 @@ class SettingsInterface(ScrollArea):
         )
         self.unoMaxCardsSpinBox = SpinBox(self.unoMaxCardsCard)
         self.unoMaxCardsSpinBox.setRange(1, 100)
-        self.unoMaxCardsSpinBox.setValue(cfg.global_settings.get("uno_max_cards", 35))
+        self.unoMaxCardsSpinBox.setValue(cfg.get_global_setting("uno_max_cards", 35))
         self.unoMaxCardsCard.hBoxLayout.addWidget(
             self.unoMaxCardsSpinBox, 0, Qt.AlignRight
         )
@@ -820,7 +820,7 @@ class SettingsInterface(ScrollArea):
         containerLayout.setContentsMargins(0, 8, 0, 8)
         containerLayout.setSpacing(12)
 
-        release_settings = cfg.global_settings.get("release_settings", {})
+        release_settings = cfg.get_global_setting("release_settings", {})
 
         gridWidget = QWidget(container)
         gridLayout = QGridLayout(gridWidget)
@@ -876,7 +876,7 @@ class SettingsInterface(ScrollArea):
         self.releaseQualityCard.addGroupWidget(container)
 
         # 设置暗黑模式样式
-        if cfg.theme == "Dark":
+        if cfg.get_global_setting("theme", "Dark") == "Dark":
             container.setStyleSheet(
                 """
                 QWidget {
@@ -1114,54 +1114,62 @@ class SettingsInterface(ScrollArea):
         self.presetComboBox.setCurrentText(preset_name)
 
         # 加载预设特定设置
-        current_preset = cfg.presets.get(preset_name, {})
-
-        self.castTimeSpinBox.setValue(current_preset.get("cast_time", 2.0))
-        self.reelInTimeSpinBox.setValue(current_preset.get("reel_in_time", 2.0))
-        self.releaseTimeSpinBox.setValue(current_preset.get("release_time", 1.0))
-        self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
-        self.maxPullsSpinBox.setValue(current_preset.get("max_pulls", 20))
+        self.castTimeSpinBox.setValue(
+            cfg.get_preset_value_for(preset_name, "cast_time", 2.0)
+        )
+        self.reelInTimeSpinBox.setValue(
+            cfg.get_preset_value_for(preset_name, "reel_in_time", 2.0)
+        )
+        self.releaseTimeSpinBox.setValue(
+            cfg.get_preset_value_for(preset_name, "release_time", 1.0)
+        )
+        self.cycleIntervalSpinBox.setValue(
+            cfg.get_preset_value_for(preset_name, "cycle_interval", 0.5)
+        )
+        self.maxPullsSpinBox.setValue(
+            cfg.get_preset_value_for(preset_name, "max_pulls", 20)
+        )
 
         # 加载全局设置
-        self.hotkeyLineEdit.setText(cfg.global_settings.get("hotkey", "F2"))
-        self.debugHotkeyLineEdit.setText(cfg.global_settings.get("debug_hotkey", "F10"))
-        self.unoHotkeyLineEdit.setText(cfg.global_settings.get("uno_hotkey", "F3"))
-        self.unoMaxCardsSpinBox.setValue(cfg.global_settings.get("uno_max_cards", 35))
-        self.sellHotkeyLineEdit.setText(cfg.global_settings.get("sell_hotkey", "F4"))
-        self.jiashiCard.setChecked(cfg.global_settings.get("enable_jiashi", True))
+        self.hotkeyLineEdit.setText(cfg.get_global_setting("hotkey", "F2"))
+        self.debugHotkeyLineEdit.setText(cfg.get_global_setting("debug_hotkey", "F10"))
+        self.unoHotkeyLineEdit.setText(cfg.get_global_setting("uno_hotkey", "F3"))
+        self.unoMaxCardsSpinBox.setValue(cfg.get_global_setting("uno_max_cards", 35))
+        self.sellHotkeyLineEdit.setText(cfg.get_global_setting("sell_hotkey", "F4"))
+        self.jiashiCard.setChecked(cfg.get_global_setting("enable_jiashi", True))
         self.autoClickSellCard.setChecked(
-            cfg.global_settings.get("auto_click_sell", True)
+            cfg.get_global_setting("auto_click_sell", True)
         )
-        self.antiAfkCard.setChecked(cfg.global_settings.get("enable_anti_afk", False))
+        self.antiAfkCard.setChecked(cfg.get_global_setting("enable_anti_afk", False))
         self.soundAlertCard.setChecked(
-            cfg.global_settings.get("enable_sound_alert", False)
+            cfg.get_global_setting("enable_sound_alert", False)
         )
         self.fishRecognitionCard.setChecked(
-            cfg.global_settings.get("enable_fish_recognition", True)
+            cfg.get_global_setting("enable_fish_recognition", True)
         )
         self.seasonFilterCard.setChecked(
-            cfg.global_settings.get("enable_season_filter", True)
+            cfg.get_global_setting("enable_season_filter", True)
         )
         self.legendaryScreenshotCard.setChecked(
-            cfg.global_settings.get("enable_legendary_screenshot", True)
+            cfg.get_global_setting("enable_legendary_screenshot", True)
         )
         self.firstCatchScreenshotCard.setChecked(
-            cfg.global_settings.get("enable_first_catch_screenshot", True)
+            cfg.get_global_setting("enable_first_catch_screenshot", True)
         )
         self.autoReleaseEnabledCard.setChecked(
-            cfg.global_settings.get("auto_release_enabled", False)
+            cfg.get_global_setting("auto_release_enabled", False)
         )
         self.enableFishNameProtectionCard.setChecked(
-            cfg.global_settings.get("enable_fish_name_protection", False)
+            cfg.get_global_setting("enable_fish_name_protection", False)
         )
         for key, checkbox in self.autoReleaseQualityChecks.items():
-            checkbox.setChecked(cfg.global_settings.get(key, False))
+            checkbox.setChecked(cfg.get_global_setting(key, False))
         # 单条放生总开关
-        release_mode = cfg.global_settings.get("release_mode", "off")
+        release_mode = cfg.get_global_setting("release_mode", "off")
         self.singleReleaseEnabledCard.setChecked(release_mode == "single")
 
         # 加载放生品质滑块设置
-        release_settings = cfg.global_settings.get("release_settings", {})
+        release_settings = cfg.get_global_setting("release_settings", {})
         for level in range(1, 7):
             if level in self.releaseSliders:
                 value = release_settings.get(str(level), 0)
@@ -1171,13 +1179,13 @@ class SettingsInterface(ScrollArea):
                 if level in self.releaseLabels:
                     self._update_quality_label(self.releaseLabels[level], value)
 
-        jitter_value = cfg.global_settings.get("jitter_range", 0)
+        jitter_value = cfg.get_global_setting("jitter_range", 0)
         self.jitterSlider.setValue(jitter_value)
         self.jitterLabel.setText(f"{jitter_value}%")
-        self.themeComboBox.setCurrentText(cfg.global_settings.get("theme", "Dark"))
+        self.themeComboBox.setCurrentText(cfg.get_global_setting("theme", "Dark"))
 
         self.enableGamepadCard.setChecked(
-            cfg.global_settings.get("enable_gamepad", False)
+            cfg.get_global_setting("enable_gamepad", False)
         )
         toggle_gamepad_mapping = cfg.get_gamepad_mapping("toggle")
         debug_gamepad_mapping = cfg.get_gamepad_mapping("debug")
@@ -1214,7 +1222,7 @@ class SettingsInterface(ScrollArea):
         self._update_gamepad_hold_controls()
 
         # 加载鱼饵选择
-        selected_baits = cfg.global_settings.get("selected_baits", [])
+        selected_baits = cfg.get_global_setting("selected_baits", [])
         for bait_name, checkbox in self.baitCheckBoxes.items():
             checkbox.setChecked(bait_name in selected_baits)
 
@@ -1227,14 +1235,17 @@ class SettingsInterface(ScrollArea):
     def _save_preset_settings(self):
         """仅保存钓鱼预设设置。"""
         preset_name = self.presetComboBox.currentText()
-        if preset_name in cfg.presets:
-            cfg.presets[preset_name]["cast_time"] = self.castTimeSpinBox.value()
-            cfg.presets[preset_name]["reel_in_time"] = self.reelInTimeSpinBox.value()
-            cfg.presets[preset_name]["release_time"] = self.releaseTimeSpinBox.value()
-            cfg.presets[preset_name][
-                "cycle_interval"
-            ] = self.cycleIntervalSpinBox.value()
-            cfg.presets[preset_name]["max_pulls"] = self.maxPullsSpinBox.value()
+        cfg.set_preset_value_for(preset_name, "cast_time", self.castTimeSpinBox.value())
+        cfg.set_preset_value_for(
+            preset_name, "reel_in_time", self.reelInTimeSpinBox.value()
+        )
+        cfg.set_preset_value_for(
+            preset_name, "release_time", self.releaseTimeSpinBox.value()
+        )
+        cfg.set_preset_value_for(
+            preset_name, "cycle_interval", self.cycleIntervalSpinBox.value()
+        )
+        cfg.set_preset_value_for(preset_name, "max_pulls", self.maxPullsSpinBox.value())
 
         # 更新配置中的当前预设以匹配正在编辑的预设
         cfg.load_preset(preset_name)
@@ -1254,63 +1265,54 @@ class SettingsInterface(ScrollArea):
             return
         """立即保存全局设置。"""
         new_hotkey = self.hotkeyLineEdit.text()
-        if cfg.global_settings.get("hotkey") != new_hotkey:
-            cfg.global_settings["hotkey"] = new_hotkey
+        if cfg.get_global_setting("hotkey", "F2") != new_hotkey:
+            cfg.set_global_setting("hotkey", new_hotkey)
             self.hotkey_changed_signal.emit(new_hotkey)
 
         new_debug_hotkey = self.debugHotkeyLineEdit.text()
-        if cfg.global_settings.get("debug_hotkey") != new_debug_hotkey:
-            cfg.global_settings["debug_hotkey"] = new_debug_hotkey
+        if cfg.get_global_setting("debug_hotkey", "F10") != new_debug_hotkey:
+            cfg.set_global_setting("debug_hotkey", new_debug_hotkey)
             self.debug_hotkey_changed_signal.emit(new_debug_hotkey)
 
         new_sell_hotkey = self.sellHotkeyLineEdit.text()
-        if cfg.global_settings.get("sell_hotkey") != new_sell_hotkey:
-            cfg.global_settings["sell_hotkey"] = new_sell_hotkey
+        if cfg.get_global_setting("sell_hotkey", "F4") != new_sell_hotkey:
+            cfg.set_global_setting("sell_hotkey", new_sell_hotkey)
             self.sell_hotkey_changed_signal.emit(new_sell_hotkey)
 
         new_uno_hotkey = self.unoHotkeyLineEdit.text()
-        if cfg.global_settings.get("uno_hotkey") != new_uno_hotkey:
-            cfg.global_settings["uno_hotkey"] = new_uno_hotkey
+        if cfg.get_global_setting("uno_hotkey", "F3") != new_uno_hotkey:
+            cfg.set_global_setting("uno_hotkey", new_uno_hotkey)
             self.uno_hotkey_changed_signal.emit(new_uno_hotkey)
 
-        cfg.global_settings["uno_max_cards"] = self.unoMaxCardsSpinBox.value()
-
-        cfg.global_settings["enable_jiashi"] = self.jiashiCard.isChecked()
-        cfg.global_settings["auto_click_sell"] = self.autoClickSellCard.isChecked()
-        cfg.global_settings["enable_anti_afk"] = self.antiAfkCard.isChecked()
-        cfg.global_settings["enable_sound_alert"] = self.soundAlertCard.isChecked()
-        cfg.global_settings["enable_fish_recognition"] = (
-            self.fishRecognitionCard.isChecked()
-        )
-        cfg.global_settings["enable_season_filter"] = self.seasonFilterCard.isChecked()
-        cfg.global_settings["enable_legendary_screenshot"] = (
-            self.legendaryScreenshotCard.isChecked()
-        )
-        cfg.global_settings["enable_first_catch_screenshot"] = (
-            self.firstCatchScreenshotCard.isChecked()
-        )
-        cfg.global_settings["auto_release_enabled"] = (
-            self.autoReleaseEnabledCard.isChecked()
-        )
+        settings_updates = {
+            "uno_max_cards": self.unoMaxCardsSpinBox.value(),
+            "enable_jiashi": self.jiashiCard.isChecked(),
+            "auto_click_sell": self.autoClickSellCard.isChecked(),
+            "enable_anti_afk": self.antiAfkCard.isChecked(),
+            "enable_sound_alert": self.soundAlertCard.isChecked(),
+            "enable_fish_recognition": self.fishRecognitionCard.isChecked(),
+            "enable_season_filter": self.seasonFilterCard.isChecked(),
+            "enable_legendary_screenshot": self.legendaryScreenshotCard.isChecked(),
+            "enable_first_catch_screenshot": self.firstCatchScreenshotCard.isChecked(),
+            "auto_release_enabled": self.autoReleaseEnabledCard.isChecked(),
+            "enable_fish_name_protection": self.enableFishNameProtectionCard.isChecked(),
+            "selected_baits": [
+                bait_name
+                for bait_name, checkbox in self.baitCheckBoxes.items()
+                if checkbox.isChecked()
+            ],
+            "jitter_range": self.jitterSlider.value(),
+            "theme": self.themeComboBox.currentText(),
+            "enable_gamepad": self.enableGamepadCard.isChecked(),
+        }
         # 同步 release_mode 配置
         if self.autoReleaseEnabledCard.isChecked():
-            cfg.global_settings["release_mode"] = "auto"
-        elif cfg.global_settings.get("release_mode") == "auto":
+            settings_updates["release_mode"] = "auto"
+        elif cfg.get_global_setting("release_mode", "off") == "auto":
             # 如果当前是 auto 模式但被关闭了，切换到 off
-            cfg.global_settings["release_mode"] = "off"
-        cfg.global_settings["enable_fish_name_protection"] = (
-            self.enableFishNameProtectionCard.isChecked()
-        )
+            settings_updates["release_mode"] = "off"
         for key, checkbox in self.autoReleaseQualityChecks.items():
-            cfg.global_settings[key] = checkbox.isChecked()
-
-        # 保存鱼饵选择
-        selected_baits = [
-            bait_name
-            for bait_name, checkbox in self.baitCheckBoxes.items()
-            if checkbox.isChecked()
-        ]
-        cfg.global_settings["selected_baits"] = selected_baits
+            settings_updates[key] = checkbox.isChecked()
 
         # 保存放生品质滑块设置
         if hasattr(self, "releaseSliders"):
@@ -1318,12 +1320,9 @@ class SettingsInterface(ScrollArea):
             for level in range(1, 7):
                 if level in self.releaseSliders:
                     release_settings[str(level)] = self.releaseSliders[level].value()
-            cfg.global_settings["release_settings"] = release_settings
+            settings_updates["release_settings"] = release_settings
 
-        cfg.global_settings["jitter_range"] = self.jitterSlider.value()
-        cfg.global_settings["theme"] = self.themeComboBox.currentText()
-
-        cfg.global_settings["enable_gamepad"] = self.enableGamepadCard.isChecked()
+        cfg.update_global_settings(settings_updates)
         self.gamepad_mapping_changed_signal.emit()
 
         cfg.save()
@@ -1368,36 +1367,27 @@ class SettingsInterface(ScrollArea):
     def _on_auto_release_changed(self, checked):
         if self._loading_ui:
             return
-        """处理自动放生开关变化，同步放生模式"""
-        # 保存配置
-        cfg.global_settings["auto_release_enabled"] = checked
+        """?????????????????"""
+        cfg.set_global_setting("auto_release_enabled", checked)
 
-        # 同步 release_mode
         if checked:
-            cfg.global_settings["release_mode"] = "auto"
-            # 关闭单条放生（不触发信号避免循环）
+            cfg.set_global_setting("release_mode", "auto")
             self.singleReleaseEnabledCard.blockSignals(True)
             self.singleReleaseEnabledCard.setChecked(False)
             self.singleReleaseEnabledCard.blockSignals(False)
         else:
-            # 如果关闭自动放生，且当前是自动放生模式，才切换到关闭模式
-            # 避免覆盖单条放生模式的设置
-            if cfg.global_settings.get("release_mode") == "auto":
-                cfg.global_settings["release_mode"] = "off"
+            if cfg.get_global_setting("release_mode", "off") == "auto":
+                cfg.set_global_setting("release_mode", "off")
 
         cfg.save()
-
-        # 根据放生模式启用/禁用相关开关
         self._update_release_cards_state()
-
-        # 发射信号通知主页更新
         self.release_mode_changed_signal.emit(
-            cfg.global_settings.get("release_mode", "off")
+            cfg.get_global_setting("release_mode", "off")
         )
 
     def _update_release_cards_state(self):
         """根据放生模式更新放生相关卡片的启用状态"""
-        release_mode = cfg.global_settings.get("release_mode", "off")
+        release_mode = cfg.get_global_setting("release_mode", "off")
         is_auto_mode = release_mode == "auto"
         is_single_mode = release_mode == "single"
 
@@ -1424,30 +1414,21 @@ class SettingsInterface(ScrollArea):
     def _on_single_release_changed(self, checked):
         if self._loading_ui:
             return
-        """处理单条放生开关变化，同步放生模式"""
-        # 保存配置
+        """?????????????????"""
         if checked:
-            cfg.global_settings["release_mode"] = "single"
-            # 关闭自动放生
-            cfg.global_settings["auto_release_enabled"] = False
-            # 取消自动放生开关的选中状态（不触发信号避免循环）
+            cfg.set_global_setting("release_mode", "single")
+            cfg.set_global_setting("auto_release_enabled", False)
             self.autoReleaseEnabledCard.blockSignals(True)
             self.autoReleaseEnabledCard.setChecked(False)
             self.autoReleaseEnabledCard.blockSignals(False)
         else:
-            # 如果关闭单条放生，且当前是单条放生模式，才切换到关闭模式
-            # 避免覆盖自动放生模式的设置
-            if cfg.global_settings.get("release_mode") == "single":
-                cfg.global_settings["release_mode"] = "off"
+            if cfg.get_global_setting("release_mode", "off") == "single":
+                cfg.set_global_setting("release_mode", "off")
 
         cfg.save()
-
-        # 根据放生模式启用/禁用相关开关
         self._update_release_cards_state()
-
-        # 发射信号通知主页更新
         self.release_mode_changed_signal.emit(
-            cfg.global_settings.get("release_mode", "off")
+            cfg.get_global_setting("release_mode", "off")
         )
 
     def update_release_mode_from_main(self, mode):

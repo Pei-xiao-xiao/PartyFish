@@ -4,6 +4,7 @@ UNO 识别管理器模块
 负责自动检测游戏中的 UNO 卡牌并自动点击
 支持牌数统计、倒计时显示和日志记录
 """
+
 import threading
 import time
 from pynput import mouse
@@ -24,7 +25,7 @@ class UnoManager(QObject):
     def __init__(self):
         super().__init__()
         self.current_cards = 7
-        self.max_cards = cfg.global_settings.get("uno_max_cards", 35)
+        self.max_cards = cfg.get_global_setting("uno_max_cards", 35)
         self.running = False
         self.thread = None
         self.mouse_controller = mouse.Controller()
@@ -62,8 +63,13 @@ class UnoManager(QObject):
             try:
                 if vision.find_uno_card():
                     # 判断是否达到最大牌数且未等待过
-                    if self.current_cards == self.max_cards and not self.waited_after_max:
-                        self.log_message.emit(f"UNO 识别：已经达到最大牌数 {self.max_cards}，等待 5 秒后点击")
+                    if (
+                        self.current_cards == self.max_cards
+                        and not self.waited_after_max
+                    ):
+                        self.log_message.emit(
+                            f"UNO 识别：已经达到最大牌数 {self.max_cards}，等待 5 秒后点击"
+                        )
                         # 等待 5 秒，每秒更新倒计时
                         for i in range(5, 0, -1):
                             if not self.running:
@@ -74,7 +80,9 @@ class UnoManager(QObject):
                         # 使用上次位置点击
                         if self.last_click_pos:
                             self._click_at_position(self.last_click_pos)
-                            self.log_message.emit(f"UNO 识别：使用上次位置点击 ({self.last_click_pos[0]}, {self.last_click_pos[1]})")
+                            self.log_message.emit(
+                                f"UNO 识别：使用上次位置点击 ({self.last_click_pos[0]}, {self.last_click_pos[1]})"
+                            )
                         self.waited_after_max = True
                     else:
                         # 正常点击并保存位置
@@ -86,7 +94,9 @@ class UnoManager(QObject):
 
                     # 发射信号更新 UI
                     self.cards_updated.emit(self.current_cards, self.max_cards)
-                    self.log_message.emit(f"UNO 识别：检测到卡牌，当前 {self.current_cards}/{self.max_cards}")
+                    self.log_message.emit(
+                        f"UNO 识别：检测到卡牌，当前 {self.current_cards}/{self.max_cards}"
+                    )
 
                 time.sleep(0.5)
             except KeyboardInterrupt:

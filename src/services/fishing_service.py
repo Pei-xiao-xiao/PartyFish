@@ -63,7 +63,7 @@ class FishingService:
     def _build_single_release_decision(self, fish_name: str, quality: str) -> dict:
         """Build the single-release decision from catch recognition results."""
         if (
-            cfg.global_settings.get("enable_fish_name_protection", False)
+            cfg.get_global_setting("enable_fish_name_protection", False)
             and fish_name
             and cfg.is_fish_protected(fish_name, quality)
         ):
@@ -125,7 +125,9 @@ class FishingService:
         success = self.worker._switch_to_target_bait(current_bait, next_bait)
         if not success:
             self.worker.log_updated.emit("弹窗已处理，重新切换鱼饵...")
-            time.sleep(0.5)
+            self.worker.smart_sleep(0.5)
+            if not self.worker.running or self.worker.paused:
+                return False
             success = self.worker._switch_to_target_bait(current_bait, next_bait)
 
         if success and cfg.current_bait:
@@ -153,7 +155,7 @@ class FishingService:
             self.worker.msleep(200)
 
         self.worker.log_updated.emit("错误: 抛竿前无法获取鱼饵数量。")
-        if cfg.global_settings.get("enable_sound_alert", False):
+        if cfg.get_global_setting("enable_sound_alert", False):
             self.worker.sound_alert_requested.emit("no_bait")
         self.worker.pause(reason="无法识别鱼饵数量")
         return None
@@ -216,12 +218,12 @@ class FishingService:
                 if self._try_switch_bait():
                     return False
                 # 没有更多鱼饵，暂停
-                if cfg.global_settings.get("enable_sound_alert", False):
+                if cfg.get_global_setting("enable_sound_alert", False):
                     self.worker.sound_alert_requested.emit("no_bait")
                 self.worker.pause(reason="没有鱼饵了")
             else:
                 self.worker.log_updated.emit("检测到鱼桶已满（抛竿图标未消失）。")
-                if cfg.global_settings.get("auto_release_enabled", False):
+                if cfg.get_global_setting("auto_release_enabled", False):
                     released_count = (
                         self.worker.release_service.check_and_auto_release()
                     )
@@ -235,18 +237,18 @@ class FishingService:
                             self.worker.log_updated.emit(
                                 "自动放生未放生任何鱼，鱼桶可能仍然满载或没有符合放生条件的鱼。"
                             )
-                            if cfg.global_settings.get("enable_sound_alert", False):
+                            if cfg.get_global_setting("enable_sound_alert", False):
                                 self.worker.sound_alert_requested.emit("inventory_full")
                             self.worker.pause(reason="鱼桶已满且无法自动放生")
                     elif released_count == 0:
                         self.worker.log_updated.emit(
                             "自动放生未放生任何鱼，鱼桶可能仍然满载或没有符合放生条件的鱼。"
                         )
-                        if cfg.global_settings.get("enable_sound_alert", False):
+                        if cfg.get_global_setting("enable_sound_alert", False):
                             self.worker.sound_alert_requested.emit("inventory_full")
                         self.worker.pause(reason="鱼桶已满且无法自动放生")
                 else:
-                    if cfg.global_settings.get("enable_sound_alert", False):
+                    if cfg.get_global_setting("enable_sound_alert", False):
                         self.worker.sound_alert_requested.emit("inventory_full")
                     self.worker.pause(reason="鱼桶已满")
             return False
@@ -346,9 +348,17 @@ class FishingService:
                     if initial_bait_before_cast is None:
                         return False
 
-                    self.worker.inputs.hold_mouse(cfg.cast_time)
+                    self.worker.inputs.press_mouse_button()
+                    try:
+                        self.worker.smart_sleep(cfg.get_preset_value("cast_time"))
+                    finally:
+                        self.worker.inputs.release_mouse_button()
+                    if not self.worker.running or self.worker.paused:
+                        return False
 
                     self.worker.smart_sleep(1.0)
+                    if not self.worker.running or self.worker.paused:
+                        return False
 
                     success, cast_icon_ever_gone = self._verify_cast_success(
                         key, found_region, initial_bait_before_cast
@@ -536,15 +546,16 @@ class FishingService:
         star_region = cfg.get_rect("reel_in_star")
         shangyu_region = cfg.get_rect("shangyu")
 
-        for i in range(cfg.max_pulls):
+        max_pulls = cfg.get_preset_value("max_pulls")
+        for i in range(max_pulls):
             if not self.worker.running or self.worker.paused:
                 return False
 
-            self.worker.log_updated.emit(f"第 {i+1}/{cfg.max_pulls} 次尝试: 收线...")
+            self.worker.log_updated.emit(f"第 {i+1}/{max_pulls} 次尝试: 收线...")
 
             self.worker.inputs.press_mouse_button()
             pull_start_time = time.time()
-            pull_duration = cfg.reel_in_time
+            pull_duration = cfg.get_preset_value("reel_in_time")
 
             try:
                 while time.time() - pull_start_time < pull_duration:
@@ -556,7 +567,9 @@ class FishingService:
                 self.worker.inputs.release_mouse_button()
 
             self.worker.log_updated.emit("放线...")
-            sleep_duration = self.worker.inputs.add_jitter(cfg.release_time)
+            sleep_duration = self.worker.inputs.add_jitter(
+                cfg.get_preset_value("release_time")
+            )
             self.worker.smart_sleep(sleep_duration)
 
             success_signal = self._detect_reel_in_success_signal(
@@ -592,7 +605,7 @@ class FishingService:
         if not self.worker.running:
             return None
 
-        if not cfg.global_settings.get("enable_fish_recognition", True):
+        if not cfg.get_global_setting("enable_fish_recognition", True):
             self.worker.log_updated.emit("鱼类识别已关闭，等待并关闭渔获弹窗")
             self.worker.status_updated.emit("关闭渔获弹窗")
 
@@ -625,7 +638,7 @@ class FishingService:
 
             return None
 
-        release_mode = cfg.global_settings.get("release_mode", "off")
+        release_mode = cfg.get_global_setting("release_mode", "off")
         if release_mode == "single":
             # 单条放生模式在识别后立即执行，此处保留放生状态。
             self.worker.status_updated.emit("自动放生中")
@@ -676,7 +689,7 @@ class FishingService:
                 fish_name, quality
             )
 
-        if is_new_record and cfg.global_settings.get(
+        if is_new_record and cfg.get_global_setting(
             "enable_first_catch_screenshot", True
         ):
             self.worker.log_updated.emit("首次捕获! 正在截图保存...")
@@ -686,7 +699,7 @@ class FishingService:
             else:
                 self.worker.log_updated.emit(f"截图失败: {result}")
 
-        if quality == "传奇" and cfg.global_settings.get(
+        if quality == "传奇" and cfg.get_global_setting(
             "enable_legendary_screenshot", True
         ):
             self.worker.log_updated.emit("哇! 钓到了传奇品质的鱼, 正在截图保存...")
@@ -702,7 +715,7 @@ class FishingService:
 
     def _should_run_async_catch_processing(self) -> bool:
         """当渔获识别可以异步运行时返回 True。"""
-        release_mode = cfg.global_settings.get("release_mode", "off")
+        release_mode = cfg.get_global_setting("release_mode", "off")
         if release_mode == "single":
             # 单条放生模式依赖当前渔获结果。
             self.worker.log_updated.emit("单条放生模式已开启，渔获识别保持同步执行。")
@@ -740,12 +753,12 @@ class FishingService:
         Steam 模式截图必须立即触发。
         使用缓存的 OCR 帧来决定是否在弹窗关闭前按 F12。
         """
-        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        screenshot_mode = cfg.get_global_setting("screenshot_mode", "wegame")
         if screenshot_mode != "steam":
             return
 
-        first_enabled = cfg.global_settings.get("enable_first_catch_screenshot", True)
-        legend_enabled = cfg.global_settings.get("enable_legendary_screenshot", True)
+        first_enabled = cfg.get_global_setting("enable_first_catch_screenshot", True)
+        legend_enabled = cfg.get_global_setting("enable_legendary_screenshot", True)
         if not first_enabled and not legend_enabled:
             return
 
@@ -805,7 +818,7 @@ class FishingService:
         if not saved_record:
             logs.append("写入记录文件失败")
 
-        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        screenshot_mode = cfg.get_global_setting("screenshot_mode", "wegame")
         if screenshot_mode == "steam":
             # Steam F12 必须在前台提前触发，跳过延迟的后台触发。
             return {
@@ -815,13 +828,13 @@ class FishingService:
                 ),
             }
 
-        if is_new_record and cfg.global_settings.get(
+        if is_new_record and cfg.get_global_setting(
             "enable_first_catch_screenshot", True
         ):
             success, result = ScreenshotService.capture_first_catch(fish_name, quality)
             logs.append(f"截图已保存至 {result}" if success else f"截图失败: {result}")
 
-        if quality == "传奇" and cfg.global_settings.get(
+        if quality == "传奇" and cfg.get_global_setting(
             "enable_legendary_screenshot", True
         ):
             success, result = ScreenshotService.capture_legendary(
@@ -899,7 +912,7 @@ class FishingService:
         if not self.worker.running:
             return None
 
-        if not cfg.global_settings.get("enable_fish_recognition", True):
+        if not cfg.get_global_setting("enable_fish_recognition", True):
             return self.record_catch()
 
         if not self._should_run_async_catch_processing():

@@ -46,7 +46,7 @@ class AudioManager:
         try:
             from src.config import cfg
 
-            if not cfg.global_settings.get("control_sound_enabled", False):
+            if not cfg.get_global_setting("control_sound_enabled", False):
                 return
             base_path = cfg._get_application_path()
             sound_file = base_path / "data" / "audio" / f"{sound_type}.mp3"

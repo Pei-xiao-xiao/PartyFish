@@ -96,7 +96,7 @@ class ScreenshotService:
         Returns:
             (成功标志, 消息或文件路径)
         """
-        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        screenshot_mode = cfg.get_global_setting("screenshot_mode", "wegame")
 
         if screenshot_mode == "steam":
             # Steam模式：按F12截图
@@ -140,7 +140,7 @@ class ScreenshotService:
         Returns:
             (成功标志, 消息或文件路径)
         """
-        screenshot_mode = cfg.global_settings.get("screenshot_mode", "wegame")
+        screenshot_mode = cfg.get_global_setting("screenshot_mode", "wegame")
 
         if screenshot_mode == "steam":
             # Steam模式：按F12截图

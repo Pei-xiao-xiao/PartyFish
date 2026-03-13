@@ -50,7 +50,7 @@ if __name__ == "__main__":
         current_hardware = get_all_hardware_info()
 
         # 获取保存的硬件信息
-        saved_hardware = cfg.global_settings.get("hardware_info", {})
+        saved_hardware = cfg.get_global_setting("hardware_info", {})
 
         # 检查是否需要显示欢迎窗口
         # 如果是第一次运行，或者硬件信息发生变化（CPU、内存、GPU），则显示欢迎窗口
@@ -62,18 +62,22 @@ if __name__ == "__main__":
         )
 
         if (
-            not cfg.global_settings.get("welcome_dialog_shown", False)
+            not cfg.get_global_setting("welcome_dialog_shown", False)
             or hardware_changed
         ):
             # 显示欢迎提示窗口
             show_welcome_dialog()
             # 更新硬件信息和显示标志
-            cfg.global_settings["hardware_info"] = current_hardware
-            cfg.global_settings["welcome_dialog_shown"] = True
+            cfg.update_global_settings(
+                {
+                    "hardware_info": current_hardware,
+                    "welcome_dialog_shown": True,
+                }
+            )
             cfg.save()
 
         # 根据配置设置主题
-        if cfg.theme == "Light":
+        if cfg.get_global_setting("theme", "Light") == "Light":
             setTheme(Theme.LIGHT)
         else:
             setTheme(Theme.DARK)

@@ -70,9 +70,7 @@ def run_pyinstaller():
         print("已清理旧输出文件")
 
     print("开始打包...")
-    result = subprocess.run(
-        [sys.executable, "-m", "PyInstaller", "partyfish_release.spec"]
-    )
+    result = subprocess.run([sys.executable, "-m", "PyInstaller", "PartyFish.spec"])
     if result.returncode != 0:
         print(f"打包失败，退出码: {result.returncode}")
         sys.exit(1)
@@ -82,9 +80,9 @@ def run_pyinstaller():
 def post_build(version):
     import time
 
-    dist_exe = Path("dist/partyfish.exe")
-    target_exe = Path(f"dist/partyfish-{version}.exe")
-    target_dir = Path(f"dist/partyfish-{version}")
+    dist_exe = Path("dist/PartyFish.exe")
+    target_exe = Path(f"dist/PartyFish-{version}.exe")
+    target_dir = Path(f"dist/PartyFish-{version}")
 
     # 检查打包结果
     if not dist_exe.exists():
@@ -122,7 +120,7 @@ def post_build(version):
     # 移动 exe 到目标目录
     for i in range(5):
         try:
-            shutil.move(str(dist_exe), str(target_dir / "partyfish.exe"))
+            shutil.move(str(dist_exe), str(target_dir / "PartyFish.exe"))
             break
         except PermissionError:
             if i < 4:

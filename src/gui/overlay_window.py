@@ -133,9 +133,7 @@ class OverlayWindow(QWidget):
         self.uno_icon.setFixedSize(18, 18)
 
         # UNO牌数标签
-        self.uno_label = QLabel(
-            f"UNO: 7/{cfg.global_settings.get('uno_max_cards', 35)}"
-        )
+        self.uno_label = QLabel(f"UNO: 7/{cfg.get_global_setting('uno_max_cards', 35)}")
         self.uno_label.setObjectName("unoLabel")
         uno_font = QFont(self._cute_font_family)
         uno_font.setPointSize(11)
@@ -505,7 +503,7 @@ class OverlayWindow(QWidget):
             criteria = {"time": [current_time]}
             if current_weather:
                 criteria["weather"] = [current_weather]
-            if cfg.global_settings.get("enable_season_filter", True):
+            if cfg.get_global_setting("enable_season_filter", True):
                 criteria["season"] = ["春季"]
             else:
                 criteria["season"] = ["春季", "夏季", "秋季"]
@@ -582,7 +580,7 @@ class OverlayWindow(QWidget):
                         weather_ok = not current_weather or current_weather in cond.get(
                             "weather", []
                         )
-                        season_ok = not cfg.global_settings.get(
+                        season_ok = not cfg.get_global_setting(
                             "enable_season_filter", True
                         ) or "春季" in cond.get("season", [])
                         if time_ok and weather_ok and season_ok:

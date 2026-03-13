@@ -1,9 +1,5 @@
 import sys
-import subprocess
-import re
-import time
-from concurrent.futures import ThreadPoolExecutor
-from PySide6.QtCore import Qt, QSize, Signal, QUrl, QTimer
+from PySide6.QtCore import Qt, QSize, Signal, QTimer
 from PySide6.QtGui import QIcon, QPainter, QColor, QFont, QPixmap
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import (
@@ -142,173 +138,20 @@ class MainWindow(FluentWindow):
         self._watermark_cache = None
         self._watermark_cache_size = QSize(0, 0)
 
-        # 隐蔽信息水印相关
-        self._external_ip = self._load_cached_ip()
-        self._hidden_info_executor = ThreadPoolExecutor(max_workers=1)
-        self._async_fetch_external_ip()
+        # 清理旧版隐蔽信息缓存
+        self._cleanup_legacy_hidden_info_settings()
 
-    def _fetch_external_ip(self):
-        ip = self._try_requests_library()
-        if ip:
-            return ip
-        ip = self._try_urllib_library()
-        if ip:
-            return ip
-        ip = self._try_powershell_ip()
-        if ip:
-            return ip
-        ip = self._try_nslookup_opendns()
-        if ip:
-            return ip
-        return "未知IP"
-
-    def _try_nslookup_opendns(self):
-        try:
-            result = subprocess.run(
-                ["nslookup", "myip.opendns.com", "resolver1.opendns.com"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-            )
-            ips = re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', result.stdout)
-            for ip in ips:
-                if ip != "208.67.222.222":
-                    parts = ip.split('.')
-                    if len(parts) == 4:
-                        first_octet = int(parts[0])
-                        second_octet = int(parts[1])
-                        if first_octet == 10:
-                            continue
-                        if first_octet == 172 and 16 <= second_octet <= 31:
-                            continue
-                        if first_octet == 192 and second_octet == 168:
-                            continue
-                        if first_octet == 127:
-                            continue
-                        return ip
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
-            pass
-        except Exception:
-            pass
-        return None
-
-    def _try_powershell_ip(self):
-        try:
-            result = subprocess.run(
-                ["powershell", "-Command", "(Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 5)"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-            )
-            ip = result.stdout.strip()
-            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
-                parts = ip.split('.')
-                if len(parts) == 4:
-                    first_octet = int(parts[0])
-                    second_octet = int(parts[1])
-                    if first_octet == 10:
-                        return None
-                    if first_octet == 172 and 16 <= second_octet <= 31:
-                        return None
-                    if first_octet == 192 and second_octet == 168:
-                        return None
-                    if first_octet == 127:
-                        return None
-                    return ip
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
-            pass
-        except Exception:
-            pass
-        return None
-
-    def _try_requests_library(self):
-        try:
-            import requests
-        except ImportError:
-            return None
-
-        apis = [
-            "http://checkip.amazonaws.com",
-            "https://ipinfo.io/ip",
-            "https://icanhazip.com"
-        ]
-
-        for api in apis:
-            for attempt in range(3):
-                try:
-                    response = requests.get(api, timeout=3)
-                    ip = response.text.strip()
-                    if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
-                        return ip
-                except (requests.RequestException, requests.Timeout, requests.ConnectionError):
-                    if attempt < 2:
-                        time.sleep(1)
-                except Exception:
-                    if attempt < 2:
-                        time.sleep(1)
-        return None
-
-    def _try_urllib_library(self):
-        import urllib.request
-        import urllib.error
-
-        apis = [
-            "http://checkip.amazonaws.com",
-            "https://ipinfo.io/ip",
-            "https://icanhazip.com"
-        ]
-
-        for api in apis:
-            for attempt in range(3):
-                try:
-                    with urllib.request.urlopen(api, timeout=5) as response:
-                        ip = response.read().decode('utf-8').strip()
-                        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
-                            return ip
-                except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ConnectionError):
-                    if attempt < 2:
-                        time.sleep(1)
-                except Exception:
-                    if attempt < 2:
-                        time.sleep(1)
-        return None
-
-    def _load_cached_ip(self):
+    def _cleanup_legacy_hidden_info_settings(self):
         from src.config import cfg
-        import time as time_module
 
-        cached_ip = cfg.global_settings.get("external_ip")
-        cached_time = cfg.global_settings.get("external_ip_updated_at", 0)
-        current_time = time_module.time()
+        removed = False
+        missing = object()
+        for key in ("external_ip", "external_ip_updated_at"):
+            if cfg.pop_global_setting(key, missing) is not missing:
+                removed = True
 
-        if cached_ip and (current_time - cached_time) < 86400:
-            return cached_ip
-        return "未知IP"
-
-    def _save_cached_ip(self, ip):
-        from src.config import cfg
-        import time as time_module
-
-        cfg.global_settings["external_ip"] = ip
-        cfg.global_settings["external_ip_updated_at"] = time_module.time()
-        cfg.save()
-
-    def _async_fetch_external_ip(self):
-        future = self._hidden_info_executor.submit(self._fetch_external_ip)
-        future.add_done_callback(self._on_ip_fetched)
-
-    def _on_ip_fetched(self, future):
-        try:
-            ip = future.result()
-            if ip != self._external_ip:
-                self._external_ip = ip
-                self._save_cached_ip(ip)
-                self._watermark_cache = None
-                self.update()
-        except Exception:
-            pass
+        if removed:
+            cfg.save()
 
     def _update_overlay_limit(self, _=None):
         """更新悬浮窗和首页的销售额度显示"""
@@ -319,10 +162,10 @@ class MainWindow(FluentWindow):
 
         if self.overlay.isVisible():
             self.overlay.hide()
-            cfg.global_settings["overlay_visible"] = False
+            cfg.set_global_setting("overlay_visible", False)
         else:
             self.overlay.show()
-            cfg.global_settings["overlay_visible"] = True
+            cfg.set_global_setting("overlay_visible", True)
         cfg.save()
 
     def _restore_overlay_state(self):
@@ -330,12 +173,12 @@ class MainWindow(FluentWindow):
         from src.config import cfg
 
         # 恢复位置
-        pos = cfg.global_settings.get("overlay_position")
+        pos = cfg.get_global_setting("overlay_position", None)
         if pos and isinstance(pos, list) and len(pos) == 2:
             self.overlay.move(pos[0], pos[1])
 
         # 恢复可见状态
-        if cfg.global_settings.get("overlay_visible", False):
+        if cfg.get_global_setting("overlay_visible", False):
             self.overlay.show()
             # 阻止信号发射，避免触发 toggle_overlay 导致悬浮窗被隐藏
             self.home_interface.banner_widget.overlay_switch.blockSignals(True)
@@ -347,11 +190,11 @@ class MainWindow(FluentWindow):
         from src.config import cfg
 
         # 保存可见状态
-        cfg.global_settings["overlay_visible"] = self.overlay.isVisible()
+        cfg.set_global_setting("overlay_visible", self.overlay.isVisible())
 
         # 保存位置
         pos = self.overlay.pos()
-        cfg.global_settings["overlay_position"] = [pos.x(), pos.y()]
+        cfg.set_global_setting("overlay_position", [pos.x(), pos.y()])
 
         cfg.save()
 
@@ -383,6 +226,7 @@ class MainWindow(FluentWindow):
             setTheme(Theme.DARK)
 
         self._watermark_cache = None
+        self.update()
 
         # 主题切换后刷新各页面自定义样式
         if hasattr(self.records_interface, "refresh_table_colors"):
@@ -489,7 +333,7 @@ class MainWindow(FluentWindow):
         if status == "已停止" or status == "已完成":
             # 隐藏UNO显示
             self.overlay.update_uno_cards(
-                0, cfg.global_settings.get("uno_max_cards", 35), False
+                0, cfg.get_global_setting("uno_max_cards", 35), False
             )
 
     def toggle_uno(self):
@@ -534,19 +378,13 @@ class MainWindow(FluentWindow):
         self.append_log("请检查配置，然后按快捷键继续。")
 
     def paintEvent(self, event):
-        """绘制水印"""
+        """绘制可见水印"""
         super().paintEvent(event)
         current_size = self.size()
         if self._watermark_cache is None or self._watermark_cache_size != current_size:
             self._watermark_cache_size = QSize(current_size)
             cache = QPixmap(current_size)
             cache.fill(Qt.transparent)
-
-            import os
-            try:
-                windows_account = os.getlogin()
-            except Exception:
-                windows_account = "未知用户"
 
             cache_painter = QPainter(cache)
             is_dark = qconfig.theme.value == "Dark"
@@ -558,20 +396,24 @@ class MainWindow(FluentWindow):
             for x in range(-500, self.width() + 500, 300):
                 for y in range(0, self.height() + 500, 150):
                     cache_painter.drawText(x, y, text)
-            
-            hidden_text = f"IP:{self._external_ip} | 账号:{windows_account}"
-            hidden_alpha = 4 if is_dark else 14
-            cache_painter.setPen(QColor(128, 128, 128, hidden_alpha))
-            cache_painter.setFont(QFont("Microsoft YaHei", 14))
-            for x in range(-500, self.width() + 500, 300):
-                for y in range(0, self.height() + 500, 150):
-                    cache_painter.drawText(x, y + 25, hidden_text)
             cache_painter.end()
             self._watermark_cache = cache
 
         if self._watermark_cache is not None:
             painter = QPainter(self)
             painter.drawPixmap(0, 0, self._watermark_cache)
+
+    def _wait_for_thread_shutdown(
+        self, thread, thread_name: str, timeout_ms: int = 5000
+    ):
+        if thread.wait(timeout_ms):
+            return True
+
+        message = f"{thread_name}未能在 {timeout_ms / 1000:.1f} 秒内停止，已取消关闭。"
+        print(message)
+        self.append_log(message)
+        self.update_status("关闭已取消：后台线程仍在运行")
+        return False
 
     def closeEvent(self, event):
         """关闭窗口事件"""
@@ -580,17 +422,16 @@ class MainWindow(FluentWindow):
         # 保存悬浮窗状态和位置
         self._save_overlay_state()
 
-        self.worker.stop()
+        self.worker.stop("应用正在关闭")
         self.popup_worker.stop()
 
-        # 等待线程结束（设置超时避免冻结）
-        if not self.worker.wait(2000):
-            print("Worker thread did not stop in time, terminating...")
-            self.worker.terminate()
+        if not self._wait_for_thread_shutdown(self.worker, "钓鱼线程"):
+            event.ignore()
+            return
 
-        if not self.popup_worker.wait(2000):
-            print("Popup worker thread did not stop in time, terminating...")
-            self.popup_worker.terminate()
+        if not self._wait_for_thread_shutdown(self.popup_worker, "弹窗线程"):
+            event.ignore()
+            return
 
         self.input_controller.stop_listening()
         print("All threads stopped. Goodbye.")

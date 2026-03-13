@@ -545,7 +545,7 @@ class Pokedex(QObject):
                                 continue
 
                         # 2.4 季节检查 (OR)
-                        if target_seasons and cfg.global_settings.get(
+                        if target_seasons and cfg.get_global_setting(
                             "enable_season_filter", True
                         ):
                             fish_seasons = set(cond.get("season", []))

@@ -54,7 +54,7 @@ class TransparentDialog(QDialog):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         is_dark = isDarkTheme()
         if is_dark:
             painter.fillRect(self.rect(), Qt.transparent)
@@ -678,7 +678,7 @@ class PokedexInterface(QWidget):
 
         # 筛选条件缓存
         self.current_filter_criteria = deepcopy(
-            cfg.global_settings.get("pokedex_filter_criteria", {})
+            cfg.get_global_setting("pokedex_filter_criteria", {})
         )
         self.current_sort_key = "default"
         self.current_sort_reverse = False
@@ -1012,7 +1012,7 @@ class PokedexInterface(QWidget):
     def _on_multi_filter_changed(self, criteria):
         """筛选条件变化"""
         self.current_filter_criteria = criteria
-        cfg.global_settings["pokedex_filter_criteria"] = deepcopy(criteria)
+        cfg.set_global_setting("pokedex_filter_criteria", deepcopy(criteria))
         cfg.save()
         self._refresh_cards()
 
@@ -1407,7 +1407,7 @@ class PokedexInterface(QWidget):
         """重新加载数据（账号切换时调用）"""
         pokedex.reload()
         self.current_filter_criteria = deepcopy(
-            cfg.global_settings.get("pokedex_filter_criteria", {})
+            cfg.get_global_setting("pokedex_filter_criteria", {})
         )
         self._sync_filter_button_state()
         self._refresh_cards()

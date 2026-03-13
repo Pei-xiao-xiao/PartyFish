@@ -62,7 +62,7 @@ class ReleaseService:
             return True
 
         # 获取配置中的放生档位
-        release_settings = cfg.global_settings.get("release_settings", {})
+        release_settings = cfg.get_global_setting("release_settings", {})
         release_threshold = release_settings.get(str(rarity_level), 0)
 
         if release_threshold == 0:
@@ -295,7 +295,7 @@ class ReleaseService:
         Returns:
             bool: True 表示鱼受保护，False 表示不受保护，None 表示需要中止
         """
-        if not cfg.global_settings.get("enable_fish_name_protection", False):
+        if not cfg.get_global_setting("enable_fish_name_protection", False):
             return False  # 未启用保护，鱼不受保护
 
         # 如果已经获取了鱼类名称，直接使用
@@ -490,7 +490,7 @@ class ReleaseService:
 
             # 获取鱼类名称用于判断
             fish_name = None
-            if cfg.global_settings.get("enable_fish_name_protection", False):
+            if cfg.get_global_setting("enable_fish_name_protection", False):
                 self.worker.smart_sleep(0.5)
                 self.worker.inputs.double_click(
                     fish_x + cfg.window_offset_x, fish_y + cfg.window_offset_y
@@ -517,9 +517,7 @@ class ReleaseService:
                     "史诗": "release_epic",
                     "传奇": "release_legendary",
                 }
-                should_release = cfg.global_settings.get(
-                    release_map.get(quality), False
-                )
+                should_release = cfg.get_global_setting(release_map.get(quality), False)
 
             if not self.worker.running or self.worker.paused:
                 break
@@ -563,7 +561,7 @@ class ReleaseService:
 
     def check_and_auto_release(self):
         """检查鱼桶并执行自动放生"""
-        if not cfg.global_settings.get("auto_release_enabled", False):
+        if not cfg.get_global_setting("auto_release_enabled", False):
             return
 
         cfg.update_game_window()

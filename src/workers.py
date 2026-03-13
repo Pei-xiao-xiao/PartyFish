@@ -1,7 +1,7 @@
 import time
 from PySide6.QtCore import QThread, Signal, Slot
 from src.vision import vision
-from src.inputs import InputController
+from src.inputs import InputActions
 from src.config import cfg
 from src.services.record_service import RecordService
 from src.services.ocr_service import OCRService
@@ -30,7 +30,7 @@ class FishingWorker(QThread):
         self.fishing_service = FishingService(self)
         self.running = False
         self.paused = True  # 以暂停状态启动
-        self.inputs = InputController()
+        self.inputs = InputActions()
         self.vision = vision
         # 初始化鱼饵管理器
         self.bait_manager = None
@@ -46,7 +46,7 @@ class FishingWorker(QThread):
         """初始化鱼饵管理器"""
         from src.managers.bait_manager import BaitManager
 
-        selected_baits = cfg.global_settings.get("selected_baits", [])
+        selected_baits = cfg.get_global_setting("selected_baits", [])
         if selected_baits:
             self.bait_manager = BaitManager(selected_baits)
         else:
@@ -172,7 +172,7 @@ class FishingWorker(QThread):
                         popup_closed = self._close_catch_popup()
 
                         # 在关闭弹窗后、重新抛竿前执行单条放生
-                        release_mode = cfg.global_settings.get("release_mode", "off")
+                        release_mode = cfg.get_global_setting("release_mode", "off")
                         if (
                             release_mode == "single"
                             and popup_closed
@@ -201,7 +201,7 @@ class FishingWorker(QThread):
             self.fishing_service.drain_async_results()
 
             # 循环间隔，等待指定时间后再进行下一轮
-            self.smart_sleep(cfg.cycle_interval)
+            self.smart_sleep(cfg.get_preset_value("cycle_interval"))
 
         self.log_updated.emit("自动化钓鱼已停止。")
 
@@ -277,7 +277,7 @@ class FishingWorker(QThread):
         cast_rod_region = cfg.get_rect("cast_rod")
         cast_rod_ice_region = cfg.get_rect("cast_rod_ice")
         prompt_keys = ["F1_grayscale", "F2_grayscale"]
-        sync_deadline = time.time() + max(1.2, cfg.cast_time + 0.8)
+        sync_deadline = time.time() + max(1.2, cfg.get_preset_value("cast_time") + 0.8)
         stable_prompt_checks = 0
 
         while time.time() < sync_deadline:
@@ -338,13 +338,8 @@ class FishingWorker(QThread):
         :param reason: 停止的具体原因，将作为最终状态显示在GUI上
         """
         self.running = False
+        self.inputs.ensure_mouse_up()
         self.fishing_service.shutdown_async_processing(wait=False)
-        # 移除 self.wait() 以防止 GUI 冻结。
-        # 主线程应该等待我们，而不是我们在从主线程调用的 stop 方法内部阻塞。
-        # 实际上，stop() 是从主线程调用的。如果我们在这里 wait()，会阻塞主线程直到 run() 完成。
-        # 这通常是正确的方式，但如果 run() 被阻塞，我们就会冻结。
-        # 我们已经改进了 run() 循环的响应性。
-        # 但是，如果 'wait' 导致问题，我们可以移除它，让 closeEvent 处理带超时的等待。
         final_status = reason if reason else "已停止"
         self.status_updated.emit(f"{final_status}")
         self.log_updated.emit(f"收到停止信号, 原因: {final_status}")
@@ -356,10 +351,11 @@ class FishingWorker(QThread):
         end_time = time.time() + duration
         while self.running and time.time() < end_time:
             if self.paused:
-                break
+                return False
             sleep_time = min(0.1, end_time - time.time())
             if sleep_time > 0:
                 time.sleep(sleep_time)
+        return self.running and not self.paused
 
     @Slot(str)
     def update_preset(self, preset_name):
@@ -465,7 +461,7 @@ class FishingWorker(QThread):
                 # 发出信号更新 UI
                 self.sale_recorded.emit(amount)
 
-                if cfg.global_settings.get("auto_click_sell", True):
+                if cfg.get_global_setting("auto_click_sell", True):
                     # 点击区域中心（加上窗口偏移转换为屏幕绝对坐标）
                     cx = rect[0] + rect[2] // 2 + cfg.window_offset_x
                     cy = rect[1] + rect[3] // 2 + cfg.window_offset_y
@@ -480,7 +476,7 @@ class FishingWorker(QThread):
                     "严重错误：销售记录保存失败！为防止数据丢失，已终止出售操作。"
                 )
                 self.status_updated.emit("记录失败，未出售")
-                if cfg.global_settings.get("enable_sound_alert", False):
+                if cfg.get_global_setting("enable_sound_alert", False):
                     # 如果有错误音效可以在这里播放，或者仅记录日志
                     pass
 
@@ -508,13 +504,13 @@ class FishingWorker(QThread):
             self.log_updated.emit("切换鱼饵过程中检测到加时弹窗，等待处理...")
             if not self._wait_for_popup_clear(timeout=10):
                 self.log_updated.emit("等待弹窗清除超时")
-            time.sleep(5.0)
+            self.smart_sleep(5.0)
             return True
         return False
 
     def _pause_for_no_bait(self, reason):
         """统一处理切换鱼饵时的无鱼饵暂停逻辑。"""
-        if cfg.global_settings.get("enable_sound_alert", False):
+        if cfg.get_global_setting("enable_sound_alert", False):
             self.sound_alert_requested.emit("no_bait")
         self.pause(reason=reason)
 
@@ -535,8 +531,11 @@ class FishingWorker(QThread):
         scroll_count = self.bait_manager.calculate_scroll_count(
             detected_bait, target_bait
         )
-        self.inputs.switch_bait(scroll_count)
-        time.sleep(0.8)
+        if not self.inputs.switch_bait(scroll_count, sleep_fn=self.smart_sleep):
+            return False
+        self.smart_sleep(0.8)
+        if not self.running or self.paused:
+            return False
 
         if self._check_popup_during_bait_switch():
             return False
@@ -561,8 +560,11 @@ class FishingWorker(QThread):
         found_bait = False
 
         for scroll_attempt in range(max_scrolls):
-            self.inputs.switch_bait(-1)
-            time.sleep(0.8)
+            if not self.inputs.switch_bait(-1, sleep_fn=self.smart_sleep):
+                return False
+            self.smart_sleep(0.8)
+            if not self.running or self.paused:
+                return False
 
             if self._check_popup_during_bait_switch():
                 return False
@@ -605,7 +607,7 @@ class FishingWorker(QThread):
             if not self._wait_for_popup_clear(timeout=10):
                 self.log_updated.emit("等待弹窗清除超时")
 
-            time.sleep(5.0)
+            self.smart_sleep(5.0)
             self.log_updated.emit(
                 f"检测到弹窗已处理，已回到正常钓鱼界面，本次放生了{released_count}条鱼"
             )
@@ -626,7 +628,7 @@ class PopupWorker(QThread):
         super().__init__()
         self.running = False
         self.vision = vision
-        self.inputs = InputController()
+        self.inputs = InputActions()
 
     def run(self):
         """
@@ -666,7 +668,7 @@ class PopupWorker(QThread):
                     # 根据用户设置决定点击位置
                     # 对于加时弹窗：enable_jiashi=True 点击"是"，False 点击"否"
                     # 对于 AFK 弹窗：无论点哪个位置都能关闭
-                    if cfg.enable_jiashi:
+                    if cfg.get_global_setting("enable_jiashi", True):
                         target_x, target_y = cfg.get_center_anchored_pos(
                             cfg.BTN_JIASHI_YES
                         )
@@ -705,5 +707,4 @@ class PopupWorker(QThread):
         安全地停止线程.
         """
         self.running = False
-        # 这里也移除 wait()
         self.log_updated.emit("收到停止弹窗处理服务的信号。")
