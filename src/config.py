@@ -108,6 +108,7 @@ class Config(metaclass=SingletonMeta):
 
         # 鱼类名称列表
         self.fish_names_list = []
+        self.fish_names_set = set()
         self.protected_fish_list = []
 
         # 启动时的错误信息，将在 GUI 中显示
@@ -463,6 +464,7 @@ class Config(metaclass=SingletonMeta):
             "data_loader_service",
             "config_manager",
             "fish_names_list",
+            "fish_names_set",
             "startup_errors",
             "_base_path",
             "user_data_dir",

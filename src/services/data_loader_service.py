@@ -28,6 +28,7 @@ class DataLoaderService:
                 f"⚠️ 关键配置文件缺失: resources/fish.json，鱼名匹配功能将不可用"
             )
             self.config.fish_names_list = []
+            self.config.fish_names_set = set()
             return
 
         try:
@@ -36,9 +37,11 @@ class DataLoaderService:
                 self.config.fish_names_list = [
                     item["name"] for item in fish_data if "name" in item
                 ]
+                self.config.fish_names_set = set(self.config.fish_names_list)
         except Exception as e:
             self.config.startup_errors.append(f"⚠️ 加载 fish.json 失败: {e}")
             self.config.fish_names_list = []
+            self.config.fish_names_set = set()
 
         self.load_protected_fish()
 
