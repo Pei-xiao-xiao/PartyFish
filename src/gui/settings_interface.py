@@ -427,8 +427,9 @@ class SettingsInterface(ScrollArea):
         self.jitterSlider.setRange(0, 30)
         self.jitterCard.hBoxLayout.addStretch(1)
         self.jitterCard.hBoxLayout.addWidget(self.jitterSlider)
-        self.jitterCard.hBoxLayout.addSpacing(15)
+        self.jitterCard.hBoxLayout.addSpacing(14)
         self.jitterCard.hBoxLayout.addWidget(self.jitterLabel)
+        self.jitterCard.hBoxLayout.addSpacing(32)
         self.globalGroup.addSettingCard(self.jitterCard)
 
         self.themeCard = SettingCard(
@@ -825,15 +826,15 @@ class SettingsInterface(ScrollArea):
         gridWidget = QWidget(container)
         gridLayout = QGridLayout(gridWidget)
         gridLayout.setContentsMargins(0, 0, 0, 0)
-        gridLayout.setHorizontalSpacing(40)
+        gridLayout.setHorizontalSpacing(60)
         gridLayout.setVerticalSpacing(12)
 
         for level in range(1, 7):
-            row = (level - 1) // 3
-            col = (level - 1) % 3
+            row = (level - 1) // 2
+            col = (level - 1) % 2
 
             rowWidget = QWidget(gridWidget)
-            rowWidget.setMinimumWidth(240)
+            rowWidget.setMinimumWidth(300)
             rowLayout = QHBoxLayout(rowWidget)
             rowLayout.setContentsMargins(0, 0, 0, 0)
             rowLayout.setSpacing(12)
@@ -865,10 +866,9 @@ class SettingsInterface(ScrollArea):
 
             gridLayout.addWidget(rowWidget, row, col)
 
-        # 设置列拉伸因子，确保三列均匀分布
+        # 设置列拉伸因子，确保两列均匀分布
         gridLayout.setColumnStretch(0, 1)
         gridLayout.setColumnStretch(1, 1)
-        gridLayout.setColumnStretch(2, 1)
 
         containerLayout.addWidget(gridWidget)
         containerLayout.addStretch()
