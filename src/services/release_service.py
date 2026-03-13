@@ -83,6 +83,20 @@ class ReleaseService:
         # 如果当前品质小于等于配置的档位，则放生
         return quality_value <= release_threshold
 
+    def _should_release_by_quality_selection(self, quality: str) -> bool:
+        """根据自动放生的品质复选框判断是否放生。"""
+        release_map = {
+            "标准": "release_standard",
+            "非凡": "release_uncommon",
+            "稀有": "release_rare",
+            "史诗": "release_epic",
+            "传奇": "release_legendary",
+        }
+        setting_key = release_map.get(quality)
+        if not setting_key:
+            return False
+        return cfg.get_global_setting(setting_key, False)
+
     def _get_bucket_close_button_region(self):
         return cfg.get_rect("bucket_close_button")
 
@@ -505,19 +519,8 @@ class ReleaseService:
                 if fish_name_img is not None:
                     fish_name = self.worker.ocr_service.recognize_text(fish_name_img)
 
-            # 根据稀有度和品质判断是否放生
-            if fish_name:
-                should_release = self._should_release_by_rarity(fish_name, quality)
-            else:
-                # 没有鱼类名称信息时，使用旧逻辑
-                release_map = {
-                    "标准": "release_standard",
-                    "非凡": "release_uncommon",
-                    "稀有": "release_rare",
-                    "史诗": "release_epic",
-                    "传奇": "release_legendary",
-                }
-                should_release = cfg.get_global_setting(release_map.get(quality), False)
+            # 桶满自动放生始终按品质复选框判断；保护逻辑仅用于覆盖结果。
+            should_release = self._should_release_by_quality_selection(quality)
 
             if not self.worker.running or self.worker.paused:
                 break
