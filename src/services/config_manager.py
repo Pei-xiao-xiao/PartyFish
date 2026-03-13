@@ -9,7 +9,8 @@ import json
 class ConfigManager:
     """配置管理服务类"""
 
-    REMOVED_PRESET_NAMES = set()
+    REMOVED_PRESET_NAMES = {"智能钓鱼"}
+    REMOVED_PRESET_KEYS = {"smart_release_angle", "smart_release_time"}
 
     def __init__(self, config):
         """
@@ -63,24 +64,26 @@ class ConfigManager:
                 "max_pulls": 99,
                 "cycle_interval": 0.1,
             },
-            "智能钓鱼": {
-                "cast_time": 0.1,
-                "reel_in_time": 0.2,
-                "release_time": 0.1,
-                "max_pulls": 99,
-                "cycle_interval": 0.1,
-                "smart_release_angle": 18.0,
-                "smart_release_time": 0.8,
-            },
         }
 
     def _sanitize_presets(self, presets):
         """Remove deprecated presets, merge defaults, and ensure presets exist."""
-        sanitized = {
-            self._normalize_preset_name(name): preset
-            for name, preset in presets.items()
-            if self._normalize_preset_name(name) not in self.REMOVED_PRESET_NAMES
-        }
+        sanitized = {}
+        for name, preset in presets.items():
+            normalized_name = self._normalize_preset_name(name)
+            if normalized_name in self.REMOVED_PRESET_NAMES:
+                continue
+
+            if not isinstance(preset, dict):
+                preset = {}
+            else:
+                preset = {
+                    key: value
+                    for key, value in preset.items()
+                    if key not in self.REMOVED_PRESET_KEYS
+                }
+
+            sanitized[normalized_name] = preset
 
         if not sanitized:
             return self.get_default_presets()

@@ -99,7 +99,6 @@ class ImportWorker(QThread):
 
 
 class SettingsInterface(ScrollArea):
-    SMART_PRESET_NAME = "智能钓鱼"
     hotkey_changed_signal = Signal(str)
     debug_hotkey_changed_signal = Signal(str)
     sell_hotkey_changed_signal = Signal(str)
@@ -169,18 +168,6 @@ class SettingsInterface(ScrollArea):
         )
         self.fishingGroup.addSettingCard(self.castTimeCard)
 
-        self.smartReleaseTimeCard = self._create_double_spinbox_card(
-            icon=FluentIcon.SPEED_OFF,
-            title=self.tr("放线时间"),
-            content=self.tr("智能钓鱼松手后的持续时间 (秒)"),
-            config_key="smart_release_time",
-            minimum=0.01,
-            maximum=3.0,
-            step=0.01,
-            decimals=2,
-        )
-        self.fishingGroup.addSettingCard(self.smartReleaseTimeCard)
-
         self.reelInTimeCard = self._create_double_spinbox_card(
             icon=FluentIcon.SPEED_HIGH,
             title=self.tr("收线时间"),
@@ -196,20 +183,6 @@ class SettingsInterface(ScrollArea):
             config_key="release_time",
         )
         self.fishingGroup.addSettingCard(self.releaseTimeCard)
-
-        self.smartReleaseAngleCard = self._create_double_spinbox_card(
-            icon=FluentIcon.SPEED_HIGH,
-            title=self.tr("智能松手阈值"),
-            content=self.tr(
-                "距离红色危险区左边界的提前松手角度，0 表示贴边。默认橙色区域，数字越大越安全 (度)"
-            ),
-            config_key="smart_release_angle",
-            minimum=0.0,
-            maximum=60.0,
-            step=1.0,
-            decimals=2,
-        )
-        self.fishingGroup.addSettingCard(self.smartReleaseAngleCard)
 
         self.cycleIntervalCard = self._create_double_spinbox_card(
             icon=FluentIcon.HISTORY,
@@ -829,21 +802,6 @@ class SettingsInterface(ScrollArea):
         setattr(self, attr_name, spinbox)
         return card
 
-    def _is_smart_preset(self, preset_name=None):
-        preset_name = preset_name or self.presetComboBox.currentText()
-        return preset_name == self.SMART_PRESET_NAME
-
-    def _update_preset_fishing_cards(self, preset_name=None):
-        is_smart_preset = self._is_smart_preset(preset_name)
-
-        self.castTimeCard.setVisible(True)
-        self.smartReleaseTimeCard.setVisible(is_smart_preset)
-        self.smartReleaseAngleCard.setVisible(is_smart_preset)
-        self.reelInTimeCard.setVisible(not is_smart_preset)
-        self.releaseTimeCard.setVisible(not is_smart_preset)
-        self.cycleIntervalCard.setVisible(not is_smart_preset)
-        self.maxPullsCard.setVisible(not is_smart_preset)
-
     QUALITY_COLORS = {
         0: ("#666666", "不放生"),
         1: ("#808080", "标准"),
@@ -1161,15 +1119,8 @@ class SettingsInterface(ScrollArea):
         self.castTimeSpinBox.setValue(current_preset.get("cast_time", 2.0))
         self.reelInTimeSpinBox.setValue(current_preset.get("reel_in_time", 2.0))
         self.releaseTimeSpinBox.setValue(current_preset.get("release_time", 1.0))
-        self.smartReleaseAngleSpinBox.setValue(
-            current_preset.get("smart_release_angle", 18.0)
-        )
-        self.smartReleaseTimeSpinBox.setValue(
-            current_preset.get("smart_release_time", 0.8)
-        )
         self.cycleIntervalSpinBox.setValue(current_preset.get("cycle_interval", 0.5))
         self.maxPullsSpinBox.setValue(current_preset.get("max_pulls", 20))
-        self._update_preset_fishing_cards(preset_name)
 
         # 加载全局设置
         self.hotkeyLineEdit.setText(cfg.global_settings.get("hotkey", "F2"))
@@ -1280,12 +1231,6 @@ class SettingsInterface(ScrollArea):
             cfg.presets[preset_name]["cast_time"] = self.castTimeSpinBox.value()
             cfg.presets[preset_name]["reel_in_time"] = self.reelInTimeSpinBox.value()
             cfg.presets[preset_name]["release_time"] = self.releaseTimeSpinBox.value()
-            cfg.presets[preset_name][
-                "smart_release_angle"
-            ] = self.smartReleaseAngleSpinBox.value()
-            cfg.presets[preset_name][
-                "smart_release_time"
-            ] = self.smartReleaseTimeSpinBox.value()
             cfg.presets[preset_name][
                 "cycle_interval"
             ] = self.cycleIntervalSpinBox.value()
@@ -1743,12 +1688,6 @@ class SettingsInterface(ScrollArea):
             self.castTimeSpinBox.setValue(default_config["cast_time"])
             self.reelInTimeSpinBox.setValue(default_config["reel_in_time"])
             self.releaseTimeSpinBox.setValue(default_config["release_time"])
-            self.smartReleaseAngleSpinBox.setValue(
-                default_config.get("smart_release_angle", 18.0)
-            )
-            self.smartReleaseTimeSpinBox.setValue(
-                default_config.get("smart_release_time", 0.8)
-            )
             self.cycleIntervalSpinBox.setValue(default_config["cycle_interval"])
             self.maxPullsSpinBox.setValue(default_config["max_pulls"])
 
