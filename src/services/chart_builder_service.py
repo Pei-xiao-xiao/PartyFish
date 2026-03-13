@@ -85,6 +85,7 @@ class ChartBuilderService:
         if not sorted_dates:
             return sorted_dates
 
+        min_val = 0
         max_val = 100
         for idx, date_str in enumerate(sorted_dates):
             sales = daily_sales[date_str]
@@ -95,8 +96,8 @@ class ChartBuilderService:
             series_cost.append(idx, cost)
             series_net.append(idx, net)
 
-            if sales > max_val:
-                max_val = sales
+            min_val = min(min_val, net)
+            max_val = max(max_val, sales, cost, net)
 
         # 创建散点系列
         scatter_sales = QScatterSeries()
@@ -165,10 +166,12 @@ class ChartBuilderService:
 
         # 设置 Y 轴
         axis_y = QValueAxis()
-        nice_max = self.calculate_nice_max(max_val)
-        axis_y.setRange(0, nice_max)
+        nice_min, nice_max = self.calculate_nice_range(min_val, max_val)
+        axis_y.setRange(nice_min, nice_max)
         axis_y.setLabelFormat("%d")
-        axis_y.setTickCount(6)
+        tick_count = self._calculate_tick_count(nice_min, nice_max)
+        axis_y.setTickCount(tick_count)
+        axis_y.setMinorTickCount(1)
 
         chart.addAxis(axis_y, Qt.AlignLeft)
         series_sales.attachAxis(axis_y)
@@ -226,6 +229,7 @@ class ChartBuilderService:
             return sorted_dates
 
         categories = []
+        min_val = 0
         max_val = 100
 
         for date_str in sorted_dates:
@@ -238,8 +242,8 @@ class ChartBuilderService:
             set_net.append(net)
 
             categories.append(date_str[5:])
-            if sales > max_val:
-                max_val = sales
+            min_val = min(min_val, net)
+            max_val = max(max_val, sales, cost, net)
 
         series = QBarSeries()
         series.append(set_sales)
@@ -276,10 +280,12 @@ class ChartBuilderService:
         series.attachAxis(axis_x)
 
         axis_y = QValueAxis()
-        nice_max = self.calculate_nice_max(max_val)
-        axis_y.setRange(0, nice_max)
+        nice_min, nice_max = self.calculate_nice_range(min_val, max_val)
+        axis_y.setRange(nice_min, nice_max)
         axis_y.setLabelFormat("%d")
-        axis_y.setTickCount(6)
+        tick_count = self._calculate_tick_count(nice_min, nice_max)
+        axis_y.setTickCount(tick_count)
+        axis_y.setMinorTickCount(1)
         axis_y.setGridLineVisible(True)
 
         chart.addAxis(axis_y, Qt.AlignLeft)
@@ -291,7 +297,7 @@ class ChartBuilderService:
 
     def calculate_nice_max(self, value: float) -> float:
         """
-        计算合适的坐标轴最大值
+        计算合适的坐标轴最大值（1000的倍数）
 
         Args:
             value: 数据最大值
@@ -300,23 +306,52 @@ class ChartBuilderService:
             float: 合适的坐标轴最大值
         """
         if value <= 0:
-            return 100
+            return 1000
 
-        target_step = value / 5.0
-        magnitude = 10 ** math.floor(math.log10(target_step))
-        residual = target_step / magnitude
+        return math.ceil(value / 1000) * 1000
 
-        if residual > 5:
-            nice_step = 10 * magnitude
-        elif residual > 2:
-            nice_step = 5 * magnitude
-        elif residual > 1:
-            nice_step = 2 * magnitude
-        else:
-            nice_step = 1 * magnitude
+    def calculate_nice_range(
+        self, min_val: float, max_val: float
+    ) -> tuple[float, float]:
+        """
+        计算合适的坐标轴范围（支持负值）
 
-        nice_max = nice_step * 5
-        return nice_max
+        Args:
+            min_val: 数据最小值（可能为负）
+            max_val: 数据最大值
+
+        Returns:
+            tuple: (nice_min, nice_max)
+        """
+        if min_val >= 0:
+            return (0, self.calculate_nice_max(max_val))
+
+        if max_val <= 0:
+            nice_min = -self.calculate_nice_max(abs(min_val))
+            return (nice_min, 0)
+
+        abs_max = max(abs(min_val), abs(max_val))
+        nice_bound = self.calculate_nice_max(abs_max)
+        return (-nice_bound, nice_bound)
+
+    def _calculate_tick_count(self, nice_min: float, nice_max: float) -> int:
+        """
+        计算刻度数量，确保每1000一个刻度，0是中间刻度
+
+        Args:
+            nice_min: 范围最小值
+            nice_max: 范围最大值
+
+        Returns:
+            int: 刻度数量
+        """
+        if nice_min >= 0:
+            return int(nice_max / 1000) + 1
+
+        if nice_max <= 0:
+            return int(abs(nice_min) / 1000) + 1
+
+        return int(nice_max / 1000) + int(abs(nice_min) / 1000) + 1
 
     def apply_theme(self, chart: QChart):
         """

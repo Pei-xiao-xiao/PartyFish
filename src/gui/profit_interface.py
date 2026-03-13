@@ -655,10 +655,12 @@ class ProfitInterface(QWidget):
 
         remaining_display = today_stats.remaining_limit
         self.limit_card.value_label.setText(str(remaining_display))
+        is_dark = isDarkTheme()
         if remaining_display < 0:
             self.limit_card.value_label.setStyleSheet("color: #d32f2f;")
         else:
-            self.limit_card.value_label.setStyleSheet("")
+            normal_color = "#ffffff" if is_dark else "#111827"
+            self.limit_card.value_label.setStyleSheet(f"color: {normal_color};")
 
         # 更新进度条
         capped_sales = min(today_stats.total_sales, 899)

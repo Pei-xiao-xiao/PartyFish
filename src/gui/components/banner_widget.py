@@ -471,6 +471,19 @@ class BannerWidget(QWidget):
         for key_badge in self._hotkey_badges.values():
             self._update_hotkey_badge_style(key_badge)
 
+        is_dark = qconfig.theme.value == "Dark"
+        title_color = "#ffffff" if is_dark else "#111827"
+        self.title_label.setStyleSheet(
+            f"""
+            TitleLabel {{
+                font-size: 26px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                color: {title_color};
+            }}
+        """
+        )
+
     def refresh_account_controls(self):
         """刷新账号相关控件"""
         self.presetComboBox.blockSignals(True)

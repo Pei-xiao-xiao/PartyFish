@@ -274,7 +274,8 @@ class RecordsInterface(QWidget):
         self.search_input.setPlaceholderText("鱼名/时段/天气")
         self.search_input.setFixedWidth(200)
         self.search_input.textChanged.connect(self._schedule_search_refresh)
-        top_controls_layout.addWidget(QLabel("搜索:"))
+        self.search_label = QLabel("搜索:")
+        top_controls_layout.addWidget(self.search_label)
         top_controls_layout.addWidget(self.search_input)
 
         top_controls_layout.addSpacing(20)
@@ -285,7 +286,8 @@ class RecordsInterface(QWidget):
         )
         self.filter_combo.currentTextChanged.connect(self._on_filter_changed)
         self.filter_combo.setFixedWidth(150)
-        top_controls_layout.addWidget(QLabel("筛选品质:"))
+        self.filter_label = QLabel("筛选品质:")
+        top_controls_layout.addWidget(self.filter_label)
         top_controls_layout.addWidget(self.filter_combo)
         self.vBoxLayout.addLayout(top_controls_layout)
 
@@ -916,6 +918,11 @@ class RecordsInterface(QWidget):
 
     def refresh_table_colors(self):
         """使用当前主题颜色重建可见行和图表。"""
+        is_dark = qconfig.theme.value == "Dark"
+        label_color = "#ffffff" if is_dark else "#374151"
+        self.search_label.setStyleSheet(f"color: {label_color};")
+        self.filter_label.setStyleSheet(f"color: {label_color};")
+
         self.chart_service.apply_theme(
             self.chart_view.chart(), qconfig.theme.value == "Dark"
         )
