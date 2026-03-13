@@ -10,3 +10,4 @@ Pillow
 psutil
 wmi
 pygame
+pywin32-ctypes

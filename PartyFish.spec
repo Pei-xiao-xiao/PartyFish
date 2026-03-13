@@ -75,7 +75,7 @@ a = Analysis(
         'src.config',
         'src.inputs',
         'src.pokedex',
-        'src.record_manager',
+        'src.services.record_manager',
         
         # 其他可能需要的模块
         'PIL',

@@ -77,7 +77,7 @@ pre-commit run --all-files
 先安装 PyInstaller：
 
 ```powershell
-python -m pip install pyinstaller
+python -m pip install -e ".[build]"
 ```
 
 然后执行：

@@ -25,6 +25,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+build = [
+    "PyInstaller>=6,<7",
+    "pywin32-ctypes>=0.2.3; platform_system == 'Windows'",
+]
+
 dev = [
     "black==24.10.0",
     "pre-commit>=4,<5",

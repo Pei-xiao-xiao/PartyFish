@@ -26,7 +26,8 @@ data/audio/ : 提示音文件夹 (需手动复制到 exe 同级目录)
 
 用户数据与配置（重要）：
 数据现已存储在 Windows 标准应用数据目录下：
-%APPDATA%\Partyfish(可在资源管理器地址栏输入上方路径直接访问)
+%APPDATA%\Partyfish\
+(可在资源管理器地址栏输入上方路径直接访问)
 
 - config.json : 全局配置文件
 - accounts/   : 多账号数据文件夹 (包含各账号的 records.csv, sales.csv)
