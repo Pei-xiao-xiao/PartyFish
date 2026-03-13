@@ -87,12 +87,24 @@ class YearMonthPicker(QWidget):
         self.monthLayout.setContentsMargins(0, 0, 0, 0)
 
         self.monthBtns = []
-        monthNames = ["一月", "二月", "三月", "四月", "五月", "六月",
-                      "七月", "八月", "九月", "十月", "十一月", "十二月"]
+        monthNames = [
+            "一月",
+            "二月",
+            "三月",
+            "四月",
+            "五月",
+            "六月",
+            "七月",
+            "八月",
+            "九月",
+            "十月",
+            "十一月",
+            "十二月",
+        ]
         for i, name in enumerate(monthNames):
             btn = PushButton(name)
             btn.setFixedSize(60, 32)
-            btn.clicked.connect(lambda checked, m=i+1: self._onMonthClicked(m))
+            btn.clicked.connect(lambda checked, m=i + 1: self._onMonthClicked(m))
             self.monthLayout.addWidget(btn, i // 4, i % 4)
             self.monthBtns.append(btn)
 
@@ -107,13 +119,15 @@ class YearMonthPicker(QWidget):
         is_dark = isDarkTheme()
         bg = "#2B313B" if is_dark else "#FFFFFF"
         border = "#495264" if is_dark else "#E5E7EB"
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
             YearMonthPicker {{
                 background-color: {bg};
                 border: 1px solid {border};
                 border-radius: 8px;
             }}
-        """)
+        """
+        )
 
     def setYear(self, year: int):
         self._currentYear = year
@@ -165,12 +179,24 @@ class DateRangeCalendar(QWidget):
         tc = themeColor()
 
         self._bgColor = QColor(0x2B, 0x31, 0x3B) if is_dark else QColor(255, 255, 255)
-        self._textColor = QColor(0xE5, 0xE7, 0xEB) if is_dark else QColor(0x1F, 0x29, 0x37)
-        self._secondaryTextColor = QColor(0x94, 0xA3, 0xB8) if is_dark else QColor(0x64, 0x74, 0x8B)
-        self._hoverBgColor = QColor(255, 255, 255, 15) if is_dark else QColor(0, 0, 0, 8)
-        self._rangeBgColor = QColor(tc.red(), tc.green(), tc.blue(), 40) if is_dark else QColor(tc.red(), tc.green(), tc.blue(), 30)
+        self._textColor = (
+            QColor(0xE5, 0xE7, 0xEB) if is_dark else QColor(0x1F, 0x29, 0x37)
+        )
+        self._secondaryTextColor = (
+            QColor(0x94, 0xA3, 0xB8) if is_dark else QColor(0x64, 0x74, 0x8B)
+        )
+        self._hoverBgColor = (
+            QColor(255, 255, 255, 15) if is_dark else QColor(0, 0, 0, 8)
+        )
+        self._rangeBgColor = (
+            QColor(tc.red(), tc.green(), tc.blue(), 40)
+            if is_dark
+            else QColor(tc.red(), tc.green(), tc.blue(), 30)
+        )
         self._selectedBgColor = tc
-        self._borderColor = QColor(0x49, 0x52, 0x64) if is_dark else QColor(0xE5, 0xE7, 0xEB)
+        self._borderColor = (
+            QColor(0x49, 0x52, 0x64) if is_dark else QColor(0xE5, 0xE7, 0xEB)
+        )
 
     def _initUI(self):
         self.mainLayout = QVBoxLayout(self)
@@ -226,7 +252,10 @@ class DateRangeCalendar(QWidget):
         self.mainLayout.addWidget(self.calendarView, 1)
 
         self._updateTitle()
-        self.setMinimumSize(self.cellSize * 7 + 20, self.headerHeight + self.weekdayHeight + self.cellSize * 6 + 20)
+        self.setMinimumSize(
+            self.cellSize * 7 + 20,
+            self.headerHeight + self.weekdayHeight + self.cellSize * 6 + 20,
+        )
 
     def _onTitleClicked(self, event):
         if event.button() == Qt.LeftButton:
@@ -234,8 +263,20 @@ class DateRangeCalendar(QWidget):
 
     def _updateTitle(self):
         year, month = self._currentMonth
-        monthNames = ["一月", "二月", "三月", "四月", "五月", "六月",
-                      "七月", "八月", "九月", "十月", "十一月", "十二月"]
+        monthNames = [
+            "一月",
+            "二月",
+            "三月",
+            "四月",
+            "五月",
+            "六月",
+            "七月",
+            "八月",
+            "九月",
+            "十月",
+            "十一月",
+            "十二月",
+        ]
         self.titleLabel.setText(f"{year}年 {monthNames[month - 1]}")
 
     def applyTheme(self):
@@ -348,10 +389,20 @@ class _CalendarView(QWidget):
         tc = themeColor()
 
         self._bgColor = QColor(0x2B, 0x31, 0x3B) if is_dark else QColor(255, 255, 255)
-        self._textColor = QColor(0xE5, 0xE7, 0xEB) if is_dark else QColor(0x1F, 0x29, 0x37)
-        self._secondaryTextColor = QColor(0x94, 0xA3, 0xB8) if is_dark else QColor(0x64, 0x74, 0x8B)
-        self._hoverBgColor = QColor(255, 255, 255, 15) if is_dark else QColor(0, 0, 0, 8)
-        self._rangeBgColor = QColor(tc.red(), tc.green(), tc.blue(), 40) if is_dark else QColor(tc.red(), tc.green(), tc.blue(), 30)
+        self._textColor = (
+            QColor(0xE5, 0xE7, 0xEB) if is_dark else QColor(0x1F, 0x29, 0x37)
+        )
+        self._secondaryTextColor = (
+            QColor(0x94, 0xA3, 0xB8) if is_dark else QColor(0x64, 0x74, 0x8B)
+        )
+        self._hoverBgColor = (
+            QColor(255, 255, 255, 15) if is_dark else QColor(0, 0, 0, 8)
+        )
+        self._rangeBgColor = (
+            QColor(tc.red(), tc.green(), tc.blue(), 40)
+            if is_dark
+            else QColor(tc.red(), tc.green(), tc.blue(), 30)
+        )
         self._selectedBgColor = tc
 
     def paintEvent(self, event):
@@ -392,7 +443,9 @@ class _CalendarView(QWidget):
             if not rect.isValid():
                 continue
 
-            cellRect = QRect(rect.x() + 2, rect.y() + 2, rect.width() - 4, rect.height() - 4)
+            cellRect = QRect(
+                rect.x() + 2, rect.y() + 2, rect.width() - 4, rect.height() - 4
+            )
 
             isStart = self._startDate and date == self._startDate
             isEnd = self._endDate and date == self._endDate
@@ -603,8 +656,12 @@ class DateRangePickerBase(QWidget):
         self.leftCalendar.hoverChanged.connect(self._onHoverChanged)
         self.rightCalendar.hoverChanged.connect(self._onHoverChanged)
 
-        self.leftCalendar.monthClicked.connect(lambda: self._showYearMonthPicker(self.leftCalendar))
-        self.rightCalendar.monthClicked.connect(lambda: self._showYearMonthPicker(self.rightCalendar))
+        self.leftCalendar.monthClicked.connect(
+            lambda: self._showYearMonthPicker(self.leftCalendar)
+        )
+        self.rightCalendar.monthClicked.connect(
+            lambda: self._showYearMonthPicker(self.rightCalendar)
+        )
 
         self.clearBtn.clicked.connect(self._onClear)
         self.confirmBtn.clicked.connect(self._onConfirm)
@@ -680,12 +737,16 @@ class DateRangePickerBase(QWidget):
 
     def _updateLabels(self):
         if self._startDate:
-            self.startDateLabel.setText(f"开始日期: {self._startDate.toString('yyyy-MM-dd')}")
+            self.startDateLabel.setText(
+                f"开始日期: {self._startDate.toString('yyyy-MM-dd')}"
+            )
         else:
             self.startDateLabel.setText("开始日期: 未选择")
 
         if self._endDate:
-            self.endDateLabel.setText(f"结束日期: {self._endDate.toString('yyyy-MM-dd')}")
+            self.endDateLabel.setText(
+                f"结束日期: {self._endDate.toString('yyyy-MM-dd')}"
+            )
         else:
             self.endDateLabel.setText("结束日期: 未选择")
 
@@ -798,14 +859,18 @@ class DateRangePicker(PushButton):
             if start and end:
                 self._startDate = start
                 self._endDate = end
-                self.setText(f"{start.toString('yyyy-MM-dd')} ~ {end.toString('yyyy-MM-dd')}")
+                self.setText(
+                    f"{start.toString('yyyy-MM-dd')} ~ {end.toString('yyyy-MM-dd')}"
+                )
                 self.rangeChanged.emit(start, end)
 
     def setRange(self, start: Optional[QDate], end: Optional[QDate]):
         self._startDate = start
         self._endDate = end
         if start and end:
-            self.setText(f"{start.toString('yyyy-MM-dd')} ~ {end.toString('yyyy-MM-dd')}")
+            self.setText(
+                f"{start.toString('yyyy-MM-dd')} ~ {end.toString('yyyy-MM-dd')}"
+            )
         else:
             self.setText(self._placeholder)
 

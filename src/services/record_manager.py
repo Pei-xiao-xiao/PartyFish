@@ -172,9 +172,10 @@ class RecordManager:
             total_rows = sum(1 for _ in csv.DictReader(f))
 
         encoding = "utf-8" if file_exists else "utf-8-sig"
-        with open(file_path, "r", encoding="utf-8-sig", newline="") as src, open(
-            records_file, "a", encoding=encoding, newline=""
-        ) as dst:
+        with (
+            open(file_path, "r", encoding="utf-8-sig", newline="") as src,
+            open(records_file, "a", encoding=encoding, newline="") as dst,
+        ):
             reader = csv.DictReader(src)
             writer = csv.DictWriter(dst, fieldnames=RECORD_FIELDNAMES)
 
@@ -237,9 +238,10 @@ class RecordManager:
             total_lines = sum(1 for _ in f)
 
         encoding = "utf-8" if file_exists else "utf-8-sig"
-        with open(file_path, "r", encoding="utf-8") as src, open(
-            records_file, "a", encoding=encoding, newline=""
-        ) as dst:
+        with (
+            open(file_path, "r", encoding="utf-8") as src,
+            open(records_file, "a", encoding=encoding, newline="") as dst,
+        ):
             writer = csv.DictWriter(dst, fieldnames=RECORD_FIELDNAMES)
 
             if not file_exists:

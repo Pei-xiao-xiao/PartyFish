@@ -281,7 +281,9 @@ class OCRService:
                     fish_name = re.sub(r"[^\u4e00-\u9fa50-9]+$", "", fish_name)
                 else:
                     cleaned_non_chinese = re.sub(r"[^a-zA-Z0-9]+", "", fish_name)
-                    fish_name = cleaned_non_chinese if len(cleaned_non_chinese) >= 2 else ""
+                    fish_name = (
+                        cleaned_non_chinese if len(cleaned_non_chinese) >= 2 else ""
+                    )
 
             fish_name = fish_name.strip()
 

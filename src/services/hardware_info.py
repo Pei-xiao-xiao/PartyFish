@@ -1,13 +1,14 @@
-
 """
 硬件信息获取模块
 用于获取系统的硬件信息
 """
+
 import os
 import psutil
 
 try:
     import wmi
+
     WMI_AVAILABLE = True
 except ImportError:
     WMI_AVAILABLE = False

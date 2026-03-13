@@ -1,12 +1,17 @@
-
 """
 单例应用程序管理器
 用于防止应用程序多开
 """
+
 import sys
 from PySide6.QtWidgets import (
-    QApplication, QDialog, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QFrame
+    QApplication,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFrame,
 )
 from PySide6.QtCore import QFile, QIODevice, Qt
 from PySide6.QtGui import QPainter, QColor
@@ -24,7 +29,7 @@ class TransparentDialog(QDialog):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         is_dark = isDarkTheme()
         if is_dark:
             painter.fillRect(self.rect(), Qt.transparent)
@@ -151,13 +156,15 @@ class SingleInstance:
         # 内容容器
         content_frame = QFrame(dialog)
         content_frame.setObjectName("contentFrame")
-        content_frame.setStyleSheet("""
+        content_frame.setStyleSheet(
+            """
             QFrame#contentFrame {
                 background-color: #ffffff;
                 border-radius: 10px;
                 border: 1px solid #e0e0e0;
             }
-        """)
+        """
+        )
 
         content_layout = QVBoxLayout(content_frame)
         content_layout.setContentsMargins(20, 20, 20, 15)
@@ -170,13 +177,15 @@ class SingleInstance:
 
         # 图标标签
         icon_label = QLabel("ℹ️", content_frame)
-        icon_label.setStyleSheet("""
+        icon_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 28px;
                 padding: 0px;
                 margin: 0px;
             }
-        """)
+        """
+        )
         icon_label.setFixedSize(32, 32)
         icon_label.setAlignment(Qt.AlignCenter)
 
@@ -187,24 +196,28 @@ class SingleInstance:
 
         # 主标题
         title_label = QLabel(f"{self.app_name} 正在运行中", content_frame)
-        title_label.setStyleSheet("""
+        title_label.setStyleSheet(
+            """
             QLabel {
                 color: #1f1f1f;
                 font-size: 14px;
                 font-weight: bold;
                 padding: 0px;
             }
-        """)
+        """
+        )
 
         # 副标题
         subtitle_label = QLabel("请检查任务栏或系统托盘中的程序窗口", content_frame)
-        subtitle_label.setStyleSheet("""
+        subtitle_label.setStyleSheet(
+            """
             QLabel {
                 color: #666666;
                 font-size: 11px;
                 padding: 0px;
             }
-        """)
+        """
+        )
 
         text_layout.addWidget(title_label)
         text_layout.addWidget(subtitle_label)
@@ -222,7 +235,8 @@ class SingleInstance:
         # 确定按钮
         ok_button = QPushButton("确定", content_frame)
         ok_button.setFixedSize(80, 32)
-        ok_button.setStyleSheet("""
+        ok_button.setStyleSheet(
+            """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                     stop:0 #0078d4, stop:1 #005a9e);
@@ -240,7 +254,8 @@ class SingleInstance:
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                     stop:0 #005a9e, stop:1 #00457a);
             }
-        """)
+        """
+        )
         ok_button.clicked.connect(dialog.accept)
 
         button_layout.addWidget(ok_button)

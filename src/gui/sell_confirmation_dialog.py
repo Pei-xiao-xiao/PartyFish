@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QFrame
+    QFrame,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPainter, QColor
@@ -39,7 +39,9 @@ class SellConfirmationDialog(QDialog):
         """初始化UI"""
         self.setWindowTitle("卖鱼确认")
         self.setFixedSize(400, 200)
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(
+            Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        )
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         main_layout = QVBoxLayout(self)
@@ -48,13 +50,15 @@ class SellConfirmationDialog(QDialog):
 
         content_frame = QFrame(self)
         content_frame.setObjectName("contentFrame")
-        content_frame.setStyleSheet("""
+        content_frame.setStyleSheet(
+            """
             QFrame#contentFrame {
                 background-color: rgba(255, 255, 255, 0.95);
                 border-radius: 12px;
                 border: 1px solid rgba(0, 0, 0, 0.1);
             }
-        """)
+        """
+        )
 
         content_layout = QVBoxLayout(content_frame)
         content_layout.setContentsMargins(30, 30, 30, 30)
@@ -62,27 +66,31 @@ class SellConfirmationDialog(QDialog):
 
         title_label = QLabel("⚠️ 卖鱼确认", content_frame)
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("""
+        title_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 20px;
                 font-weight: bold;
                 color: #e74c3c;
                 letter-spacing: -1px;
             }
-        """)
+        """
+        )
         content_layout.addWidget(title_label)
 
         total = self.price + self.current_progress
         info_text = f"当前卖鱼价格: {self.price}\n今日已卖进度: {self.current_progress}\n合计: {total} (超过899)"
         info_label = QLabel(info_text, content_frame)
         info_label.setAlignment(Qt.AlignCenter)
-        info_label.setStyleSheet("""
+        info_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 14px;
                 color: #333333;
                 line-height: 1.5;
             }
-        """)
+        """
+        )
         content_layout.addWidget(info_label)
 
         button_layout = QHBoxLayout()
@@ -90,7 +98,8 @@ class SellConfirmationDialog(QDialog):
 
         cancel_button = QPushButton("取消", content_frame)
         cancel_button.setFixedSize(120, 36)
-        cancel_button.setStyleSheet("""
+        cancel_button.setStyleSheet(
+            """
             QPushButton {
                 background-color: #f5f5f5;
                 border: 1px solid #d0d0d0;
@@ -105,12 +114,14 @@ class SellConfirmationDialog(QDialog):
             QPushButton:pressed {
                 background-color: #d0d0d0;
             }
-        """)
+        """
+        )
         cancel_button.clicked.connect(self._on_cancel)
 
         continue_button = QPushButton("继续", content_frame)
         continue_button.setFixedSize(120, 36)
-        continue_button.setStyleSheet("""
+        continue_button.setStyleSheet(
+            """
             QPushButton {
                 background-color: #e74c3c;
                 border: none;
@@ -125,7 +136,8 @@ class SellConfirmationDialog(QDialog):
             QPushButton:pressed {
                 background-color: #a93226;
             }
-        """)
+        """
+        )
         continue_button.clicked.connect(self._on_continue)
 
         button_layout.addStretch()
@@ -141,7 +153,7 @@ class SellConfirmationDialog(QDialog):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         is_dark = isDarkTheme()
         if is_dark:
             painter.fillRect(self.rect(), Qt.transparent)
