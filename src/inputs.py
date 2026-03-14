@@ -559,9 +559,21 @@ class InputController(QObject, InputActions):
         self.running = False
         if self.keyboard_listener:
             self.keyboard_listener.stop()
+            join = getattr(self.keyboard_listener, "join", None)
+            if callable(join):
+                try:
+                    join(timeout=1.0)
+                except Exception:
+                    pass
             self.keyboard_listener = None
         if hasattr(self, "mouse_listener") and self.mouse_listener:
             self.mouse_listener.stop()
+            join = getattr(self.mouse_listener, "join", None)
+            if callable(join):
+                try:
+                    join(timeout=1.0)
+                except Exception:
+                    pass
             self.mouse_listener = None
         if self._gamepad_controller:
             self._gamepad_controller.stop_listening()

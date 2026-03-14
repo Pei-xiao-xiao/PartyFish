@@ -22,6 +22,7 @@ from src.gui.profit_interface import ProfitInterface
 from src.gui.settings_interface import SettingsInterface
 from src.gui.pokedex_interface import PokedexInterface
 from src.gui.overlay_window import OverlayWindow
+from src.gui.shutdown import shutdown_main_window_services
 from src.workers import FishingWorker, PopupWorker
 from src.inputs import InputController
 from src.managers.signal_manager import SignalManager
@@ -415,7 +416,7 @@ class MainWindow(FluentWindow):
         self.update_status("关闭已取消：后台线程仍在运行")
         return False
 
-    def closeEvent(self, event):
+    def _legacy_close_event(self, event):
         """关闭窗口事件"""
         print("Closing application, stopping threads...")
 
@@ -434,6 +435,28 @@ class MainWindow(FluentWindow):
             return
 
         self.input_controller.stop_listening()
+        print("All threads stopped. Goodbye.")
+        event.accept()
+
+    def closeEvent(self, event):
+        """关闭窗口事件。"""
+        print("Closing application, stopping threads...")
+
+        from src.uno import uno_manager
+
+        shutdown_main_window_services(self, uno_manager)
+
+        self.worker.stop("应用正在关闭", wait_for_async=True)
+        self.popup_worker.stop()
+
+        if not self._wait_for_thread_shutdown(self.worker, "钓鱼线程"):
+            event.ignore()
+            return
+
+        if not self._wait_for_thread_shutdown(self.popup_worker, "弹窗线程"):
+            event.ignore()
+            return
+
         print("All threads stopped. Goodbye.")
         event.accept()
 

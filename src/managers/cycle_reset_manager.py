@@ -27,6 +27,10 @@ class CycleResetManager:
         """启动周期重置定时器"""
         self.schedule_next_reset()
 
+    def stop(self):
+        """停止周期重置定时器，避免应用退出时残留事件。"""
+        self._reset_timer.stop()
+
     def schedule_next_reset(self, force_notify=False):
         """计算并安排下一次重置触发"""
         from src.config import cfg

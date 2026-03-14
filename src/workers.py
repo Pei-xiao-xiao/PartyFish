@@ -332,14 +332,14 @@ class FishingWorker(QThread):
         if cfg.activate_game_window():
             self.log_updated.emit("已激活游戏窗口")
 
-    def stop(self, reason: str = None):
+    def stop(self, reason: str = None, wait_for_async: bool = False):
         """
         安全地停止线程
         :param reason: 停止的具体原因，将作为最终状态显示在GUI上
         """
         self.running = False
         self.inputs.ensure_mouse_up()
-        self.fishing_service.shutdown_async_processing(wait=False)
+        self.fishing_service.shutdown_async_processing(wait=wait_for_async)
         final_status = reason if reason else "已停止"
         self.status_updated.emit(f"{final_status}")
         self.log_updated.emit(f"收到停止信号, 原因: {final_status}")
