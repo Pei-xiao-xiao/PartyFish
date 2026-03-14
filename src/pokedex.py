@@ -83,6 +83,33 @@ class Pokedex(QObject):
         """获取所有可显示的鱼类数据（过滤 show_in_pokedex=false）"""
         return [f for f in self._fish_data if f.get("show_in_pokedex", True)]
 
+    def get_fish_entry(
+        self, fish_name: str, include_hidden: bool = True
+    ) -> Optional[Dict]:
+        """Return the fish entry for the provided name."""
+        if not fish_name:
+            return None
+
+        for fish in self._fish_data:
+            if fish.get("name") != fish_name:
+                continue
+            if include_hidden or fish.get("show_in_pokedex", True):
+                return fish
+
+        return None
+
+    def resolve_fish_name(self, fish_name: str) -> str:
+        """Map hidden alias entries back to the canonical pokedex name."""
+        fish = self.get_fish_entry(fish_name, include_hidden=True)
+        if not fish:
+            return fish_name
+
+        alias = fish.get("alias")
+        if isinstance(alias, str) and alias.strip():
+            return alias.strip()
+
+        return fish_name
+
     def get_fish_types(self) -> List[str]:
         """获取所有钓竿类型"""
         types = set()
@@ -243,6 +270,8 @@ class Pokedex(QObject):
                     if not name or not quality:
                         continue
 
+                    canonical_name = self.resolve_fish_name(name)
+
                     # 解析重量
                     try:
                         weight = float(weight_str.replace("g", "").strip())
@@ -250,16 +279,16 @@ class Pokedex(QObject):
                         weight = 0
 
                     # 检查是否为新收集
-                    if not self.is_collected(name, quality):
+                    if not self.is_collected(canonical_name, quality):
                         new_count += 1
 
                     # 更新收集状态（不保存文件）
-                    if name not in self._collection:
-                        self._collection[name] = {}
+                    if canonical_name not in self._collection:
+                        self._collection[canonical_name] = {}
 
-                    current = self._collection[name].get(quality)
+                    current = self._collection[canonical_name].get(quality)
                     if current is None or (weight is not None and weight > current):
-                        self._collection[name][quality] = weight
+                        self._collection[canonical_name][quality] = weight
                         updated = True
 
             # 批量保存一次

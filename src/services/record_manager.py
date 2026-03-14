@@ -46,18 +46,20 @@ class RecordManager:
         if not name or not quality:
             return 0, False
 
-        new_collected = 0 if pokedex.is_collected(name, quality) else 1
+        canonical_name = pokedex.resolve_fish_name(name)
+
+        new_collected = 0 if pokedex.is_collected(canonical_name, quality) else 1
         try:
             weight_float = float(weight.replace("g", "").replace("kg", "").strip())
         except ValueError:
             weight_float = 0
 
-        if name not in pokedex._collection:
-            pokedex._collection[name] = {}
+        if canonical_name not in pokedex._collection:
+            pokedex._collection[canonical_name] = {}
 
-        current = pokedex._collection[name].get(quality)
+        current = pokedex._collection[canonical_name].get(quality)
         if current is None or weight_float > current:
-            pokedex._collection[name][quality] = weight_float
+            pokedex._collection[canonical_name][quality] = weight_float
             return new_collected, True
 
         return new_collected, False

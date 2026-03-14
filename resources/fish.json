@@ -1679,6 +1679,146 @@
     "rarity_level": 1
   },
   {
+    "name": "蝌蚪宝宝",
+    "alias": "金蛙",
+    "show_in_pokedex": false,
+    "type": "路亚轻竿",
+    "locations": [
+      {
+        "location": [
+          "河中央",
+          "河湾",
+          "码头",
+          "岸边",
+          "沉船",
+          "巨石"
+        ],
+        "conditions": [
+          {
+            "time_of_day": [
+              "下午",
+              "黄昏"
+            ],
+            "weather": [
+              "晴天"
+            ],
+            "season": [
+              "春季",
+              "夏季"
+            ],
+            "rarity": "路亚轻竿"
+          }
+        ]
+      }
+    ],
+    "rarity_level": 1
+  },
+  {
+    "name": "大蝌蚪",
+    "alias": "金蛙",
+    "show_in_pokedex": false,
+    "type": "路亚轻竿",
+    "locations": [
+      {
+        "location": [
+          "河中央",
+          "河湾",
+          "码头",
+          "岸边",
+          "沉船",
+          "巨石"
+        ],
+        "conditions": [
+          {
+            "time_of_day": [
+              "下午",
+              "黄昏"
+            ],
+            "weather": [
+              "晴天"
+            ],
+            "season": [
+              "春季",
+              "夏季"
+            ],
+            "rarity": "路亚轻竿"
+          }
+        ]
+      }
+    ],
+    "rarity_level": 1
+  },
+  {
+    "name": "幼蛙",
+    "alias": "金蛙",
+    "show_in_pokedex": false,
+    "type": "路亚轻竿",
+    "locations": [
+      {
+        "location": [
+          "河中央",
+          "河湾",
+          "码头",
+          "岸边",
+          "沉船",
+          "巨石"
+        ],
+        "conditions": [
+          {
+            "time_of_day": [
+              "下午",
+              "黄昏"
+            ],
+            "weather": [
+              "晴天"
+            ],
+            "season": [
+              "春季",
+              "夏季"
+            ],
+            "rarity": "路亚轻竿"
+          }
+        ]
+      }
+    ],
+    "rarity_level": 1
+  },
+  {
+    "name": "青蛙",
+    "alias": "金蛙",
+    "show_in_pokedex": false,
+    "type": "路亚轻竿",
+    "locations": [
+      {
+        "location": [
+          "河中央",
+          "河湾",
+          "码头",
+          "岸边",
+          "沉船",
+          "巨石"
+        ],
+        "conditions": [
+          {
+            "time_of_day": [
+              "下午",
+              "黄昏"
+            ],
+            "weather": [
+              "晴天"
+            ],
+            "season": [
+              "春季",
+              "夏季"
+            ],
+            "rarity": "路亚轻竿"
+          }
+        ]
+      }
+    ],
+    "rarity_level": 1
+  },
+  {
     "name": "金蛙",
     "type": "路亚轻竿",
     "locations": [

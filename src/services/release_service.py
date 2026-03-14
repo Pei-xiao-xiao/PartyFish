@@ -32,16 +32,20 @@ class ReleaseService:
         Returns:
             int: 稀有度等级 (1-6)，如果找不到则返回 0
         """
-        for fish in pokedex.get_all_fish():
-            if fish.get("name") == fish_name:
-                rarity_level = fish.get("rarity_level", 0)
-                if isinstance(rarity_level, int):
-                    return rarity_level
-                elif isinstance(rarity_level, str):
-                    try:
-                        return int(rarity_level)
-                    except ValueError:
-                        return 0
+        fish = pokedex.get_fish_entry(fish_name, include_hidden=True)
+        if fish is None:
+            canonical_name = pokedex.resolve_fish_name(fish_name)
+            fish = pokedex.get_fish_entry(canonical_name, include_hidden=True)
+
+        if fish is not None:
+            rarity_level = fish.get("rarity_level", 0)
+            if isinstance(rarity_level, int):
+                return rarity_level
+            elif isinstance(rarity_level, str):
+                try:
+                    return int(rarity_level)
+                except ValueError:
+                    return 0
         return 0
 
     def _should_release_by_rarity(self, fish_name: str, quality: str) -> bool:
